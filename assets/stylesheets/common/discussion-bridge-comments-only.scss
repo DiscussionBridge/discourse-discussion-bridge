@@ -1,0 +1,9 @@
+html.discussion-bridge-comments-only body.embed-mode {
+  // Discourse Core visually hides post 1 in full-app embeds but leaves it in
+  // layout. A long companion post can therefore inflate the virtualized stream
+  // and create a large internal scrollbar. Completed DiscussionBridge mappings
+  // use a true comments-only layout while the ordinary topic remains unchanged.
+  .post-stream #post_1 {
+    display: none !important;
+  }
+}

@@ -1,0 +1,52 @@
+plugins:
+  discussion_bridge_enabled:
+    default: false
+    client: true
+  discussion_bridge_endpoint_enabled:
+    default: false
+    client: false
+  discussion_bridge_connection_id:
+    default: ""
+    client: false
+  discussion_bridge_connection_secret:
+    default: ""
+    client: false
+    secret: true
+  discussion_bridge_trusted_origins:
+    type: list
+    list_type: simple
+    default: ""
+    client: false
+    validator: "DiscussionBridge::TrustedOriginsValidator"
+  discussion_bridge_service_username:
+    default: ""
+    client: false
+    validator: "DiscussionBridge::ServiceUsernameValidator"
+  discussion_bridge_effective_category_id:
+    type: integer
+    default: 0
+    client: false
+    validator: "DiscussionBridge::CategoryValidator"
+  discussion_bridge_effective_tags:
+    type: list
+    list_type: simple
+    default: ""
+    client: false
+    validator: "DiscussionBridge::TagsValidator"
+  discussion_bridge_lane_policies:
+    type: text
+    default: "[]"
+    client: false
+    validator: "DiscussionBridge::LanePoliciesValidator"
+  discussion_bridge_default_visibility:
+    type: enum
+    default: "unlisted"
+    choices:
+      - unlisted
+    client: false
+  discussion_bridge_core_zero_touch_compatibility:
+    default: false
+    client: false
+  discussion_bridge_comments_only_full_interactive:
+    default: false
+    client: false

@@ -1,0 +1,95 @@
+# frozen_string_literal: true
+
+require "uri"
+
+module DiscussionBridge
+  class PolicyEvaluator
+    Settings = Data.define(
+      :enabled,
+      :endpoint_enabled,
+      :connection_id,
+      :trusted_origins,
+      :service_username,
+    )
+    Result = Data.define(
+      :allowed,
+      :reason,
+      :requested_visibility,
+      :effective_visibility,
+      :effective_actor_id,
+      :effective_category_id,
+      :effective_tags,
+      :compatibility_mode,
+    )
+
+    def self.call(request:, settings:, actor:, authority: nil, lane_resolution: nil)
+      return denied("plugin_disabled", request) unless settings.enabled
+      return denied("endpoint_disabled", request) unless settings.endpoint_enabled
+      return denied("connection_mismatch", request) unless request.fetch(:connection_id) == settings.connection_id
+      return denied("origin_denied", request) unless trusted_origin?(request.fetch(:source_url), settings.trusted_origins)
+      return denied("invalid_actor", request) unless valid_actor?(actor, settings.service_username)
+      return denied(lane_resolution.reason, request) if lane_resolution && !lane_resolution.allowed
+      return denied("authorization_incomplete", request) unless authority
+      return denied(authority.reason, request) unless authority.allowed?
+
+      requested = request.fetch(:visibility, "unlisted").to_s
+      Result.new(
+        allowed: true,
+        reason: "forum_policy_applied",
+        requested_visibility: requested,
+        effective_visibility: "unlisted",
+        effective_actor_id: actor.id,
+        effective_category_id: authority.category_id,
+        effective_tags: authority.tags,
+        compatibility_mode: false,
+      )
+    end
+
+    def self.denied(reason, request)
+      Result.new(
+        allowed: false,
+        reason: reason,
+        requested_visibility: request[:visibility]&.to_s,
+        effective_visibility: nil,
+        effective_actor_id: nil,
+        effective_category_id: nil,
+        effective_tags: [],
+        compatibility_mode: false,
+      )
+    end
+    private_class_method :denied
+
+    def self.valid_actor?(actor, configured_username)
+      actor && actor.active? && !actor.staged? && !actor.suspended? && !actor.silenced? &&
+        actor.id != Discourse::SYSTEM_USER_ID && actor.username.casecmp?(configured_username.to_s)
+    end
+    private_class_method :valid_actor?
+
+    def self.trusted_origin?(source_url, trusted_origins)
+      source = URI.parse(source_url)
+      return false unless source.is_a?(URI::HTTP) && source.host && source.userinfo.nil? && source.query.nil? && source.fragment.nil?
+
+      origin = "#{source.scheme.downcase}://#{source.host.downcase}"
+      origin += ":#{source.port}" unless source.default_port == source.port
+      origin_candidates(trusted_origins).include?(origin)
+    rescue URI::InvalidURIError
+      false
+    end
+    private_class_method :trusted_origin?
+
+    def self.origin_candidates(value)
+      raw = value.is_a?(String) ? value.split("|") : Array(value)
+      raw.filter_map do |candidate|
+        uri = URI.parse(candidate.to_s.strip)
+        next unless uri.is_a?(URI::HTTP) && uri.host && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+        next unless uri.path.empty? || uri.path == "/"
+        normalized = "#{uri.scheme.downcase}://#{uri.host.downcase}"
+        normalized += ":#{uri.port}" unless uri.default_port == uri.port
+        normalized
+      rescue URI::InvalidURIError
+        nil
+      end.uniq
+    end
+    private_class_method :origin_candidates
+  end
+end

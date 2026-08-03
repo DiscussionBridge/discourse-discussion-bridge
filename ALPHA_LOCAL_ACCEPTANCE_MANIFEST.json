@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 1,
+  "createdDate": "2026-08-03",
+  "status": "alpha-local-one-time-retry-reconciliation-accepted",
+  "root": "C:/CodeProjects/CodeWorksLabs/DiscussionBridge/plugins/discourse-discussion-bridge",
+  "membershipRule": "Exactly the 65 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
+  "verifiedDiscourseCommit": "6b2f4579ba6802a7c556459e596c3150b67403aa",
+  "verification": {
+    "completeRSpec": "80 examples, 0 failures",
+    "browserRSpec": "4 examples, 0 failures",
+    "endpointRSpec": "7 examples, 0 failures",
+    "healthRSpec": "5 examples, 0 failures",
+    "settingsValidatorRSpec": "4 examples, 0 failures",
+    "operationsInspectorRSpec": "5 examples, 0 failures",
+    "lanePolicyFocusedRSpec": "24 examples, 0 failures across parser, validator, evaluator, and request contracts",
+    "reconciliationFocusedRSpec": "7 examples, 0 failures",
+    "retryAndReconciliationFocusedRSpec": "18 examples, 0 failures",
+    "rubocop": "reviewed changed scope, 0 offenses",
+    "frontendLint": "ESLint, Prettier, and Stylelint PASS",
+    "localRuntime": "PASS: signed-in replies, natural sizing, service-authored controlled creation, idempotent retry, endpoint-off rollback",
+    "adminHealthRuntime": "authenticated endpoint and nested admin route contracts PASS; manual visual inspection remains open",
+    "nativeSettings": "Discourse native write-only secret plus save-time origin, identity, category, and tag validation PASS",
+    "operationsInspector": "Read-only administrator mappings and audit inspection with bounded search, filtering, pagination, safe projections, and no mutation actions PASS",
+    "lanePolicy": "Optional forum-owned lane category/tag policy with unlisted visibility, unknown-lane fail-closed behavior, and global-policy compatibility PASS",
+    "browserReplay": "4 examples, 0 failures after restoring the local Discourse Rollup frontend process",
+    "reconciliationQueue": "Read-only missing/deleted topic, stale/failed mapping, lane, policy drift, system authorship, and duplicate-claim diagnostics PASS",
+    "retryAuthorization": "Administrator-only one-time failed/stale mapping retry authorization and pre-consumption revocation, with durable audit and superseded-token rejection PASS"
+  },
+  "rowCommitment": {
+    "algorithm": "SHA-256",
+    "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
+    "files": 65,
+    "bytes": 146277.0,
+    "sha256": "f28f9a630c97bc61c70e36e9549d14733264bec677bb352e8d06d848c466f809"
+  },
+  "publicationAuthorized": false,
+  "installationAuthorized": false,
+  "deploymentAuthorized": false,
+  "members": [
+    {
+      "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
+      "bytes": 226,
+      "sha256": "8a687c2fc0baebf8e794dff65100e96f64cf3f2d4655835a931899d782e048b1"
+    },
+    {
+      "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-operations.js",
+      "bytes": 580,
+      "sha256": "20a13f23d7a5c5ab698dfff74d8a562efb59707d1b2a0c40fe8d4e87f12ad959"
+    },
+    {
+      "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-reconciliation.js",
+      "bytes": 502,
+      "sha256": "202d9fe140219f9a0637c4acb57c93b9533baf7cb53d7c1b92d1975a259e2efa"
+    },
+    {
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-health.hbs",
+      "bytes": 49,
+      "sha256": "577019c5d1f1b1aa101b34f22d4da8b47fd06e71d6e417b81ba4608cecd2a34f"
+    },
+    {
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-operations.hbs",
+      "bytes": 52,
+      "sha256": "bf52a49f7e07b92a91af8f449144a3fc275bcf549c65425de9d0e5fef6369820"
+    },
+    {
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-reconciliation.hbs",
+      "bytes": 56,
+      "sha256": "de9566cfed9b7757c82c655e43610bf51ed9ef1bbfc79305891acce6c6c40982"
+    },
+    {
+      "path": "app/controllers/discussion_bridge/connections_controller.rb",
+      "bytes": 4467,
+      "sha256": "8eaa822ede8745d2c9c86e54b3340c80200aaab1e1d9c98cd692570d547bc939"
+    },
+    {
+      "path": "app/controllers/discussion_bridge/health_controller.rb",
+      "bytes": 244,
+      "sha256": "b3413fc557c446a358ffbdc0eeeec0168629f2ec8f484394456f284f5e2877ce"
+    },
+    {
+      "path": "app/controllers/discussion_bridge/operations_controller.rb",
+      "bytes": 383,
+      "sha256": "18fea00792898c87ffd667c6d5b83b2ce8a8082adc694ca5558f7eff913c2f62"
+    },
+    {
+      "path": "app/controllers/discussion_bridge/reconciliation_controller.rb",
+      "bytes": 1100,
+      "sha256": "b4718e13c6c5f1c85d201a3965aed413ec431c52880e58273fe0cc96a4d9671b"
+    },
+    {
+      "path": "app/models/discussion_bridge_audit_event.rb",
+      "bytes": 859,
+      "sha256": "2fa9f082a119789be0902539aa29b4450faec93cfd708733af321367bea6064f"
+    },
+    {
+      "path": "app/models/discussion_bridge_connection.rb",
+      "bytes": 1585,
+      "sha256": "65f71d4c6f9368b00f7ea9dc32478a26b0ef736f6df5a79d136cbb03f63b9111"
+    },
+    {
+      "path": "assets/javascripts/discourse/admin-discussion-bridge-plugin-route-map.js",
+      "bytes": 311,
+      "sha256": "fd7ff7201cc33dc7c99d0714d19cf088b40600c9a298170a688cb5746e60c88b"
+    },
+    {
+      "path": "assets/javascripts/discourse/components/discussion-bridge-health.gjs",
+      "bytes": 5165,
+      "sha256": "2624b49424c96216212eee33b26c2dba8d49b8b90fbfb5b9656b8c256d98804b"
+    },
+    {
+      "path": "assets/javascripts/discourse/components/discussion-bridge-operations.gjs",
+      "bytes": 6494,
+      "sha256": "9fdccceaa99cc7b9f4b4af3e411b09d3537722dbed7b948f6614e38b1c8912f1"
+    },
+    {
+      "path": "assets/javascripts/discourse/components/discussion-bridge-reconciliation.gjs",
+      "bytes": 6734,
+      "sha256": "9f72997857f850ec12138df7e6f776df87470972ffa2ee9be32afe93d0c8581d"
+    },
+    {
+      "path": "assets/javascripts/discourse/initializers/discussion-bridge-admin-nav.js",
+      "bytes": 1061,
+      "sha256": "c423d0a3aaf27abb176e7801c55956427f340c9d67e3d35215787591d099e7e1"
+    },
+    {
+      "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
+      "bytes": 836,
+      "sha256": "cd88320991e4e331b5690298551a864e22cb0705019b07fb4094822b72506ead"
+    },
+    {
+      "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
+      "bytes": 1761,
+      "sha256": "8851c5b8a8c01741af734e7d82c18df77f32ca9362561180c778be46b5810cf3"
+    },
+    {
+      "path": "assets/stylesheets/common/discussion-bridge-comments-only.scss",
+      "bytes": 435,
+      "sha256": "1490e9c95446399688de35e135661cd39de94cb7aaed5b90c65b6c60a96fa133"
+    },
+    {
+      "path": "config/locales/client.en.yml",
+      "bytes": 3238,
+      "sha256": "300f06e82f884eff05d3b96b7dde6da3f59170353f33590f687ff3cf510132d4"
+    },
+    {
+      "path": "config/locales/server.en.yml",
+      "bytes": 3123,
+      "sha256": "4deff71eb9f8fbeaf32b8405686dd4462c75fe3f1991fdd22243681145ff498d"
+    },
+    {
+      "path": "config/settings.yml",
+      "bytes": 1357,
+      "sha256": "9e5036869dea80051d1d231efc19297a4ae5f9bb68d43e1a935675753860c298"
+    },
+    {
+      "path": "db/migrate/20260802000001_create_discussion_bridge_connections.rb",
+      "bytes": 1055,
+      "sha256": "bea6a43feb6ec0bdd922b4e9bb4cf2a2bc2bca2daba2da53ed578618fd0805ca"
+    },
+    {
+      "path": "db/migrate/20260802000002_create_discussion_bridge_audit_events.rb",
+      "bytes": 929,
+      "sha256": "f487e045f55d5cfb11a3eb426ad59a4900bdc0bdc667b8179dd30cab9675d300"
+    },
+    {
+      "path": "db/migrate/20260803000001_add_retry_authorization_to_discussion_bridge_connections.rb",
+      "bytes": 431,
+      "sha256": "d84cf3b6c72f0fff0cde33ef57dc3db593eb8edd59daf78a0c88a6c387c7f2d0"
+    },
+    {
+      "path": "lib/discussion_bridge/audit_state.rb",
+      "bytes": 1531,
+      "sha256": "6c6223517daf6eac2eb14b541272beadd57fd03ae47d5ebcadee49c7a7ad8908"
+    },
+    {
+      "path": "lib/discussion_bridge/audit_writer.rb",
+      "bytes": 819,
+      "sha256": "846e60febce500622e75814644fe7c42c04a5dfa973e88842903a131df2d51b3"
+    },
+    {
+      "path": "lib/discussion_bridge/canonical_source.rb",
+      "bytes": 1461,
+      "sha256": "7475e884ccee015848dcc2f11800d7d62d7f5305bbd3fcf88ae8e9c685c2f5a2"
+    },
+    {
+      "path": "lib/discussion_bridge/comments_only_presenter.rb",
+      "bytes": 1086,
+      "sha256": "c51f59d02116c689809690e61b9c51d5f720fb7a1fa9a22ab61268f002080c2c"
+    },
+    {
+      "path": "lib/discussion_bridge/connection_repository.rb",
+      "bytes": 4094,
+      "sha256": "34883a22f7a469741a7b019de439c97084d949b4ca8406ebd512e4131cf6ad7b"
+    },
+    {
+      "path": "lib/discussion_bridge/create_or_resolve.rb",
+      "bytes": 2440,
+      "sha256": "8be5bcc4896db494f3036ec146a7badf03d59a3f883a908804db7a9ae1509102"
+    },
+    {
+      "path": "lib/discussion_bridge/forum_authority.rb",
+      "bytes": 1427,
+      "sha256": "a884eed3040e273671f0cf1baae56950f374c6617c706684e151bd7fe4833cfd"
+    },
+    {
+      "path": "lib/discussion_bridge/health_status.rb",
+      "bytes": 5077,
+      "sha256": "590725c535afeab3baea87b2a297e9cfe60d8e37919d8201358b6be830e685c2"
+    },
+    {
+      "path": "lib/discussion_bridge/lane_policies.rb",
+      "bytes": 2396,
+      "sha256": "ba83b6bcd61268a8162c37858917c17b3ed582ff4295c0c29149b3afb700b4d8"
+    },
+    {
+      "path": "lib/discussion_bridge/operations_index.rb",
+      "bytes": 3181,
+      "sha256": "71e270b4ead83e22d2b61d334933a3f03bd308773c2822adcf9ecc8f3d3c84dd"
+    },
+    {
+      "path": "lib/discussion_bridge/policy_evaluator.rb",
+      "bytes": 3541,
+      "sha256": "733c0228e61c8f8ebda0c8aaeae4c5e20da59da6c5f155e78f963c913504649f"
+    },
+    {
+      "path": "lib/discussion_bridge/reconciliation_index.rb",
+      "bytes": 5791,
+      "sha256": "1c234b71aa489d0a3f97f62ed773f990913f130fe1245ad60cd824838c00e550"
+    },
+    {
+      "path": "lib/discussion_bridge/retry_authorization.rb",
+      "bytes": 2623,
+      "sha256": "0296999e4b7429a4a5a2f484d49e167bbe96c30d3b9e1ee2d2121a90613f1c63"
+    },
+    {
+      "path": "lib/discussion_bridge/settings_validators.rb",
+      "bytes": 2393,
+      "sha256": "8e792e504534dd2ab1bb88a83e415a33d2e9acd9fc58935433755d8991da542b"
+    },
+    {
+      "path": "lib/discussion_bridge/topic_creator.rb",
+      "bytes": 1023,
+      "sha256": "9ca7e23aa1305dea289d7ddaf83f3b55e8be7468d8743056921514b8f81647cf"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 277,
+      "sha256": "53643582afba5b122ee1c2521b022093b88ce83ca3831e82356fd517a7db8853"
+    },
+    {
+      "path": "plugin.rb",
+      "bytes": 3850,
+      "sha256": "62345badb2332149c6c89f0605dbf1eb7539f5e2158a38288358e4fdabb7adae"
+    },
+    {
+      "path": "README.md",
+      "bytes": 7257,
+      "sha256": "99ae6aef28f055c398e8356c1aa974e31764d619f06ff296f6f89b56afc7e38f"
+    },
+    {
+      "path": "spec/lib/canonical_source_spec.rb",
+      "bytes": 1434,
+      "sha256": "fb0740868c8672a7476f437432f6e2136e09872d64d5764e5af2a6230a849f42"
+    },
+    {
+      "path": "spec/lib/comments_only_presenter_spec.rb",
+      "bytes": 2676,
+      "sha256": "5eeb330901e056686608f98e3ec3e6373306382051fc3620e3058323e9a15ec8"
+    },
+    {
+      "path": "spec/lib/connection_repository_spec.rb",
+      "bytes": 3899,
+      "sha256": "35aae3f46a3269e843e4ba3f5267254fcf96598ca30ff0fc1f046a65099b764a"
+    },
+    {
+      "path": "spec/lib/create_or_resolve_spec.rb",
+      "bytes": 5413,
+      "sha256": "abb392be72ef5aeb5fe07a6cfa923aeaba8a727845b61e6ae353656079898da5"
+    },
+    {
+      "path": "spec/lib/forum_authority_spec.rb",
+      "bytes": 1074,
+      "sha256": "a8f6026e59074c7e0c72ea9f50f08772a9820a2d1c44e64505281913d10a66f0"
+    },
+    {
+      "path": "spec/lib/health_status_spec.rb",
+      "bytes": 2428,
+      "sha256": "add070d54449979b2d7d6376998d6930031ecc60ea5515665ab71024c3498f1f"
+    },
+    {
+      "path": "spec/lib/lane_policies_spec.rb",
+      "bytes": 1567,
+      "sha256": "64e188a09a78f51ff56efae88c933b1c87243cf96c1871930d84cb4a0de54935"
+    },
+    {
+      "path": "spec/lib/operations_index_spec.rb",
+      "bytes": 2025,
+      "sha256": "0a39b90f91dc3bdea5b70505a2a1a4033e26179cf7f257b338531a263533c299"
+    },
+    {
+      "path": "spec/lib/policy_evaluator_spec.rb",
+      "bytes": 3460,
+      "sha256": "eb4e924d6fb74c47fe810be8a4ed4b15ab10acf47c71069903133d34214f2d03"
+    },
+    {
+      "path": "spec/lib/reconciliation_index_spec.rb",
+      "bytes": 3061,
+      "sha256": "231bc040d0182196fb8e5a8c849dda4a10261458ffcf6b78e2dbf1d90bbe19d0"
+    },
+    {
+      "path": "spec/lib/retry_authorization_spec.rb",
+      "bytes": 2661,
+      "sha256": "594280b34e92fa7d13cb51b30ee4e798183259098c2dffb0066621196f434c1c"
+    },
+    {
+      "path": "spec/lib/settings_validators_spec.rb",
+      "bytes": 2350,
+      "sha256": "bf3683603027b8895ad02e6dc3460d0345ad74ed232fb4dee7d1781b0535a30d"
+    },
+    {
+      "path": "spec/lib/topic_creator_spec.rb",
+      "bytes": 1098,
+      "sha256": "e4931381185ff79925062019353f892809f5d5065d3d277c3edd1097a911eaf0"
+    },
+    {
+      "path": "spec/models/discussion_bridge_audit_event_spec.rb",
+      "bytes": 843,
+      "sha256": "2297e62a90e8959c8f4d8199752625acccebfb4da5aabf14d2d80e67ec9692db"
+    },
+    {
+      "path": "spec/plugin_spec.rb",
+      "bytes": 436,
+      "sha256": "2de08f821c4e268354d4198259aeb15fcd1fcac7b1b8c5b7e8d160bdd4141bb6"
+    },
+    {
+      "path": "spec/requests/comments_only_full_interactive_spec.rb",
+      "bytes": 2457,
+      "sha256": "cc72eede034c53637152fd3701ccd19c6b437033d277bea27439b1e9c06448d7"
+    },
+    {
+      "path": "spec/requests/connections_controller_spec.rb",
+      "bytes": 7133,
+      "sha256": "b1dc1c97ff61c07048ddc7370e1fcb4ce1787aa05c3db5cf6d60d73f3367f5c5"
+    },
+    {
+      "path": "spec/requests/health_controller_spec.rb",
+      "bytes": 990,
+      "sha256": "8bb3408fb6a416108293345c38615d3600310067586080b838119fd867192a2a"
+    },
+    {
+      "path": "spec/requests/operations_controller_spec.rb",
+      "bytes": 940,
+      "sha256": "10e77fea012fbeb62b96504ea4c80b2ba5881fe74a4c0575e3273689cd3478b1"
+    },
+    {
+      "path": "spec/requests/reconciliation_controller_spec.rb",
+      "bytes": 2772,
+      "sha256": "d5b22ee17fa36c6ceabba0e04734774c608e5c0a09a681c143c74419dd2c8c4d"
+    },
+    {
+      "path": "spec/system/comments_only_full_interactive_spec.rb",
+      "bytes": 4260,
+      "sha256": "6fc04f8b7e13d395a314f1f310a88a332ad8c32d4335140f58fec7fe281083a3"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "status": "implemented-local-development-runtime-accepted-nonproduction-forum-install-open",
+  "date": "2026-08-02",
+  "discourseCommit": "6b2f4579ba6802a7c556459e596c3150b67403aa",
+  "installationAuthorized": false,
+  "deploymentAuthorized": false,
+  "verification": {
+    "rubocop": "25 files, 0 offenses",
+    "nonBrowserRSpec": "38 examples, 0 failures",
+    "focusedPresenterAndRedirectRSpec": "7 examples, 0 failures",
+    "browserRSpec": "4 examples, 0 failures",
+    "localDevelopmentRuntime": "PASS: empty, replied/actions, ordinary topic, option rollback, reserved-marker rejection"
+  },
+  "files": [
+    { "path": "plugin.rb", "bytes": 2485, "sha256": "de4b50ce1a91565b70b338dd4d30d938f9cc12c67d73a220f01b4f176676c41e" },
+    { "path": "README.md", "bytes": 3614, "sha256": "276eafe2dcbfe78887db27d1ed21002851c778ad52ebafe75f59289976101ce4" },
+    { "path": "config/settings.yml", "bytes": 993, "sha256": "d46d6e27aad2b5185a5db636e1cf97910a9f8e8cbd1c2b24d127eb5f5fe66546" },
+    { "path": "config/locales/server.en.yml", "bytes": 2214, "sha256": "4347b711489b93d8e448c07ee6a09a5544d9c9ec6d1934c13192ea5c4eeda77e" },
+    { "path": "lib/discussion_bridge/comments_only_presenter.rb", "bytes": 1086, "sha256": "c51f59d02116c689809690e61b9c51d5f720fb7a1fa9a22ab61268f002080c2c" },
+    { "path": "assets/stylesheets/common/discussion-bridge-comments-only.scss", "bytes": 435, "sha256": "1490e9c95446399688de35e135661cd39de94cb7aaed5b90c65b6c60a96fa133" },
+    { "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js", "bytes": 836, "sha256": "cd88320991e4e331b5690298551a864e22cb0705019b07fb4094822b72506ead" },
+    { "path": "spec/lib/comments_only_presenter_spec.rb", "bytes": 2676, "sha256": "5eeb330901e056686608f98e3ec3e6373306382051fc3620e3058323e9a15ec8" },
+    { "path": "spec/requests/comments_only_full_interactive_spec.rb", "bytes": 2457, "sha256": "cc72eede034c53637152fd3701ccd19c6b437033d277bea27439b1e9c06448d7" },
+    { "path": "spec/system/comments_only_full_interactive_spec.rb", "bytes": 3024, "sha256": "8a7ca4c3a50a71951b606bd685349a14c29f3b973f13b6f785187267dad08106" }
+  ]
+}
