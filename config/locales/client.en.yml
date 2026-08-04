@@ -1,5 +1,9 @@
 en:
   js:
+    admin:
+      site_settings:
+        categories:
+          discourse_discussion_bridge: "DiscussionBridge"
     discussion_bridge:
       admin:
         title: "DiscussionBridge"

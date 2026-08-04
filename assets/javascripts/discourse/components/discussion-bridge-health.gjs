@@ -63,11 +63,13 @@ export default <template>
             }}</dd>
           <dt>{{i18n "discussion_bridge.admin.trusted_origins"}}</dt>
           <dd>
-            {{#each @status.connection.trusted_origins as |origin|}}
-              <code>{{origin}}</code>
-            {{else}}
-              {{i18n "discussion_bridge.admin.missing"}}
-            {{/each}}
+            <span class="discussion-bridge-health__value-list">
+              {{#each @status.connection.trusted_origins as |origin|}}
+                <code>{{origin}}</code>
+              {{else}}
+                {{i18n "discussion_bridge.admin.missing"}}
+              {{/each}}
+            </span>
           </dd>
         </dl>
       </section>

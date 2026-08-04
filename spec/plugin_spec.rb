@@ -32,4 +32,13 @@ describe DiscussionBridge do
     expect(labels).to include("DiscussionBridge connection ID")
     expect(labels).not_to include(a_string_starting_with("Discussion bridge "))
   end
+
+  it "uses the settled DiscussionBridge brand for the admin plugin title" do
+    locale = File.read(
+      File.expand_path("../config/locales/client.en.yml", __dir__),
+      encoding: "UTF-8",
+    )
+
+    expect(locale).to include('discourse_discussion_bridge: "DiscussionBridge"')
+  end
 end

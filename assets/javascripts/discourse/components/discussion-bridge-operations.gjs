@@ -37,6 +37,18 @@ export default class DiscussionBridgeOperations extends Component {
     return !this.hasNextPage;
   }
 
+  displayToken(value) {
+    return value?.replaceAll("_", " ") || "—";
+  }
+
+  shortDigest(value) {
+    if (!value || value.length <= 24) {
+      return value || "—";
+    }
+
+    return `${value.slice(0, 12)}…${value.slice(-8)}`;
+  }
+
   @action
   updateQuery(event) {
     this.query = event.target.value;
@@ -146,14 +158,14 @@ export default class DiscussionBridgeOperations extends Component {
         <table class="d-table discussion-bridge-operations__table">
           <thead>
             {{#if this.mappingsSelected}}
-              <tr><th>{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n
+              <tr><th class="discussion-bridge-operations__state-column">{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n
                     "discussion_bridge.admin.source"
                   }}</th><th>{{i18n "discussion_bridge.admin.topic"}}</th><th
                 >{{i18n "discussion_bridge.admin.actor"}}</th><th>{{i18n
                     "discussion_bridge.admin.updated"
                   }}</th></tr>
             {{else}}
-              <tr><th>{{i18n "discussion_bridge.admin.outcome"}}</th><th>{{i18n
+              <tr><th class="discussion-bridge-operations__state-column">{{i18n "discussion_bridge.admin.outcome"}}</th><th>{{i18n
                     "discussion_bridge.admin.reason"
                   }}</th><th>{{i18n
                     "discussion_bridge.admin.source_digest"
@@ -165,26 +177,46 @@ export default class DiscussionBridgeOperations extends Component {
             {{#each @model.items as |item|}}
               {{#if this.mappingsSelected}}
                 <tr>
-                  <td><code>{{item.state}}</code></td>
-                  <td><a href={{item.source_url}}>{{item.source_url}}</a><br
-                    /><small>{{item.connection_id}} · {{item.lane}}</small></td>
-                  <td>{{#if item.topic_id}}<a
+                  <td data-label={{i18n "discussion_bridge.admin.state"}}>
+                    <span
+                      class="discussion-bridge-operations__status"
+                      data-state={{item.state}}
+                    >{{this.displayToken item.state}}</span>
+                  </td>
+                  <td
+                    data-label={{i18n "discussion_bridge.admin.source"}}
+                    class="discussion-bridge-operations__source"
+                  ><a href={{item.source_url}}>{{item.source_url}}</a><small
+                    >{{item.connection_id}} · {{item.lane}}</small></td>
+                  <td data-label={{i18n "discussion_bridge.admin.topic"}}>{{#if item.topic_id}}<a
                         href="/t/{{item.topic_id}}"
                       >{{item.topic_id}}</a>{{else}}—{{/if}}</td>
-                  <td>{{#if
+                  <td data-label={{i18n "discussion_bridge.admin.actor"}}>{{#if
                       item.actor
                     }}{{item.actor.username}}{{else}}—{{/if}}</td>
-                  <td>{{item.updated_at}}</td>
+                  <td data-label={{i18n "discussion_bridge.admin.updated"}}><time
+                      class="discussion-bridge-operations__timestamp"
+                    >{{item.updated_at}}</time></td>
                 </tr>
               {{else}}
                 <tr>
-                  <td><code>{{item.outcome}}</code></td>
-                  <td><code>{{item.reason}}</code></td>
-                  <td><code>{{item.source_digest}}</code></td>
-                  <td>{{#if item.topic_id}}<a
+                  <td data-label={{i18n "discussion_bridge.admin.outcome"}}>
+                    <span
+                      class="discussion-bridge-operations__status"
+                      data-state={{item.outcome}}
+                    >{{this.displayToken item.outcome}}</span>
+                  </td>
+                  <td data-label={{i18n "discussion_bridge.admin.reason"}}>{{this.displayToken item.reason}}</td>
+                  <td data-label={{i18n "discussion_bridge.admin.source_digest"}}><code
+                      class="discussion-bridge-operations__digest"
+                      title={{item.source_digest}}
+                    >{{this.shortDigest item.source_digest}}</code></td>
+                  <td data-label={{i18n "discussion_bridge.admin.topic"}}>{{#if item.topic_id}}<a
                         href="/t/{{item.topic_id}}"
                       >{{item.topic_id}}</a>{{else}}—{{/if}}</td>
-                  <td>{{item.created_at}}</td>
+                  <td data-label={{i18n "discussion_bridge.admin.created"}}><time
+                      class="discussion-bridge-operations__timestamp"
+                    >{{item.created_at}}</time></td>
                 </tr>
               {{/if}}
             {{else}}
