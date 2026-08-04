@@ -33,6 +33,7 @@ after_initialize do
   end
 
   require_relative "lib/discussion_bridge/canonical_source"
+  require_relative "lib/discussion_bridge/site_setting_label_formatter_extension"
   require_relative "lib/discussion_bridge/lane_policies"
   require_relative "lib/discussion_bridge/policy_evaluator"
   require_relative "lib/discussion_bridge/forum_authority"
@@ -52,6 +53,11 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/operations_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
+
+  SiteSettings::LabelFormatter.singleton_class.prepend(
+    DiscussionBridge::SiteSettingLabelFormatterExtension,
+  ) unless SiteSettings::LabelFormatter.singleton_class <
+    DiscussionBridge::SiteSettingLabelFormatterExtension
 
   module ::DiscussionBridge
     module EmbedControllerExtension
