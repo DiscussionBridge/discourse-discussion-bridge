@@ -160,7 +160,7 @@ export default class DiscussionBridgeOperations extends Component {
             {{#if this.mappingsSelected}}
               <tr><th class="discussion-bridge-operations__state-column">{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n
                     "discussion_bridge.admin.source"
-                  }}</th><th>{{i18n "discussion_bridge.admin.topic"}}</th><th
+                  }}</th><th class="discussion-bridge-operations__topic-column">{{i18n "discussion_bridge.admin.topic"}}</th><th
                 >{{i18n "discussion_bridge.admin.actor"}}</th><th>{{i18n
                     "discussion_bridge.admin.updated"
                   }}</th></tr>
@@ -169,7 +169,7 @@ export default class DiscussionBridgeOperations extends Component {
                     "discussion_bridge.admin.reason"
                   }}</th><th>{{i18n
                     "discussion_bridge.admin.source_digest"
-                  }}</th><th>{{i18n "discussion_bridge.admin.topic"}}</th><th
+                  }}</th><th class="discussion-bridge-operations__topic-column">{{i18n "discussion_bridge.admin.topic"}}</th><th
                 >{{i18n "discussion_bridge.admin.created"}}</th></tr>
             {{/if}}
           </thead>
@@ -188,7 +188,10 @@ export default class DiscussionBridgeOperations extends Component {
                     class="discussion-bridge-operations__source"
                   ><a href={{item.source_url}}>{{item.source_url}}</a><small
                     >{{item.connection_id}} · {{item.lane}}</small></td>
-                  <td data-label={{i18n "discussion_bridge.admin.topic"}}>{{#if item.topic_id}}<a
+                  <td
+                    class="discussion-bridge-operations__topic-column"
+                    data-label={{i18n "discussion_bridge.admin.topic"}}
+                  >{{#if item.topic_id}}<a
                         href="/t/{{item.topic_id}}"
                       >{{item.topic_id}}</a>{{else}}—{{/if}}</td>
                   <td data-label={{i18n "discussion_bridge.admin.actor"}}>{{#if
@@ -211,7 +214,10 @@ export default class DiscussionBridgeOperations extends Component {
                       class="discussion-bridge-operations__digest"
                       title={{item.source_digest}}
                     >{{this.shortDigest item.source_digest}}</code></td>
-                  <td data-label={{i18n "discussion_bridge.admin.topic"}}>{{#if item.topic_id}}<a
+                  <td
+                    class="discussion-bridge-operations__topic-column"
+                    data-label={{i18n "discussion_bridge.admin.topic"}}
+                  >{{#if item.topic_id}}<a
                         href="/t/{{item.topic_id}}"
                       >{{item.topic_id}}</a>{{else}}—{{/if}}</td>
                   <td data-label={{i18n "discussion_bridge.admin.created"}}><time

@@ -130,20 +130,14 @@
       width: 9rem;
     }
 
-    th:nth-child(3),
-    td:nth-child(3) {
-      width: 11rem;
-    }
-
-    th:nth-child(4),
-    td:nth-child(4) {
-      width: 8rem;
-    }
-
     th:last-child,
     td:last-child {
       width: 13.5rem;
     }
+  }
+
+  &__topic-column {
+    width: 5rem;
   }
 
   &__source {
