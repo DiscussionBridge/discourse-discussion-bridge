@@ -65,7 +65,7 @@ The complete contract is maintained in the Astro repository at
 
 Current local root:
 
-`C:\CodeProjects\CodeWorksLabs\DiscussionBridge\plugins\discourse-discussion-bridge`
+`C:\CodeProjects\Products\DiscussionBridge\plugins\discourse-discussion-bridge`
 
 The intended standalone repository identity is
 `DiscussionBridge/discourse-discussion-bridge`. Do not install this directory
