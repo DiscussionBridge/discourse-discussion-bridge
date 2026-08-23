@@ -5,12 +5,12 @@
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 71 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "1b84234edc50962e2ed0fff8dd66be8a52f25d0d",
+  "candidateProductionCodeCommit": "8e311968990a61f0fb3d07ae7757647d0783c71a",
   "verification": {
-    "officialWorkflow": "Corrected evidence workflow run 32655533551 passed against the exact verified Discourse commit. The authoritative final evidence-head and eventual exact-tag workflow run URLs and dispositions belong in the GitHub prerelease and durable product checkpoint.",
+    "officialWorkflow": "Corrected production/evidence workflow run 32656418990 passed against the exact verified Discourse commit. The authoritative final evidence-head and eventual exact-tag workflow run URLs and dispositions belong in the GitHub prerelease and durable product checkpoint.",
     "completeRSpec": "83 examples, 0 failures",
     "browserRSpec": "11 examples, 0 failures",
-    "fullInteractive": "Completed-mapping fail-closed guard, readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, server-attested one-use logout restoration, two-mapped-iframe and ordinary-Core isolation, stale and deliberate-navigation containment, comments-only presentation, and ordinary-topic isolation covered.",
+    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, exact database-precision server attestation, bounded one-use logout restoration, two-mapped-iframe and ordinary-Core isolation, stale/future/overlong/malformed-clock and deliberate-navigation containment, comments-only presentation, and ordinary-topic isolation covered.",
     "lintAndStructure": "Migrations, schema annotations, i18n, RuboCop, Syntax Tree, and applicable frontend checks pass in the official workflow.",
     "clientQUnit": "No plugin QUnit files exist.",
     "remainingHumanGate": "Separate exact-tag installs on sandbox-forum.discussionbridge.dev app and dev-forum.discussionbridge.dev web_only; each must prove visible Post reply and Save edit labeling, Astro-hosted authenticated Reply/Like/Quote/edit actions, honest logout state followed by existing-user sign-in route restoration, brand-new-user signup/activation/approval and validated Astro return, then rollback."
@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 71,
-    "bytes": 203717,
-    "sha256": "8b675a72d06995c05fd0771d0f0e0989aa3f04cb63e1ec95944b9eda3cfa1227"
+    "bytes": 208623,
+    "sha256": "5e5f63f4c2b355fb5a709cedae965e207183653b4f02809d0c2fb0673056b8fc"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -48,8 +48,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28548,
-      "sha256": "86e89ae3574d6ac95a5830e50e44615cb89fd39474b7dec3b3e2547a1aad104f"
+      "bytes": 28955,
+      "sha256": "f78628ac4bf0763474a4d7b466bfaa2fd87163961e0a413becc6d198f56c0748"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -88,8 +88,8 @@
     },
     {
       "path": "app/controllers/discussion_bridge/embed_routes_controller.rb",
-      "bytes": 1083,
-      "sha256": "7186e8f9a8364379b905b1fde45a8a088d846f3101689b8482bf35a668ef353c"
+      "bytes": 1161,
+      "sha256": "a2f8499c49b5ab7cf11855ebd36d39d98b6b41e5abaeb64f4def837d8b3fb924"
     },
     {
       "path": "app/controllers/discussion_bridge/health_controller.rb",
@@ -143,8 +143,8 @@
     },
     {
       "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
-      "bytes": 4357,
-      "sha256": "45aba6710f54c638df69864ba06b3ce50638b68aec8190f66dfcd86023e72726"
+      "bytes": 4701,
+      "sha256": "d4cf4e6a24347fc71ca825e1c2c8bc10a895ed02b2602ce47f0910569a26bffb"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
@@ -218,8 +218,8 @@
     },
     {
       "path": "lib/discussion_bridge/embed_route_attestation.rb",
-      "bytes": 1647,
-      "sha256": "1277ee539e1e9c5970c1a6f6351979bfbeb58fcd03159d92658c04f9c1259528"
+      "bytes": 1667,
+      "sha256": "d48b40f68f685d44d0bea9d36c33d7f4e708d58ce822794962cbfc22a235cc91"
     },
     {
       "path": "lib/discussion_bridge/forum_authority.rb",
@@ -353,8 +353,8 @@
     },
     {
       "path": "spec/requests/comments_only_full_interactive_spec.rb",
-      "bytes": 5438,
-      "sha256": "038b6af34b79876eff4603720e0e66274324c59df37f54db891b36b74ec6c4b0"
+      "bytes": 6418,
+      "sha256": "5f66b6579f8700ad79f64f8248432c38df0f45713d288e1c3b6d270e20435693"
     },
     {
       "path": "spec/requests/connections_controller_spec.rb",
@@ -378,8 +378,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 16025,
-      "sha256": "475e3e86dc8486ebdf980ecdf387a9b094f298f2fcfb0ec1bcc4c7f6e2273eb7"
+      "bytes": 19102,
+      "sha256": "a23a8b5fe9ab7e1e1717e2bec9e8843a0b449a96eac31fb02c7c45a386903249"
     }
   ]
 }
