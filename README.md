@@ -135,8 +135,11 @@ configuration before copying them. Do not substitute a moving branch.
 The automated and stable-preproduction installations qualify the software, but
 they do not prove that a real forum administrator can install the released
 plugin from its public instructions. Every Alpha release that claims
-plugin-backed `fullInteractive` support therefore requires one human-admin
-installation of the exact published plugin candidate.
+plugin-backed `fullInteractive` support therefore requires human-admin
+installations of the exact published plugin candidate in both supported
+deployment topologies: standard single-container `app` and official split
+`data` + `web_only`. The same person may perform both, but each must begin from
+its recorded clean rollback point and produce its own acceptance record.
 
 The release record must name the immutable plugin tag and commit SHA. The human
 administrator must use that public GitHub identity, not a local checkout or
