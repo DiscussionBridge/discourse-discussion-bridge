@@ -5,7 +5,7 @@
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 69 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "1943923751ca92f2aac361334b1a948eae9ff83e",
+  "candidateProductionCodeCommit": "1943923ec890d4686e088331ecfa62cd897add02",
   "verification": {
     "officialWorkflow": "Discourse official reusable plugin workflow pinned to the exact verified Discourse commit; the authoritative exact-tag run URL and disposition belong in the GitHub prerelease and durable product checkpoint.",
     "completeRSpec": "81 examples, 0 failures",
