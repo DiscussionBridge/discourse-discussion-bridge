@@ -37,11 +37,18 @@ route paths, setting names, and compatibility hooks retain their established
 `discussion_bridge` or `discourse-discussion-bridge` forms.
 A corrected Alpha.5 candidate also keeps the mapped comments route across
 in-frame authentication transitions and gives Core's compact composer submit
-control an explicit visible **Post reply** label. The restoration state is scoped
-to an actual iframe, stores only a same-origin `/t/` URL carrying the
-server-authorized comments-only marker, and never redirects a top-level forum
-window. Discourse Core continues to own authentication, account creation,
-sessions, authorization, moderation, and post submission.
+control an explicit visible **Post reply** label for creation/reply and **Save
+edit** while editing an allowed post. For a completed mapping, the server issues
+an expiring signed attestation bound to the exact mapping, topic, and accepted
+presentation class. The browser arms a two-minute, one-use return only when the
+user activates Core's actual logout control inside that mapped iframe. The state
+travels in that iframe's own browsing context, is consumed and cleared only at
+Core's reviewed logout destinations, and is revalidated by the server before it
+can restore the exact mapped topic. It does not store a general topic URL, react
+to ordinary navigation, share state across sibling iframes, or redirect a popup
+or top-level forum window. Core's popup sign-in/sign-up flow continues to reload
+the already mapped iframe directly. Discourse Core owns authentication, account
+creation, sessions, authorization, moderation, editing, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
 view of connection mappings and audit evidence. It exposes canonical source and
 digest identity, state/outcome, topic, operating identity, reason, lane, and
@@ -86,17 +93,20 @@ under `theme-components`.
 
 ## Local verification
 
-The Alpha.5 production-code commit
+Initial Alpha.5 production-code commit
 `7d6945a453048c92e64d235a8ed1652e6a8efc16` passed Discourse's official
 reusable plugin workflow against the exact stable-preproduction Discourse
 commit `36698aae084678151dffa875d49c8d59216d2733` (public version
 `2026.8.0-latest.1`) in
-[workflow run 32653423914](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32653423914).
-Both plugin migrations passed; annotation, i18n, RuboCop, Syntax Tree, and the
-applicable frontend checks passed. The exact totals are 81 server/plugin
-examples and 8 browser/system examples, with zero failures. The added system
-example exercises mapped-route restoration in an actual same-origin iframe.
-The suite continues to prove
+[workflow run 32653423914](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32653423914),
+but independent Code review rejected its origin-wide client route storage. That
+commit is evidence ancestry, not a release candidate. The corrected design uses
+server attestation plus a one-use, per-browsing-context logout return. It adds
+forgery/mapping-mismatch request negatives and system coverage for editing,
+actual logout restoration, two mapped sibling iframes, an unrelated Core iframe,
+stale state, deliberate non-auth navigation, and top-level non-redirection. The
+corrected suite expects 83 server/plugin and 11 browser/system examples and
+requires fresh exact qualification. It continues to prove
 the completed-mapping 503 guard, readiness
 blockers, comments-only isolation, native empty-state and existing-post replies,
 Like persistence, and Quote submission in Core embed mode. The plugin has no
@@ -197,7 +207,7 @@ as part of the protected-copy step, but human acceptance found an ambiguous
 icon-only submit action, comments-route loss across authentication transitions,
 and a missing new-user sign-up/return gate. Alpha.4 is rejected for installation
 and remains immutable evidence. Alpha.5 is the unreleased correction candidate:
-it labels the submit action, restores the mapped comments route inside the iframe,
+it labels the submit action, adds server-attested one-use iframe logout recovery,
 and adds explicit sign-up/activation/approval/return acceptance. All five
 published tags remain immutable and must not be rewritten, retagged, or silently
 replaced.
@@ -450,15 +460,21 @@ The human acceptance record must confirm:
 7. an authenticated human completes Reply, Like, and Quote inside the Astro-page
    iframe without top-level navigation, and the composer submit action has a
    clear visible **Post reply** label;
-8. a signed-out existing user completes the reviewed sign-in flow and returns to
-   the mapped Astro discussion without an orphan forum-homepage state or manual
+8. the same human edits an allowed post inside the Astro-page iframe, sees the
+   clear visible **Save edit** label, saves successfully without top-level or
+   popup navigation, and remains subject to Discourse Core's ordinary editing
+   authorization and moderation;
+9. an existing user signs out, the mapped Astro discussion handles the lost
+   session honestly with signed-out state visible and no popup or top-level forum
+   restoration, and a subsequent reviewed sign-in returns to the validated
+   originating Astro discussion without an orphan forum-homepage state or manual
    refresh;
-9. a brand-new ordinary user initiates sign-up from the Astro-hosted discussion,
+10. a brand-new ordinary user initiates sign-up from the Astro-hosted discussion,
    completes the forum's email activation and approval policy where required,
    returns through the validated original Astro context, and participates under
    normal hold/review moderation without staff elevation or unapproved-body
    disclosure; and
-10. disable and rollback/removal instructions are understandable and effective.
+11. disable and rollback/removal instructions are understandable and effective.
 
 Alpha release acceptance does not close until that human result is received
 and dispositioned. A failure produces a corrected candidate under a new tag;

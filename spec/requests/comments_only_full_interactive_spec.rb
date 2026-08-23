@@ -28,11 +28,19 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
   it "adds the comments-only class through the Core full-app redirect" do
     get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
 
-    expect(response).to redirect_to(
-      "#{topic.url}?#{
-        { embed_mode: true, class_name: "discussion-bridge-comments-only" }.to_query
-      }",
+    location = URI.parse(response.location)
+    query = Rack::Utils.parse_nested_query(location.query)
+    expect(location.path).to eq(topic.url)
+    expect(query).to include(
+      "embed_mode" => "true",
+      "class_name" => "discussion-bridge-comments-only",
     )
+    expect(query["discussion_bridge_embed_token"]).to start_with("#{topic.id}.")
+    expect(
+      DiscussionBridge::EmbedRouteAttestation.verify(
+        query["discussion_bridge_embed_token"],
+      )[:mapping].topic_id,
+    ).to eq(topic.id)
 
     follow_redirect!
     expect(response.body).to match(
@@ -64,11 +72,50 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     get "/embed/comments",
         params: { topic_id: topic.id, full_app: "true", class_name: "operator-theme" }
 
-    expect(response).to redirect_to(
-      "#{topic.url}?#{
-        { embed_mode: true, class_name: "operator-theme discussion-bridge-comments-only" }.to_query
-      }",
+    location = URI.parse(response.location)
+    query = Rack::Utils.parse_nested_query(location.query)
+    expect(location.path).to eq(topic.url)
+    expect(query["class_name"]).to eq("operator-theme discussion-bridge-comments-only")
+    attestation =
+      DiscussionBridge::EmbedRouteAttestation.verify(query["discussion_bridge_embed_token"])
+    expect(attestation[:class_name]).to eq("operator-theme discussion-bridge-comments-only")
+  end
+
+  it "restores only a currently completed attested mapping" do
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
+      "discussion_bridge_embed_token",
     )
+
+    get "/discussion-bridge/embed/restore", params: { token: token }
+    expect(response).to have_http_status(:redirect)
+    restored = URI.parse(response.location)
+    expect(restored.path).to eq(topic.url)
+    expect(Rack::Utils.parse_nested_query(restored.query)).to include(
+      "embed_mode" => "true",
+      "class_name" => "discussion-bridge-comments-only",
+      "discussion_bridge_embed_token" => token,
+    )
+
+    DiscussionBridgeConnection.update_all(state: "failed")
+    get "/discussion-bridge/embed/restore", params: { token: token }
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "rejects forged, malformed, and topic-mismatched attestations" do
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
+      "discussion_bridge_embed_token",
+    )
+
+    [
+      "#{topic.id}.forged-marker-without-a-server-signature",
+      "not-a-topic-route-token",
+      token.sub(/\A#{topic.id}\./, "#{topic.id + 1}."),
+    ].each do |invalid_token|
+      get "/discussion-bridge/embed/restore", params: { token: invalid_token }
+      expect(response).to have_http_status(:not_found)
+    end
   end
 
   it "does not add the class for ordinary, incomplete, or disabled mappings" do

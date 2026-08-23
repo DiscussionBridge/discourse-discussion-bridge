@@ -47,12 +47,14 @@ after_initialize do
   require_relative "lib/discussion_bridge/audit_writer"
   require_relative "lib/discussion_bridge/create_or_resolve"
   require_relative "lib/discussion_bridge/comments_only_presenter"
+  require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/controllers/discussion_bridge/connections_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/operations_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
+  require_relative "app/controllers/discussion_bridge/embed_routes_controller"
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -69,11 +71,38 @@ after_initialize do
             TopicEmbed.topic_id_for_embed(params[:embed_url])
           end
 
-        if params[:full_app].present? &&
-             CommentsOnlyPresenter.requested_for?(topic_id: topic_id) &&
-             !SiteSetting.embed_full_app
-          render plain: I18n.t("discussion_bridge.full_interactive_requires_core_full_app"),
-                 status: :service_unavailable
+        mapped_full_app =
+          params[:full_app].present? && CommentsOnlyPresenter.requested_for?(topic_id: topic_id)
+
+        if mapped_full_app
+          unless params[:topic_id].present? || EmbeddableHost.url_allowed?(params[:embed_url])
+            raise Discourse::InvalidAccess.new("invalid embed host")
+          end
+
+          unless SiteSetting.embed_full_app
+            render plain: I18n.t("discussion_bridge.full_interactive_requires_core_full_app"),
+                   status: :service_unavailable
+            return
+          end
+
+          topic = Topic.find_by(id: topic_id)
+          raise Discourse::NotFound if topic.blank? || !guardian.can_see?(topic)
+
+          bridge_class = CommentsOnlyPresenter.redirect_class_name(
+            topic_id: topic_id,
+            full_app: true,
+            existing_class_name: params[:class_name],
+          )
+          mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
+          token = EmbedRouteAttestation.issue(mapping: mapping, class_name: bridge_class)
+          query = {
+            embed_mode: true,
+            class_name: bridge_class,
+            discussion_bridge_embed_token: token,
+          }
+          response.headers["X-Robots-Tag"] = "noindex, indexifembedded"
+          response.headers["Cache-Control"] = "no-store"
+          redirect_to "#{topic.url}?#{query.to_query}"
           return
         end
 
@@ -99,6 +128,7 @@ after_initialize do
     get "/admin/health" => "health#show"
     get "/admin/operations" => "operations#index"
     get "/admin/reconciliation" => "reconciliation#index"
+    get "/embed/restore" => "embed_routes#show"
     post "/admin/reconciliation/:mapping_id/authorize-retry" => "reconciliation#authorize_retry"
     post "/admin/reconciliation/:mapping_id/revoke-retry" => "reconciliation#revoke_retry"
   end

@@ -1,8 +1,11 @@
+import getURL from "discourse/lib/get-url";
 import { withPluginApi } from "discourse/lib/plugin-api";
 import { i18n } from "discourse-i18n";
 
 const CSS_CLASS = "discussion-bridge-comments-only";
-const EMBED_ROUTE_KEY = "discussion-bridge:comments-only:embed-route";
+const TOKEN_PARAM = "discussion_bridge_embed_token";
+const AUTH_RETURN_PREFIX = "discussion-bridge-auth-return:";
+const AUTH_RETURN_MAX_AGE_MS = 2 * 60 * 1000;
 const SUBMIT_LABEL_ATTRIBUTE = "data-discussion-bridge-submit-label";
 
 function commentsOnlyRequested(url = new URL(window.location.href)) {
@@ -20,50 +23,95 @@ function isEmbeddedFrame() {
   }
 }
 
-function validStoredEmbedRoute(value) {
-  if (!value) {
+function attestedMappedRoute(url = new URL(window.location.href)) {
+  if (!commentsOnlyRequested(url)) {
     return null;
   }
 
-  try {
-    const url = new URL(value);
-    if (
-      url.origin !== window.location.origin ||
-      !url.pathname.split("/").includes("t") ||
-      !commentsOnlyRequested(url)
-    ) {
-      return null;
-    }
-    return url;
-  } catch {
-    return null;
-  }
+  const token = url.searchParams.get(TOKEN_PARAM);
+  const tokenMatch = token?.match(/^([1-9]\d*)\.(.{20,4096})$/);
+  const segments = url.pathname.split("/").filter(Boolean);
+  const topicId = tokenMatch?.[1];
+  const exactTopicPath =
+    segments.length >= 3 &&
+    segments.at(-3) === "t" &&
+    segments.at(-2).length > 0 &&
+    segments.at(-1) === topicId;
+
+  return exactTopicPath ? { token, topicId } : null;
 }
 
-function rememberOrRestoreEmbedRoute() {
-  if (!isEmbeddedFrame()) {
-    return commentsOnlyRequested();
+function consumeAuthReturnState() {
+  if (!window.name.startsWith(AUTH_RETURN_PREFIX)) {
+    return null;
   }
 
-  const currentUrl = new URL(window.location.href);
-  if (commentsOnlyRequested(currentUrl)) {
-    try {
-      window.sessionStorage.setItem(EMBED_ROUTE_KEY, currentUrl.toString());
-    } catch {}
-    return true;
-  }
-
-  let storedUrl;
+  let state;
   try {
-    storedUrl = validStoredEmbedRoute(
-      window.sessionStorage.getItem(EMBED_ROUTE_KEY)
-    );
+    state = JSON.parse(window.name.slice(AUTH_RETURN_PREFIX.length));
   } catch {}
 
-  if (storedUrl) {
-    window.location.replace(storedUrl.toString());
+  const previousName =
+    typeof state?.previousName === "string" ? state.previousName : "";
+  window.name = previousName;
+
+  if (
+    state?.version !== 1 ||
+    typeof state.token !== "string" ||
+    !Number.isFinite(state.expiresAt) ||
+    state.expiresAt < Date.now()
+  ) {
+    return null;
   }
-  return false;
+
+  return state;
+}
+
+function reviewedLogoutDestination(url = new URL(window.location.href)) {
+  return (
+    url.origin === window.location.origin &&
+    [getURL("/"), getURL("/login")].includes(url.pathname)
+  );
+}
+
+function armLogoutReturn(event) {
+  if (!isEmbeddedFrame() || !event.target.closest("li.logout button")) {
+    return;
+  }
+
+  const route = attestedMappedRoute();
+  if (!route) {
+    return;
+  }
+
+  const previousName = window.name.startsWith(AUTH_RETURN_PREFIX)
+    ? ""
+    : window.name.slice(0, 1024);
+  window.name = `${AUTH_RETURN_PREFIX}${JSON.stringify({
+    version: 1,
+    token: route.token,
+    expiresAt: Date.now() + AUTH_RETURN_MAX_AGE_MS,
+    previousName,
+  })}`;
+}
+
+function restoreReviewedAuthReturn() {
+  if (!isEmbeddedFrame()) {
+    return false;
+  }
+
+  const state = consumeAuthReturnState();
+  if (!state || !reviewedLogoutDestination()) {
+    return false;
+  }
+
+  const restoreUrl = new URL(
+    getURL("/discussion-bridge/embed/restore"),
+    window.location.origin
+  );
+  restoreUrl.searchParams.set("token", state.token);
+  window.location.replace(restoreUrl.toString());
+  return true;
 }
 
 function labelSubmitControls() {
@@ -90,15 +138,18 @@ export default {
   name: "discussion-bridge-comments-only",
 
   initialize() {
-    if (!rememberOrRestoreEmbedRoute()) {
+    if (restoreReviewedAuthReturn()) {
       return;
     }
 
+    if (!attestedMappedRoute()) {
+      return;
+    }
+
+    document.addEventListener("click", armLogoutReturn, true);
+
     withPluginApi((api) => {
       const syncClass = () => {
-        if (!rememberOrRestoreEmbedRoute()) {
-          return;
-        }
         window.requestAnimationFrame(() => {
           document.documentElement.classList.toggle(
             CSS_CLASS,

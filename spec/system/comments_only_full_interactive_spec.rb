@@ -102,6 +102,36 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page.current_url).to include("embed_mode=true")
   end
 
+  it "labels and completes an authorized edit inside the full-app embed" do
+    editable_post =
+      Fabricate(
+        :post,
+        topic: topic,
+        user: interactive_user,
+        raw: "An editable in-frame reply",
+      )
+    sign_in(interactive_user)
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    within("#post_#{editable_post.post_number}") { find("button.edit").click }
+    expect(page).to have_css(".embed-mode-composer__editing")
+    expect(page).to have_css(
+      ".embed-mode-composer .docked-composer__submit-btn[data-discussion-bridge-submit-label='Save edit'][aria-label='Save edit'][title='Save edit']",
+    )
+    expect(
+      page.evaluate_script(
+        "getComputedStyle(document.querySelector('.docked-composer__submit-btn'), '::after').content",
+      ),
+    ).to eq('"Save edit"')
+
+    find(".embed-mode-composer .d-editor-input").set("The edited in-frame reply")
+    find(".embed-mode-composer .docked-composer__submit-btn").click
+
+    expect(page).to have_css("#post_#{editable_post.post_number}", text: "The edited in-frame reply")
+    expect(editable_post.reload.raw).to eq("The edited in-frame reply")
+    expect(page.current_url).to include("embed_mode=true")
+  end
+
   it "completes native reply and like actions without leaving embed mode" do
     reply =
       Fabricate(
@@ -158,7 +188,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page.current_url).to include("embed_mode=true")
   end
 
-  it "restores the mapped comments route after an in-frame authentication navigation" do
+  it "restores the exact attested mapped route after an in-frame logout" do
     embed_path = "/embed/comments?topic_id=#{topic.id}&full_app=true"
     visit("/")
     page.execute_script(<<~JS)
@@ -172,11 +202,108 @@ describe "DiscussionBridge comments-only fullInteractive" do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
       mapped_url = page.current_url
 
-      page.execute_script("window.location.assign('/')")
+      find(".header-dropdown-toggle.current-user").click
+      find("li.logout button").click
 
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
       expect(page.current_url).to eq(mapped_url)
+      expect(page).to have_css(".login-button")
     end
+  end
+
+  it "keeps mapped and ordinary iframe browsing contexts isolated" do
+    second_topic = Fabricate(:topic)
+    Fabricate(:post, topic: second_topic, raw: "Second companion source post")
+    DiscussionBridgeConnection.create!(
+      connection_id: "astro-second",
+      canonical_source_url: "https://example.com/second-article",
+      source_identity_digest: Digest::SHA256.hexdigest("astro-second\nhttps://example.com/second-article"),
+      state: "complete",
+      topic_id: second_topic.id,
+      effective_actor_id: second_topic.user_id,
+      requested_visibility: "unlisted",
+      effective_visibility: "unlisted",
+      requested_state: {},
+      effective_state: {},
+    )
+    ordinary_topic = Fabricate(:topic)
+    Fabricate(:post, topic: ordinary_topic, raw: "Ordinary Core topic")
+
+    visit("/")
+    page.execute_script(<<~JS)
+      [
+        ["mapped-frame-one", "/embed/comments?topic_id=#{topic.id}&full_app=true"],
+        ["mapped-frame-two", "/embed/comments?topic_id=#{second_topic.id}&full_app=true"],
+        ["ordinary-core-frame", "/embed/comments?topic_id=#{ordinary_topic.id}&full_app=true"],
+      ].forEach(([id, src]) => {
+        const frame = document.createElement("iframe");
+        frame.id = id;
+        frame.src = src;
+        document.body.appendChild(frame);
+      });
+    JS
+
+    within_frame("mapped-frame-one") do
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      expect(page.current_url).to match(%r{/t/[^/]+/#{topic.id}\?})
+    end
+    within_frame("mapped-frame-two") do
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      expect(page.current_url).to match(%r{/t/[^/]+/#{second_topic.id}\?})
+    end
+    within_frame("ordinary-core-frame") do
+      expect(page).to have_no_css("html.discussion-bridge-comments-only")
+      page.execute_script("window.location.assign('/')")
+      expect(page).to have_current_path("/")
+    end
+    within_frame("mapped-frame-one") do
+      page.execute_script("window.location.assign('/latest')")
+      expect(page).to have_current_path("/latest")
+    end
+    within_frame("mapped-frame-two") do
+      expect(page.current_url).to match(%r{/t/[^/]+/#{second_topic.id}\?})
+    end
+  end
+
+  it "clears stale iframe return state and never restores a top-level window" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    token = URI.parse(page.current_url).query.then { |query| Rack::Utils.parse_nested_query(query) }.fetch(
+      "discussion_bridge_embed_token",
+    )
+
+    visit("/")
+    page.execute_script(<<~JS)
+      const frame = document.createElement("iframe");
+      frame.id = "stale-auth-frame";
+      frame.src = "/";
+      document.body.appendChild(frame);
+    JS
+    within_frame("stale-auth-frame") do
+      page.execute_script(<<~JS)
+        window.name = "discussion-bridge-auth-return:" + JSON.stringify({
+          version: 1,
+          token: #{token.to_json},
+          expiresAt: Date.now() - 1,
+          previousName: "original-frame-name",
+        });
+        window.location.reload();
+      JS
+      expect(page).to have_current_path("/")
+      expect(page.evaluate_script("window.name")).to eq("original-frame-name")
+    end
+
+    page.execute_script(<<~JS)
+      window.name = "discussion-bridge-auth-return:" + JSON.stringify({
+        version: 1,
+        token: #{token.to_json},
+        expiresAt: Date.now() + 60_000,
+        previousName: "top-level-name",
+      });
+      window.location.reload();
+    JS
+    expect(page).to have_current_path("/")
+    expect(page.evaluate_script("window.name")).to start_with("discussion-bridge-auth-return:")
+    page.execute_script("window.name = ''")
   end
 
   it "does not change the ordinary topic presentation even for a long companion post" do
