@@ -129,6 +129,36 @@ installation will normally place or symlink the plugin under
 `discourse/plugins/discourse-discussion-bridge`, run migrations, rebuild the
 application, and leave the plugin and endpoint disabled until acceptance.
 
+### Human installation is a release gate
+
+The automated and stable-preproduction installations qualify the software, but
+they do not prove that a real forum administrator can install the released
+plugin from its public instructions. Every Alpha release that claims
+plugin-backed `fullInteractive` support therefore requires one human-admin
+installation of the exact published plugin candidate.
+
+The release record must name the immutable plugin tag and commit SHA. The human
+administrator must use that public GitHub identity, not a local checkout or
+moving branch. On a standard single-container Discourse install, add the pinned
+plugin clone/checkout to `containers/app.yml` and rebuild `app`. On the official
+two-container layout, add it only to `containers/web_only.yml` and rebuild
+`web_only`; do not rebuild or add application plugins to `data`.
+
+The human acceptance record must confirm:
+
+1. backup/rollback identity before the change;
+2. successful install and migrations from the public release instructions;
+3. the installed commit equals the release record;
+4. all DiscussionBridge settings remain at safe defaults/off after rebuild;
+5. ordinary forum topics, admin access, HTTPS, database, and Redis remain
+   healthy;
+6. the documented enable/configure flow works for the intended connection;
+7. disable and rollback/removal instructions are understandable and effective.
+
+Alpha release acceptance does not close until that human result is received
+and dispositioned. A failure produces a corrected candidate under a new tag;
+never rewrite an existing release tag or silently replace its source.
+
 ### Protect rebuild output
 
 Discourse's standard `launcher rebuild` output can echo the final Docker command
