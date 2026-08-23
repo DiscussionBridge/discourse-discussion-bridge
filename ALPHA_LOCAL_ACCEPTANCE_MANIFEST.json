@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 71,
-    "bytes": 208623,
-    "sha256": "5e5f63f4c2b355fb5a709cedae965e207183653b4f02809d0c2fb0673056b8fc"
+    "bytes": 208714,
+    "sha256": "43bf58764f120f277d5f5f53ddb532e06605781f69409c8d3934596f2ed44b6d"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -48,8 +48,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28955,
-      "sha256": "f78628ac4bf0763474a4d7b466bfaa2fd87163961e0a413becc6d198f56c0748"
+      "bytes": 29046,
+      "sha256": "cb0a131f6c9a6155208c571a00abd73da715c302bf06493b2def6c2c1ac89d04"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",

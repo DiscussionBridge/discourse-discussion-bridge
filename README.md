@@ -43,13 +43,14 @@ an expiring signed attestation bound to the exact mapping, database-precision
 mapping version, topic, and accepted presentation class. The browser arms a
 two-minute, one-use return only when the user activates Core's actual logout
 control inside that mapped iframe. The state
-travels in that iframe's own browsing context, is consumed and cleared only at
-Core's reviewed logout destinations, and is revalidated by the server before it
-can restore the exact mapped topic. It does not store a general topic URL, react
-to ordinary navigation, share state across sibling iframes, or redirect a popup
-or top-level forum window. Malformed clocks, future issue times, and expiry
-windows longer than two minutes fail closed. Restoration also rechecks both Core
-full-app and full-app sign-in-flow settings. Core's popup sign-in/sign-up flow
+travels in that iframe's own browsing context and is consumed and cleared on the
+next initialized iframe page. Restoration occurs only at Core's reviewed logout
+destinations, where the server revalidates it before restoring the exact mapped
+topic; every other destination fails closed. It does not store a general topic
+URL, react to ordinary navigation, share state across sibling iframes, or
+redirect a popup or top-level forum window. Malformed clocks, future issue times,
+and expiry windows longer than two minutes fail closed. Restoration also rechecks
+both Core full-app and full-app sign-in-flow settings. Core's popup sign-in/sign-up flow
 continues to reload the already mapped iframe directly. Discourse Core owns authentication, account
 creation, sessions, authorization, moderation, editing, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
