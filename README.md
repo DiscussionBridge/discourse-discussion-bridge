@@ -39,15 +39,18 @@ A corrected Alpha.5 candidate also keeps the mapped comments route across
 in-frame authentication transitions and gives Core's compact composer submit
 control an explicit visible **Post reply** label for creation/reply and **Save
 edit** while editing an allowed post. For a completed mapping, the server issues
-an expiring signed attestation bound to the exact mapping, topic, and accepted
-presentation class. The browser arms a two-minute, one-use return only when the
-user activates Core's actual logout control inside that mapped iframe. The state
+an expiring signed attestation bound to the exact mapping, database-precision
+mapping version, topic, and accepted presentation class. The browser arms a
+two-minute, one-use return only when the user activates Core's actual logout
+control inside that mapped iframe. The state
 travels in that iframe's own browsing context, is consumed and cleared only at
 Core's reviewed logout destinations, and is revalidated by the server before it
 can restore the exact mapped topic. It does not store a general topic URL, react
 to ordinary navigation, share state across sibling iframes, or redirect a popup
-or top-level forum window. Core's popup sign-in/sign-up flow continues to reload
-the already mapped iframe directly. Discourse Core owns authentication, account
+or top-level forum window. Malformed clocks, future issue times, and expiry
+windows longer than two minutes fail closed. Restoration also rechecks both Core
+full-app and full-app sign-in-flow settings. Core's popup sign-in/sign-up flow
+continues to reload the already mapped iframe directly. Discourse Core owns authentication, account
 creation, sessions, authorization, moderation, editing, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
 view of connection mappings and audit evidence. It exposes canonical source and

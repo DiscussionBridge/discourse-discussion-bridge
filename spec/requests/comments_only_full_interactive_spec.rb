@@ -10,6 +10,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_comments_only_full_interactive = true
     SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
     DiscussionBridgeConnection.create!(
       connection_id: "astro",
@@ -97,6 +98,16 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       "discussion_bridge_embed_token" => token,
     )
 
+    SiteSetting.embed_full_app = false
+    get "/discussion-bridge/embed/restore", params: { token: token }
+    expect(response).to have_http_status(:not_found)
+    SiteSetting.embed_full_app = true
+
+    SiteSetting.embed_full_app_signin_flow = false
+    get "/discussion-bridge/embed/restore", params: { token: token }
+    expect(response).to have_http_status(:not_found)
+    SiteSetting.embed_full_app_signin_flow = true
+
     DiscussionBridgeConnection.update_all(state: "failed")
     get "/discussion-bridge/embed/restore", params: { token: token }
     expect(response).to have_http_status(:not_found)
@@ -116,6 +127,14 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       get "/discussion-bridge/embed/restore", params: { token: invalid_token }
       expect(response).to have_http_status(:not_found)
     end
+
+    mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
+    same_second_usec = mapping.updated_at.usec == 123_456 ? 654_321 : 123_456
+    same_second_update = mapping.updated_at.change(usec: same_second_usec)
+    expect(same_second_update.to_i).to eq(mapping.updated_at.to_i)
+    expect(same_second_update).not_to eq(mapping.updated_at)
+    mapping.update_column(:updated_at, same_second_update)
+    expect(DiscussionBridge::EmbedRouteAttestation.verify(token)).to be_nil
   end
 
   it "does not add the class for ordinary, incomplete, or disabled mappings" do

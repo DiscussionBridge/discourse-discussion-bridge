@@ -10,7 +10,7 @@ module DiscussionBridge
       payload = {
         "mapping_id" => mapping.id,
         "topic_id" => mapping.topic_id,
-        "mapping_updated_at" => mapping.updated_at.to_i,
+        "mapping_updated_at" => mapping.updated_at.utc.iso8601(6),
         "class_name" => class_name,
       }
       signed = verifier.generate(payload, purpose: PURPOSE, expires_in: MAX_AGE)
@@ -32,7 +32,7 @@ module DiscussionBridge
         state: "complete",
       )
       return unless mapping
-      return unless mapping.updated_at.to_i == payload["mapping_updated_at"]
+      return unless mapping.updated_at.utc.iso8601(6) == payload["mapping_updated_at"]
 
       class_name = payload["class_name"].to_s
       return if class_name.split.exclude?(CommentsOnlyPresenter::CSS_CLASS)

@@ -12,6 +12,7 @@ module DiscussionBridge
       raise Discourse::NotFound unless SiteSetting.discussion_bridge_enabled
       raise Discourse::NotFound unless SiteSetting.discussion_bridge_comments_only_full_interactive
       raise Discourse::NotFound unless SiteSetting.embed_full_app
+      raise Discourse::NotFound unless SiteSetting.embed_full_app_signin_flow
 
       topic = Topic.find_by(id: attestation[:mapping].topic_id)
       raise Discourse::NotFound unless topic && guardian.can_see?(topic)

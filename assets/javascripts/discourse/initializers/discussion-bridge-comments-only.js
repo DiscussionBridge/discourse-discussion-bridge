@@ -55,11 +55,18 @@ function consumeAuthReturnState() {
     typeof state?.previousName === "string" ? state.previousName : "";
   window.name = previousName;
 
+  const now = Date.now();
   if (
     state?.version !== 1 ||
     typeof state.token !== "string" ||
+    !Number.isFinite(state.issuedAt) ||
     !Number.isFinite(state.expiresAt) ||
-    state.expiresAt < Date.now()
+    state.issuedAt > now ||
+    state.expiresAt <= now ||
+    state.expiresAt <= state.issuedAt ||
+    state.expiresAt > now + AUTH_RETURN_MAX_AGE_MS ||
+    state.expiresAt - state.issuedAt > AUTH_RETURN_MAX_AGE_MS ||
+    now - state.issuedAt > AUTH_RETURN_MAX_AGE_MS
   ) {
     return null;
   }
@@ -87,10 +94,12 @@ function armLogoutReturn(event) {
   const previousName = window.name.startsWith(AUTH_RETURN_PREFIX)
     ? ""
     : window.name.slice(0, 1024);
+  const issuedAt = Date.now();
   window.name = `${AUTH_RETURN_PREFIX}${JSON.stringify({
     version: 1,
     token: route.token,
-    expiresAt: Date.now() + AUTH_RETURN_MAX_AGE_MS,
+    issuedAt,
+    expiresAt: issuedAt + AUTH_RETURN_MAX_AGE_MS,
     previousName,
   })}`;
 }

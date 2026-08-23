@@ -12,6 +12,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_comments_only_full_interactive = true
     SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
     DiscussionBridgeConnection.create!(
       connection_id: "astro",
@@ -320,6 +321,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
       frame.contentWindow.name = "discussion-bridge-auth-return:" + JSON.stringify({
           version: 1,
           token: #{token.to_json},
+          issuedAt: Date.now() - 120_001,
           expiresAt: Date.now() - 1,
           previousName: "original-frame-name",
       });
@@ -341,10 +343,82 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(URI.parse(stale_result[0]).request_uri).to eq("/?stale_return=1")
     expect(stale_result[1]).to eq("original-frame-name")
 
+    future_window_result = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("stale-auth-frame");
+      const issuedAt = Date.now();
+      frame.contentWindow.name = "discussion-bridge-auth-return:" + JSON.stringify({
+        version: 1,
+        token: #{token.to_json},
+        issuedAt,
+        expiresAt: issuedAt + 120_001,
+        previousName: "future-window-name",
+      });
+      frame.addEventListener("load", () => {
+        const poll = setInterval(() => {
+          if (frame.contentWindow.name === "future-window-name") {
+            clearInterval(poll);
+            done([frame.contentWindow.location.href, frame.contentWindow.name]);
+          }
+        }, 50);
+      }, { once: true });
+      frame.contentWindow.location.assign("/?future_window=1");
+    JS
+    expect(URI.parse(future_window_result[0]).request_uri).to eq("/?future_window=1")
+    expect(future_window_result[1]).to eq("future-window-name")
+
+    future_clock_result = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("stale-auth-frame");
+      const issuedAt = Date.now() + 60_000;
+      frame.contentWindow.name = "discussion-bridge-auth-return:" + JSON.stringify({
+        version: 1,
+        token: #{token.to_json},
+        issuedAt,
+        expiresAt: issuedAt + 60_000,
+        previousName: "future-clock-name",
+      });
+      frame.addEventListener("load", () => {
+        const poll = setInterval(() => {
+          if (frame.contentWindow.name === "future-clock-name") {
+            clearInterval(poll);
+            done([frame.contentWindow.location.href, frame.contentWindow.name]);
+          }
+        }, 50);
+      }, { once: true });
+      frame.contentWindow.location.assign("/?future_clock=1");
+    JS
+    expect(URI.parse(future_clock_result[0]).request_uri).to eq("/?future_clock=1")
+    expect(future_clock_result[1]).to eq("future-clock-name")
+
+    malformed_clock_result = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("stale-auth-frame");
+      frame.contentWindow.name = "discussion-bridge-auth-return:" + JSON.stringify({
+        version: 1,
+        token: #{token.to_json},
+        issuedAt: "not-a-clock",
+        expiresAt: Date.now() + 60_000,
+        previousName: "malformed-clock-name",
+      });
+      frame.addEventListener("load", () => {
+        const poll = setInterval(() => {
+          if (frame.contentWindow.name === "malformed-clock-name") {
+            clearInterval(poll);
+            done([frame.contentWindow.location.href, frame.contentWindow.name]);
+          }
+        }, 50);
+      }, { once: true });
+      frame.contentWindow.location.assign("/?malformed_clock=1");
+    JS
+    expect(URI.parse(malformed_clock_result[0]).request_uri).to eq("/?malformed_clock=1")
+    expect(malformed_clock_result[1]).to eq("malformed-clock-name")
+
     page.execute_script(<<~JS)
       window.name = "discussion-bridge-auth-return:" + JSON.stringify({
         version: 1,
         token: #{token.to_json},
+        issuedAt: Date.now(),
         expiresAt: Date.now() + 60_000,
         previousName: "top-level-name",
       });
