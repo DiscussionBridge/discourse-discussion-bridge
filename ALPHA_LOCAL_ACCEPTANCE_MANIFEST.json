@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "createdDate": "2026-08-03",
-  "status": "alpha-dev-exact-revision-candidate-qualified",
+  "status": "alpha-dev-exact-revision-candidate-installed",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 65 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
+  "installedPluginCommit": "50c4a92359f672a00b2242e99819a70813ebea19",
   "verification": {
     "completeRSpec": "78 examples, 0 failures",
     "browserRSpec": "4 examples, 0 failures",
@@ -19,7 +20,7 @@
     "frontendLint": "Exact-revision plugin ESLint and Prettier PASS; three deprecated .hbs admin route templates converted to compiled .gjs templates",
     "clientQUnit": "No plugin QUnit files exist. Two exact-revision aggregate runner attempts failed before any DiscussionBridge assertion: Chrome connection timeout, then a 2 GB host parallel-build worker death. Classified as harness-capacity evidence; 4/4 browser/system examples and live dev checks cover browser behavior.",
     "localRuntime": "PASS: signed-in replies, natural sizing, service-authored controlled creation, idempotent retry, endpoint-off rollback",
-    "adminHealthRuntime": "authenticated endpoint and nested admin route contracts PASS; manual visual inspection remains open",
+    "adminHealthRuntime": "Authenticated endpoint and nested admin route contracts PASS; live native Health page visually passes after exact candidate rebuild with endpoint_disabled as the only expected at-rest blocker",
     "nativeSettings": "Discourse native write-only secret plus save-time origin, identity, category, and tag validation PASS",
     "operationsInspector": "Read-only administrator mappings and audit inspection with bounded search, filtering, pagination, safe projections, and no mutation actions PASS",
     "lanePolicy": "Optional forum-owned lane category/tag policy with unlisted visibility, unknown-lane fail-closed behavior, and global-policy compatibility PASS",
@@ -31,12 +32,12 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 65,
-    "bytes": 155243.0,
-    "sha256": "676d2ae5eb1640e48196c871fe09893df8ba1717565ba90a5d50518ff67499af"
+    "bytes": 155432.0,
+    "sha256": "1eb4195fd43fa39c7cabbe275dee0f8ea42812e4c2b012e3b6d252ce88135c4d"
   },
   "publicationAuthorized": false,
-  "installationAuthorized": false,
-  "deploymentAuthorized": false,
+  "installationAuthorized": true,
+  "deploymentAuthorized": true,
   "members": [
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -255,8 +256,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 8976,
-      "sha256": "71fa824959227e69f5df73e815d632aee8dedbe3e294c5b1facc82e7658eb23f"
+      "bytes": 9165,
+      "sha256": "96bff950c3fe381b2aa9b45132ae622e4ce60408c47f5b2fe662c850b275efac"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",

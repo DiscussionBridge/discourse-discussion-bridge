@@ -102,15 +102,17 @@ blockers, and secret containment. Discourse ESLint, Prettier, and Stylelint acce
 route, navigation entry, Glimmer page, and scoped stylesheet.
 A reviewed live nonproduction installation is present on stable
 `dev-forum.discussionbridge.dev` at plugin SHA
-`8a070298514c95a6d7344dad624495e86df25fc1`. Installation, migrations, reviewed
+`50c4a92359f672a00b2242e99819a70813ebea19`. Installation, migrations, reviewed
 settings, create-then-resolve, comments-only presentation, ordinary-topic
 isolation, Health/Operations/Reconciliation, and retry-authorization proofs
-passed on 2026-08-22. The `.gjs` compatibility correction described above is a
-qualified local successor candidate and is not yet installed. The remaining
-mobile/mail/recovery matrix is still in progress. The settled
-progression is local development, `sandbox-forum.discussionbridge.dev`
-integration testing, stable preproduction acceptance, and only then the
-production `forum.discussionbridge.dev` forum.
+passed on 2026-08-22. The `.gjs` compatibility correction described above is
+installed and the prior admin deprecation notice is absent after browser reload.
+Clean snapshot restore/reinstall, direct mobile acceptance, and a separately
+deployed dev-targeted Starlight page with an authenticated non-admin reply also
+pass. Mail and the broader disable/upgrade/rollback matrix remain in progress.
+The settled progression is local development,
+`sandbox-forum.discussionbridge.dev` integration testing, stable preproduction
+acceptance, and only then the production `forum.discussionbridge.dev` forum.
 The three hosted forums must use separate databases, credentials, deployment
 identities, and rollback boundaries.
 
