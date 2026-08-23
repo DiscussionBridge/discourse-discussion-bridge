@@ -149,6 +149,12 @@ The release record must name the immutable plugin tag and commit SHA. The human
 administrator must use that public GitHub identity, not a local checkout or
 moving branch.
 
+Release history: public prerelease `v0.1.0-alpha.0` is immutable and remains as
+dated evidence. Its first human preflight exposed an unsupported launcher
+inspection command before any configuration edit, rebuild, or forum mutation.
+It is superseded for installation by corrected candidate `v0.1.0-alpha.1` and
+must not be rewritten, retagged, or silently replaced.
+
 #### 1. Preflight and recovery identity
 
 From a private administrator shell, confirm the install root and topology:
