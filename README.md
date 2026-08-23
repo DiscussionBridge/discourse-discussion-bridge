@@ -79,24 +79,23 @@ under `theme-components`.
 
 ## Local verification
 
-The current candidate is verified against the exact stable-preproduction
-Discourse commit `36698aae084678151dffa875d49c8d59216d2733` (public version
-`2026.8.0-latest.1`). Both plugin migrations pass; Discourse RuboCop accepts all
-47 Ruby files; i18n, ESLint, and Prettier pass; the complete plugin suite passes
-78/78 server/plugin examples and 4/4 browser/system examples. The three admin
-route templates use current `.gjs` modules; this removes the
-`discourse.hbs-extension` notice found during real-user dev acceptance. The
-plugin has no QUnit test files. Two aggregate QUnit launcher attempts failed in
-the 2 GB isolated host before any DiscussionBridge assertion—first on browser
-connection timeout, then on a parallel plugin-build worker death—so they are
-recorded as harness-capacity evidence, not a product test failure. Browser
-behavior is covered by the passing four system examples and live dev checks.
-Signed-in manual acceptance additionally confirmed native reply persistence on
-the empty, replied, and ordinary-topic fixtures without changing ordinary topic
-presentation.
-Disposable host-frame acceptance confirmed natural empty/replied iframe sizing,
-and the browser suite now proves that increasing omitted companion-post content
-does not inflate the reported Discourse application height.
+The Alpha.3 source is qualified against the exact stable-preproduction Discourse
+commit `36698aae084678151dffa875d49c8d59216d2733` (public version
+`2026.8.0-latest.1`) through Discourse's official reusable plugin workflow. Both
+plugin migrations pass; annotation, i18n, RuboCop, Syntax Tree, and the applicable
+frontend checks pass. The exact suite contains 81 server/plugin examples and 7
+browser/system examples. It proves the completed-mapping 503 guard, readiness
+blockers, comments-only isolation, native empty-state and existing-post replies,
+Like persistence, and Quote submission in Core embed mode. The plugin has no
+QUnit files. The actual Astro-hosted iframe and signed-out embed sign-in flow
+remain mandatory human release gates below; direct Core system tests do not
+substitute for those two browser boundaries.
+
+Earlier Alpha.2-era qualification additionally proved natural empty/replied
+iframe sizing and that increasing omitted companion-post content does not inflate
+the reported Discourse application height. That evidence remains valid for the
+unchanged presentation behavior but does not qualify Alpha.2's rejected
+`fullInteractive` promise.
 Forum-controlled local creation also passes under a dedicated non-system service
 identity: the first request created one unlisted topic, retry resolved the same
 mapping, an underprivileged identity now fails closed as `unlisted_denied`, and
@@ -105,7 +104,7 @@ A focused five-example contract verifies the read-only Health endpoint, nested
 administrator page routing, administrator authorization, explicit readiness
 blockers, and secret containment. Discourse ESLint, Prettier, and Stylelint accept the native admin
 route, navigation entry, Glimmer page, and scoped stylesheet.
-A reviewed live nonproduction installation is present on stable
+A reviewed predecessor nonproduction installation remains present on stable
 `dev-forum.discussionbridge.dev` at plugin SHA
 `50c4a92359f672a00b2242e99819a70813ebea19`. Installation, migrations, reviewed
 settings, create-then-resolve, comments-only presentation, ordinary-topic
@@ -116,8 +115,11 @@ Clean snapshot restore/reinstall, direct mobile acceptance, and a separately
 deployed dev-targeted Starlight page with an authenticated non-admin reply also
 pass. A fresh post-restore Discourse SMTP message to Postmark's nondelivering
 blackhole recipient passed without exposing credentials. Disable/re-enable,
-record-only upgrade, and rollback to the qualified installed SHA also pass with
-forum data and the real reply preserved. Production promotion remains separate.
+record-only upgrade, and rollback to that qualified predecessor SHA also pass
+with forum data and the real reply preserved. The Alpha.2 human sandbox test was
+rolled back to its recorded prior SHA
+`05bbf481c1eeca2e26e82cfeb8e5d31963f89e92`. Neither installed predecessor is
+Alpha.3 acceptance evidence. Production promotion remains separate.
 The settled progression is local development,
 `sandbox-forum.discussionbridge.dev` integration testing, stable preproduction
 acceptance, and only then the production `forum.discussionbridge.dev` forum.
