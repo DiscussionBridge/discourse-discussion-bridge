@@ -100,14 +100,14 @@ passed automated qualification, but Phil's real Astro-hosted human pass proved
 that qualified Core renders no embedded logout control. Its synthetic
 logout-button system test therefore qualified an unreachable trigger rather
 than the production interface. Alpha.5 is immutable rejected evidence and must
-not be installed. Alpha.6 removes that unsupported return-state machinery and
-the server attestation/restore surface that existed only to support it. It
-instead contains Core's real logout-dialog **Refresh** action narrowly in an
-actual child iframe that remains on its initially qualified mapped route, while
-leaving Core responsible for logout cleanup. Top-level embed-mode pages and
-post-navigation/non-mapped states are not intercepted. A forged direct topic
-URL, an incomplete mapping, or an ordinary topic cannot obtain the required
-server-rendered mapping attestation.
+not be installed. Alpha.6 removes Alpha.5's unsupported logout-return state,
+its logout-return attestation, and its restore endpoint. Alpha.6 uses a distinct
+signed current-mapping final-route attestation only to qualify Core's real
+logout-dialog **Refresh** containment in an actual child iframe that remains on
+its initially qualified mapped route, while leaving Core responsible for logout
+cleanup. Top-level embed-mode pages and post-navigation/non-mapped states are
+not intercepted. A forged direct topic URL, an incomplete mapping, or an
+ordinary topic cannot obtain the required server-rendered mapping attestation.
 The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
