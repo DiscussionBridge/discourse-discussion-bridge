@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "createdDate": "2026-08-03",
-  "status": "alpha-local-one-time-retry-reconciliation-accepted",
-  "root": "C:/CodeProjects/CodeWorksLabs/DiscussionBridge/plugins/discourse-discussion-bridge",
+  "status": "alpha-dev-exact-revision-candidate-qualified",
+  "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 65 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
-  "verifiedDiscourseCommit": "6b2f4579ba6802a7c556459e596c3150b67403aa",
+  "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
   "verification": {
-    "completeRSpec": "80 examples, 0 failures",
+    "completeRSpec": "78 examples, 0 failures",
     "browserRSpec": "4 examples, 0 failures",
     "endpointRSpec": "7 examples, 0 failures",
     "healthRSpec": "5 examples, 0 failures",
@@ -16,7 +16,8 @@
     "reconciliationFocusedRSpec": "7 examples, 0 failures",
     "retryAndReconciliationFocusedRSpec": "18 examples, 0 failures",
     "rubocop": "reviewed changed scope, 0 offenses",
-    "frontendLint": "ESLint, Prettier, and Stylelint PASS",
+    "frontendLint": "Exact-revision plugin ESLint and Prettier PASS; three deprecated .hbs admin route templates converted to compiled .gjs templates",
+    "clientQUnit": "No plugin QUnit files exist. Two exact-revision aggregate runner attempts failed before any DiscussionBridge assertion: Chrome connection timeout, then a 2 GB host parallel-build worker death. Classified as harness-capacity evidence; 4/4 browser/system examples and live dev checks cover browser behavior.",
     "localRuntime": "PASS: signed-in replies, natural sizing, service-authored controlled creation, idempotent retry, endpoint-off rollback",
     "adminHealthRuntime": "authenticated endpoint and nested admin route contracts PASS; manual visual inspection remains open",
     "nativeSettings": "Discourse native write-only secret plus save-time origin, identity, category, and tag validation PASS",
@@ -30,8 +31,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 65,
-    "bytes": 146277.0,
-    "sha256": "f28f9a630c97bc61c70e36e9549d14733264bec677bb352e8d06d848c466f809"
+    "bytes": 155243.0,
+    "sha256": "676d2ae5eb1640e48196c871fe09893df8ba1717565ba90a5d50518ff67499af"
   },
   "publicationAuthorized": false,
   "installationAuthorized": false,
@@ -53,19 +54,19 @@
       "sha256": "202d9fe140219f9a0637c4acb57c93b9533baf7cb53d7c1b92d1975a259e2efa"
     },
     {
-      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-health.hbs",
-      "bytes": 49,
-      "sha256": "577019c5d1f1b1aa101b34f22d4da8b47fd06e71d6e417b81ba4608cecd2a34f"
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-health.gjs",
+      "bytes": 228,
+      "sha256": "ab0ba86c821ba57517cd89c38b38a8cd348f0402a6b8f7e2775e43919a3e5d4b"
     },
     {
-      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-operations.hbs",
-      "bytes": 52,
-      "sha256": "bf52a49f7e07b92a91af8f449144a3fc275bcf549c65425de9d0e5fef6369820"
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-operations.gjs",
+      "bytes": 239,
+      "sha256": "bb6bc7723beb3792bf4f9115241313f3a19f01aaf742817772941ac725c0acec"
     },
     {
-      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-reconciliation.hbs",
-      "bytes": 56,
-      "sha256": "de9566cfed9b7757c82c655e43610bf51ed9ef1bbfc79305891acce6c6c40982"
+      "path": "admin/assets/javascripts/discourse/templates/admin-plugins/show/discussion-bridge-reconciliation.gjs",
+      "bytes": 251,
+      "sha256": "6cc276499461fcd4823b272fe693872837c852351ca784975decc2ac5702f454"
     },
     {
       "path": "app/controllers/discussion_bridge/connections_controller.rb",
@@ -104,13 +105,13 @@
     },
     {
       "path": "assets/javascripts/discourse/components/discussion-bridge-health.gjs",
-      "bytes": 5165,
-      "sha256": "2624b49424c96216212eee33b26c2dba8d49b8b90fbfb5b9656b8c256d98804b"
+      "bytes": 5259,
+      "sha256": "e29180a64fbb86dfafb013359c77a086554cd6dc4e74a1eddd277e9a1c0dd922"
     },
     {
       "path": "assets/javascripts/discourse/components/discussion-bridge-operations.gjs",
-      "bytes": 6494,
-      "sha256": "9fdccceaa99cc7b9f4b4af3e411b09d3537722dbed7b948f6614e38b1c8912f1"
+      "bytes": 8551,
+      "sha256": "492d31a96002104ad8aa8d02c151341d1f87d32acc37e7b4292c6912628e6f79"
     },
     {
       "path": "assets/javascripts/discourse/components/discussion-bridge-reconciliation.gjs",
@@ -129,8 +130,8 @@
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
-      "bytes": 1761,
-      "sha256": "8851c5b8a8c01741af734e7d82c18df77f32ca9362561180c778be46b5810cf3"
+      "bytes": 4668,
+      "sha256": "d92549e82fa4561e85a2e344d875794196e54ab2ad4ae6f8b71a8883f4e212d6"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-comments-only.scss",
@@ -139,8 +140,8 @@
     },
     {
       "path": "config/locales/client.en.yml",
-      "bytes": 3238,
-      "sha256": "300f06e82f884eff05d3b96b7dde6da3f59170353f33590f687ff3cf510132d4"
+      "bytes": 3348,
+      "sha256": "c7a9ee0fa35f70f339b9365924e22f506a0f52220194953a8deefd3f4b649ba8"
     },
     {
       "path": "config/locales/server.en.yml",
@@ -249,13 +250,13 @@
     },
     {
       "path": "plugin.rb",
-      "bytes": 3850,
-      "sha256": "62345badb2332149c6c89f0605dbf1eb7539f5e2158a38288358e4fdabb7adae"
+      "bytes": 4162,
+      "sha256": "b344e0599bb5e281df69569304144bb2d47051e8f076e60bd78df68110407b79"
     },
     {
       "path": "README.md",
-      "bytes": 7257,
-      "sha256": "99ae6aef28f055c398e8356c1aa974e31764d619f06ff296f6f89b56afc7e38f"
+      "bytes": 8976,
+      "sha256": "71fa824959227e69f5df73e815d632aee8dedbe3e294c5b1facc82e7658eb23f"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
@@ -329,8 +330,8 @@
     },
     {
       "path": "spec/plugin_spec.rb",
-      "bytes": 436,
-      "sha256": "2de08f821c4e268354d4198259aeb15fcd1fcac7b1b8c5b7e8d160bdd4141bb6"
+      "bytes": 1642,
+      "sha256": "81c302d482419602380f462583cfa8c41635e88acc25c99f027a711ada5802ab"
     },
     {
       "path": "spec/requests/comments_only_full_interactive_spec.rb",

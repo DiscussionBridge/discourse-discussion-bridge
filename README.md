@@ -2,7 +2,8 @@
 
 This is the default-disabled v0.1 Alpha implementation for the forum-governed
 DiscussionBridge control plane. It is a Ruby Discourse plugin, not a theme
-component. It is not installed or deployed by this repository state.
+component. Repository source state and installed forum state are accepted and
+tracked separately.
 
 ## Current boundary
 
@@ -73,18 +74,18 @@ under `theme-components`.
 
 ## Local verification
 
-The controlled-creation and comments-only request boundaries are verified
-against stock Discourse commit
-`6b2f4579ba6802a7c556459e596c3150b67403aa` with Ruby 3.4.10. Both plugin
-migrations pass in the local test databases, Discourse RuboCop reports zero
-offenses across the reviewed Ruby scope, and the complete plugin RSpec coverage
-passes 80 examples, including all four browser scenarios for compact native
-zero-reply state, visible replies/actions, and unchanged ordinary long-topic
-presentation, plus rejection of a caller-supplied reserved marker while the
-operator option is disabled. The local development-server runtime also passes
-empty, replied, ordinary-topic, operator-disable rollback, and reserved-marker
-rejection checks after full client boot. The 2026-08-03 browser replay passes
-4/4 after restoring the local Discourse Rollup frontend process.
+The current candidate is verified against the exact stable-preproduction
+Discourse commit `36698aae084678151dffa875d49c8d59216d2733` (public version
+`2026.8.0-latest.1`). Both plugin migrations pass; Discourse RuboCop accepts all
+47 Ruby files; i18n, ESLint, and Prettier pass; the complete plugin suite passes
+78/78 server/plugin examples and 4/4 browser/system examples. The three admin
+route templates use current `.gjs` modules; this removes the
+`discourse.hbs-extension` notice found during real-user dev acceptance. The
+plugin has no QUnit test files. Two aggregate QUnit launcher attempts failed in
+the 2 GB isolated host before any DiscussionBridge assertion—first on browser
+connection timeout, then on a parallel plugin-build worker death—so they are
+recorded as harness-capacity evidence, not a product test failure. Browser
+behavior is covered by the passing four system examples and live dev checks.
 Signed-in manual acceptance additionally confirmed native reply persistence on
 the empty, replied, and ordinary-topic fixtures without changing ordinary topic
 presentation.
@@ -99,16 +100,23 @@ A focused five-example contract verifies the read-only Health endpoint, nested
 administrator page routing, administrator authorization, explicit readiness
 blockers, and secret containment. Discourse ESLint, Prettier, and Stylelint accept the native admin
 route, navigation entry, Glimmer page, and scoped stylesheet.
-A reviewed live nonproduction installation remains open. The settled progression
-is local development, disposable `sandbox-forum.discussionbridge.dev`
-integration testing, stable `dev-forum.discussionbridge.dev` preproduction
-acceptance, and only then the production `forum.discussionbridge.dev` forum.
+A reviewed live nonproduction installation is present on stable
+`dev-forum.discussionbridge.dev` at plugin SHA
+`8a070298514c95a6d7344dad624495e86df25fc1`. Installation, migrations, reviewed
+settings, create-then-resolve, comments-only presentation, ordinary-topic
+isolation, Health/Operations/Reconciliation, and retry-authorization proofs
+passed on 2026-08-22. The `.gjs` compatibility correction described above is a
+qualified local successor candidate and is not yet installed. The remaining
+mobile/mail/recovery matrix is still in progress. The settled
+progression is local development, `sandbox-forum.discussionbridge.dev`
+integration testing, stable preproduction acceptance, and only then the
+production `forum.discussionbridge.dev` forum.
 The three hosted forums must use separate databases, credentials, deployment
 identities, and rollback boundaries.
 
 This is development evidence, not installation or production acceptance.
 
-## Install and test later
+## Install and acceptance
 
 Before any installation, record the exact supported Discourse commit and run
 the plugin through that checkout's standard plugin RSpec harness. An operator
@@ -116,7 +124,28 @@ installation will normally place or symlink the plugin under
 `discourse/plugins/discourse-discussion-bridge`, run migrations, rebuild the
 application, and leave the plugin and endpoint disabled until acceptance.
 
-No live installation is authorized by this implementation state.
+### Protect rebuild output
+
+Discourse's standard `launcher rebuild` output can echo the final Docker command
+with environment values, including forum-wide SMTP and database credentials.
+That is upstream launcher behavior, not a DiscussionBridge setting, but it is
+part of the real installation boundary.
+
+- Run launcher commands only in a private administrator terminal.
+- Never stream raw launcher output into CI logs, Codex/chat, issues, support
+  tickets, or shared transcripts.
+- If output must be retained, capture it in a root-only file with restrictive
+  permissions, sanitize every environment assignment before sharing, and then
+  dispose of the protected raw copy under the operator's retention policy.
+- Treat any unredacted launcher transcript as credential-bearing even when the
+  rebuild succeeds. Do not assume that ordinary installer output is safe merely
+  because no DiscussionBridge secret was passed on the command line.
+- Verify the installed plugin SHA, migrations, settings, and service health with
+  separate sanitized commands after rebuild instead of sharing the raw rebuild
+  transcript.
+
+The accepted dev-forum installation does not authorize production installation
+or promotion. Production remains a separate reviewed release gate.
 
 ## Disable, rollback, and removal
 
