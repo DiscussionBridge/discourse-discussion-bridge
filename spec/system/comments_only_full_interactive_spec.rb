@@ -199,40 +199,107 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page.current_url).to include("embed_mode=true")
   end
 
-  it "keeps Core's mapped-embed logout refresh on the mapped route" do
+  it "keeps Core's mapped-embed logout refresh on the mapped child-frame route" do
+    sign_in(interactive_user)
+    visit("/")
+    page.execute_script(<<~JS)
+      const frame = document.createElement("iframe");
+      frame.id = "mapped-logout-frame";
+      frame.src = "/embed/comments?topic_id=#{topic.id}&full_app=true";
+      document.body.appendChild(frame);
+    JS
+
+    within_frame("mapped-logout-frame") do
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      mapped_route = URI.parse(page.evaluate_script("window.location.href")).request_uri
+      page.execute_script(<<~JS)
+        const dialog = document.createElement("div");
+        dialog.className = "dialog-container__logout-refresh";
+        dialog.innerHTML = `
+          <div class="dialog-body"><p>You were logged out.</p></div>
+          <div class="dialog-footer">
+            <button class="btn btn-primary" type="button">
+              <span class="d-button-label">Refresh</span>
+            </button>
+          </div>`;
+        document.body.appendChild(dialog);
+      JS
+
+      find(".dialog-container__logout-refresh .dialog-footer button.btn-primary").click
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      expect(URI.parse(page.evaluate_script("window.location.href")).request_uri).to eq(mapped_route)
+
+      page.execute_script(<<~JS)
+        window.__discussionBridgeGenericRefreshReached = false;
+        const button = document.createElement("button");
+        button.className = "btn btn-primary";
+        button.textContent = "Refresh";
+        button.addEventListener("click", () => {
+          window.__discussionBridgeGenericRefreshReached = true;
+        });
+        document.body.appendChild(button);
+      JS
+      all("body > button.btn-primary").last.click
+      expect(page.evaluate_script("window.__discussionBridgeGenericRefreshReached")).to eq(true)
+    end
+  end
+
+  it "does not intercept Core's logout refresh on a top-level embed-mode page" do
     sign_in(interactive_user)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
     page.execute_script(<<~JS)
+      window.__discussionBridgeTopLevelRefreshReached = false;
       const dialog = document.createElement("div");
       dialog.className = "dialog-container__logout-refresh";
       dialog.innerHTML = `
-        <div class="dialog-body"><p>You were logged out.</p></div>
         <div class="dialog-footer">
-          <button class="btn btn-primary" type="button">
-            <span class="d-button-label">Refresh</span>
-          </button>
+          <button class="btn btn-primary" type="button">Refresh</button>
         </div>`;
+      dialog.querySelector("button").addEventListener("click", () => {
+        window.__discussionBridgeTopLevelRefreshReached = true;
+      });
       document.body.appendChild(dialog);
     JS
 
-    find(".dialog-container__logout-refresh .dialog-footer button.btn-primary").click
-    expect(page.current_url).to include("embed_mode=true")
-    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    find(".dialog-container__logout-refresh button.btn-primary").click
+    expect(page.evaluate_script("window.__discussionBridgeTopLevelRefreshReached")).to eq(true)
+  end
 
+  it "does not intercept Core's logout refresh after the mapped route changes" do
+    sign_in(interactive_user)
+    visit("/")
     page.execute_script(<<~JS)
-      window.__discussionBridgeGenericRefreshReached = false;
-      const button = document.createElement("button");
-      button.className = "btn btn-primary";
-      button.textContent = "Refresh";
-      button.addEventListener("click", () => {
-        window.__discussionBridgeGenericRefreshReached = true;
-      });
-      document.body.appendChild(button);
+      const frame = document.createElement("iframe");
+      frame.id = "navigated-logout-frame";
+      frame.src = "/embed/comments?topic_id=#{topic.id}&full_app=true";
+      document.body.appendChild(frame);
     JS
-    all("body > button.btn-primary").last.click
-    expect(page.evaluate_script("window.__discussionBridgeGenericRefreshReached")).to eq(true)
+
+    within_frame("navigated-logout-frame") do
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      page.execute_script(<<~JS)
+        window.history.pushState({}, "", "/?non_mapped_state=1");
+        window.__discussionBridgeNavigatedRefreshReached = false;
+        const dialog = document.createElement("div");
+        dialog.className = "dialog-container__logout-refresh";
+        dialog.innerHTML = `
+          <div class="dialog-footer">
+            <button class="btn btn-primary" type="button">Refresh</button>
+          </div>`;
+        dialog.querySelector("button").addEventListener("click", () => {
+          window.__discussionBridgeNavigatedRefreshReached = true;
+        });
+        document.body.appendChild(dialog);
+      JS
+
+      find(".dialog-container__logout-refresh button.btn-primary").click
+      expect(page.evaluate_script("window.__discussionBridgeNavigatedRefreshReached")).to eq(true)
+      expect(URI.parse(page.evaluate_script("window.location.href")).request_uri).to eq(
+        "/?non_mapped_state=1",
+      )
+    end
   end
 
   it "keeps mapped and ordinary iframe browsing contexts isolated" do
