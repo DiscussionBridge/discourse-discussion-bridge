@@ -169,9 +169,14 @@ than completing native actions inside the Astro-page iframe. Code and historical
 doctrine review confirm that is a product-contract blocker. Alpha.2 is rejected
 for installation. The corrected Alpha.3 source fails closed when the required
 Core full-app setting is absent and adds native action-completion coverage; it
-is not a published prerelease candidate until exact qualification and review
-finish. All three existing tags remain immutable and must not be rewritten,
-retagged, or silently replaced.
+passed exact qualification and independent Code/Manual review and was published
+as immutable prerelease candidate `v0.1.0-alpha.3` at commit
+`075388cdc6dbfe1112ee0a82dc0cec497e2c913b`. Its release page is the publication
+record. The tag's own immutable README necessarily retains the prepublication
+candidate-state sentence that existed before the tag and release were created;
+that dated sentence is superseded by the release record and this current README.
+All four existing tags remain immutable and must not be rewritten, retagged, or
+silently replaced.
 
 #### 1. Preflight and recovery identity
 
