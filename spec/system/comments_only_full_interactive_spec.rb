@@ -97,16 +97,9 @@ describe "DiscussionBridge comments-only fullInteractive" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     within("#post_#{reply.post_number}") do
-      find("button.reply").click
-    end
-    expect(page).to have_css(".embed-mode-composer .d-editor-input")
-    find(".embed-mode-composer .d-editor-input").set("Replying inside the embedded page")
-    find(".embed-mode-composer .docked-composer__submit-btn").click
-    expect(page).to have_css(".topic-post", text: "Replying inside the embedded page")
-
-    within("#post_#{reply.post_number}") do
       find("button.toggle-like").click
       expect(page).to have_css("button.toggle-like.has-like")
+      find("button.reply").click
     end
     expect(
       PostAction.exists?(
@@ -115,6 +108,10 @@ describe "DiscussionBridge comments-only fullInteractive" do
         post_action_type_id: PostActionType.types[:like],
       ),
     ).to eq(true)
+    expect(page).to have_css(".embed-mode-composer .d-editor-input")
+    find(".embed-mode-composer .d-editor-input").set("Replying inside the embedded page")
+    find(".embed-mode-composer .docked-composer__submit-btn").click
+    expect(page).to have_css(".topic-post", text: "Replying inside the embedded page")
     expect(page.current_url).to include("embed_mode=true")
   end
 
@@ -127,7 +124,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
     find(".quote-button .insert-quote").click
 
     expect(page).to have_css(".embed-mode-composer .d-editor-input")
-    expect(find(".embed-mode-composer .d-editor-input").value).to include("Words selected")
+    expect(page).to have_field(class: "d-editor-input", with: /Words selected/)
     find(".embed-mode-composer .docked-composer__submit-btn").click
 
     expect(page).to have_css(".topic-post blockquote", text: "Words selected")

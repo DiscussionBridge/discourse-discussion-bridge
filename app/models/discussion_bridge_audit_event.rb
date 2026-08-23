@@ -21,3 +21,29 @@ class DiscussionBridgeAuditEvent < ActiveRecord::Base
     end
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_audit_events
+#
+#  id                     :bigint           not null, primary key
+#  effective_state        :jsonb            not null
+#  outcome                :string           not null
+#  reason                 :string           not null
+#  requested_state        :jsonb            not null
+#  source_identity_digest :string(64)       not null
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  adapter_id             :string
+#  connection_id          :string           not null
+#  correlation_id         :string
+#  effective_actor_id     :bigint
+#  topic_id               :bigint
+#
+# Indexes
+#
+#  idx_discussion_bridge_audits_source                     (source_identity_digest)
+#  index_discussion_bridge_audit_events_on_correlation_id  (correlation_id)
+#  index_discussion_bridge_audit_events_on_created_at      (created_at)
+#  index_discussion_bridge_audit_events_on_topic_id        (topic_id)
+#

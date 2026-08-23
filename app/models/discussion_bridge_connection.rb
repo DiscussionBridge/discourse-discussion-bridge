@@ -38,3 +38,33 @@ class DiscussionBridgeConnection < ActiveRecord::Base
     end
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_connections
+#
+#  id                     :bigint           not null, primary key
+#  canonical_source_url   :text             not null
+#  effective_state        :jsonb            not null
+#  effective_visibility   :string           not null
+#  lane                   :string
+#  requested_state        :jsonb            not null
+#  requested_visibility   :string           not null
+#  reservation_token      :string(64)
+#  retry_authorized_at    :datetime
+#  source_identity_digest :string(64)       not null
+#  state                  :string           default("reserved"), not null
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  connection_id          :string           not null
+#  effective_actor_id     :bigint
+#  retry_authorized_by_id :bigint
+#  topic_id               :bigint
+#
+# Indexes
+#
+#  idx_discussion_bridge_connections_retry                   (retry_authorized_at)
+#  idx_discussion_bridge_connections_source                  (source_identity_digest) UNIQUE
+#  index_discussion_bridge_connections_on_reservation_token  (reservation_token) UNIQUE
+#  index_discussion_bridge_connections_on_topic_id           (topic_id) UNIQUE
+#
