@@ -306,10 +306,12 @@ describe "DiscussionBridge comments-only fullInteractive" do
     )
 
     visit("/")
-    page.execute_script(<<~JS)
+    page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
       const frame = document.createElement("iframe");
       frame.id = "stale-auth-frame";
-      frame.src = "/";
+      frame.src = "/?stale_initial=1";
+      frame.addEventListener("load", () => done(frame.contentWindow.location.href), { once: true });
       document.body.appendChild(frame);
     JS
     stale_result = page.evaluate_async_script(<<~JS)
