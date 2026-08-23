@@ -3,7 +3,9 @@
 describe "DiscussionBridge comments-only fullInteractive" do
   fab!(:topic)
   fab!(:first_post) { Fabricate(:post, topic: topic, raw: "Companion source post") }
-  fab!(:interactive_user) { Fabricate(:user, trust_level: TrustLevel[1]) }
+  fab!(:interactive_user) do
+    Fabricate(:user, trust_level: TrustLevel[1], refresh_auto_groups: true)
+  end
 
   before do
     SiteSetting.discussion_bridge_enabled = true
