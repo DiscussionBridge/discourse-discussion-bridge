@@ -325,7 +325,15 @@ describe "DiscussionBridge comments-only fullInteractive" do
       });
       frame.addEventListener(
         "load",
-        () => done([frame.contentWindow.location.href, frame.contentWindow.name]),
+        () => {
+          const timeout = Date.now() + 10_000;
+          const poll = setInterval(() => {
+            if (frame.contentWindow.name === "original-frame-name" || Date.now() > timeout) {
+              clearInterval(poll);
+              done([frame.contentWindow.location.href, frame.contentWindow.name]);
+            }
+          }, 50);
+        },
         { once: true }
       );
       frame.contentWindow.location.assign("/?stale_return=1");
