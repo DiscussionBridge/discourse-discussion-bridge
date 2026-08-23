@@ -35,7 +35,7 @@ origins, unavailable operating identities, nonexistent categories, and
 nonexistent tags. Visible product copy uses `DiscussionBridge`; machine IDs,
 route paths, setting names, and compatibility hooks retain their established
 `discussion_bridge` or `discourse-discussion-bridge` forms.
-The corrected Alpha.6 development candidate gives Core's compact composer
+The published Alpha.6 prerelease candidate gives Core's compact composer
 submit control an explicit visible **Post reply** label for creation/reply and
 **Save edit** while editing an allowed post. Core's qualified embed exposes no
 avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one.
@@ -218,10 +218,14 @@ is the publication authority. Its human gate proved that Core does not expose
 the assumed embedded logout control; the synthetic automated trigger was not a
 production interface. Alpha.5 is rejected for installation with no tag rewrite.
 The tag's README retains its truthful prepublication sentence as dated evidence.
-Alpha.6 removes the unreachable logout feature, contains Core's actual mapped
-child-iframe logout-refresh action without inventing a logout control, and is
-not yet published. All six published tags remain
-immutable and must not be rewritten, retagged, or silently replaced.
+Alpha.6 removes the unreachable logout feature and contains Core's actual
+mapped child-iframe logout-refresh action without inventing a logout control.
+It is published as immutable prerelease `v0.1.0-alpha.6` at exact commit
+`787e3c02cbf5706664b5fef1f63d2435b4338067`; its
+[release page](https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.6)
+is the publication authority. The tag README's prepublication wording remains
+dated evidence. All seven published tags remain immutable and must not be
+rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
 
