@@ -110,8 +110,9 @@ installed and the prior admin deprecation notice is absent after browser reload.
 Clean snapshot restore/reinstall, direct mobile acceptance, and a separately
 deployed dev-targeted Starlight page with an authenticated non-admin reply also
 pass. A fresh post-restore Discourse SMTP message to Postmark's nondelivering
-blackhole recipient passed without exposing credentials. The broader
-disable/upgrade/rollback matrix remains in progress.
+blackhole recipient passed without exposing credentials. Disable/re-enable,
+record-only upgrade, and rollback to the qualified installed SHA also pass with
+forum data and the real reply preserved. Production promotion remains separate.
 The settled progression is local development,
 `sandbox-forum.discussionbridge.dev` integration testing, stable preproduction
 acceptance, and only then the production `forum.discussionbridge.dev` forum.
