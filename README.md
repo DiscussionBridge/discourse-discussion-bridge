@@ -109,7 +109,9 @@ passed on 2026-08-22. The `.gjs` compatibility correction described above is
 installed and the prior admin deprecation notice is absent after browser reload.
 Clean snapshot restore/reinstall, direct mobile acceptance, and a separately
 deployed dev-targeted Starlight page with an authenticated non-admin reply also
-pass. Mail and the broader disable/upgrade/rollback matrix remain in progress.
+pass. A fresh post-restore Discourse SMTP message to Postmark's nondelivering
+blackhole recipient passed without exposing credentials. The broader
+disable/upgrade/rollback matrix remains in progress.
 The settled progression is local development,
 `sandbox-forum.discussionbridge.dev` integration testing, stable preproduction
 acceptance, and only then the production `forum.discussionbridge.dev` forum.

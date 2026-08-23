@@ -32,8 +32,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 65,
-    "bytes": 155432.0,
-    "sha256": "1eb4195fd43fa39c7cabbe275dee0f8ea42812e4c2b012e3b6d252ce88135c4d"
+    "bytes": 155553.0,
+    "sha256": "067369ac40c5e04d9efc15f3b4dc7cb9e4068eb137bb892643b6fae8f0d99566"
   },
   "publicationAuthorized": false,
   "installationAuthorized": true,
@@ -256,8 +256,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 9165,
-      "sha256": "96bff950c3fe381b2aa9b45132ae622e4ce60408c47f5b2fe662c850b275efac"
+      "bytes": 9286,
+      "sha256": "a9089ac8d8c5f0baae37dcfcda48a8c8bb7843481d7aa42830a6b28ce61f40e8"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
