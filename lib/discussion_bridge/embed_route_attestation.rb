@@ -35,7 +35,7 @@ module DiscussionBridge
       return unless mapping.updated_at.to_i == payload["mapping_updated_at"]
 
       class_name = payload["class_name"].to_s
-      return unless class_name.split.include?(CommentsOnlyPresenter::CSS_CLASS)
+      return if class_name.split.exclude?(CommentsOnlyPresenter::CSS_CLASS)
       return unless class_name.match?(CommentsOnlyPresenter::CLASS_NAME_PATTERN)
 
       { mapping: mapping, class_name: class_name }

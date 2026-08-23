@@ -30,7 +30,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
 
     location = URI.parse(response.location)
     query = Rack::Utils.parse_nested_query(location.query)
-    expect(location.path).to eq(topic.url)
+    expect(location.path).to eq(URI.parse(topic.url).path)
     expect(query).to include(
       "embed_mode" => "true",
       "class_name" => "discussion-bridge-comments-only",
@@ -74,7 +74,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
 
     location = URI.parse(response.location)
     query = Rack::Utils.parse_nested_query(location.query)
-    expect(location.path).to eq(topic.url)
+    expect(location.path).to eq(URI.parse(topic.url).path)
     expect(query["class_name"]).to eq("operator-theme discussion-bridge-comments-only")
     attestation =
       DiscussionBridge::EmbedRouteAttestation.verify(query["discussion_bridge_embed_token"])
@@ -90,7 +90,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     get "/discussion-bridge/embed/restore", params: { token: token }
     expect(response).to have_http_status(:redirect)
     restored = URI.parse(response.location)
-    expect(restored.path).to eq(topic.url)
+    expect(restored.path).to eq(URI.parse(topic.url).path)
     expect(Rack::Utils.parse_nested_query(restored.query)).to include(
       "embed_mode" => "true",
       "class_name" => "discussion-bridge-comments-only",

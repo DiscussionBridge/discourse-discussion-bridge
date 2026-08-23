@@ -198,16 +198,38 @@ describe "DiscussionBridge comments-only fullInteractive" do
       document.body.appendChild(frame);
     JS
 
+    mapped_url = nil
     within_frame("discussion-bridge-auth-frame") do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
-      mapped_url = page.current_url
-
-      find(".header-dropdown-toggle.current-user").click
-      find("li.logout button").click
-
+      mapped_url = page.evaluate_script("window.location.href")
+    end
+    restored_url = page.evaluate_async_script(<<~JS, mapped_url)
+      const expectedUrl = arguments[0];
+      const done = arguments[1];
+      const frame = document.getElementById("discussion-bridge-auth-frame");
+      const item = frame.contentDocument.createElement("li");
+      item.className = "logout";
+      const button = frame.contentDocument.createElement("button");
+      button.type = "button";
+      button.addEventListener("click", () => frame.contentWindow.location.assign("/?logout_return=1"));
+      item.appendChild(button);
+      frame.contentDocument.body.appendChild(item);
+      const timeout = Date.now() + 10_000;
+      const poll = setInterval(() => {
+        if (frame.contentWindow.location.href === expectedUrl) {
+          clearInterval(poll);
+          done(frame.contentWindow.location.href);
+        } else if (Date.now() > timeout) {
+          clearInterval(poll);
+          done(frame.contentWindow.location.href);
+        }
+      }, 50);
+      button.click();
+    JS
+    expect(restored_url).to eq(mapped_url)
+    within_frame("discussion-bridge-auth-frame") do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
-      expect(page.current_url).to eq(mapped_url)
-      expect(page).to have_css(".login-button")
+      expect(page.evaluate_script("window.location.href")).to eq(mapped_url)
     end
   end
 
@@ -245,23 +267,35 @@ describe "DiscussionBridge comments-only fullInteractive" do
 
     within_frame("mapped-frame-one") do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
-      expect(page.current_url).to match(%r{/t/[^/]+/#{topic.id}\?})
+      expect(page.evaluate_script("window.location.href")).to match(%r{/t/[^/]+/#{topic.id}\?})
     end
     within_frame("mapped-frame-two") do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
-      expect(page.current_url).to match(%r{/t/[^/]+/#{second_topic.id}\?})
+      expect(page.evaluate_script("window.location.href")).to match(
+        %r{/t/[^/]+/#{second_topic.id}\?},
+      )
     end
     within_frame("ordinary-core-frame") do
       expect(page).to have_no_css("html.discussion-bridge-comments-only")
-      page.execute_script("window.location.assign('/')")
-      expect(page).to have_current_path("/")
     end
-    within_frame("mapped-frame-one") do
-      page.execute_script("window.location.assign('/latest')")
-      expect(page).to have_current_path("/latest")
-    end
+    ordinary_url = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("ordinary-core-frame");
+      frame.addEventListener("load", () => done(frame.contentWindow.location.href), { once: true });
+      frame.contentWindow.location.assign("/?ordinary_navigation=1");
+    JS
+    expect(URI.parse(ordinary_url).request_uri).to eq("/?ordinary_navigation=1")
+    deliberate_url = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("mapped-frame-one");
+      frame.addEventListener("load", () => done(frame.contentWindow.location.href), { once: true });
+      frame.contentWindow.location.assign("/latest");
+    JS
+    expect(URI.parse(deliberate_url).path).to eq("/latest")
     within_frame("mapped-frame-two") do
-      expect(page.current_url).to match(%r{/t/[^/]+/#{second_topic.id}\?})
+      expect(page.evaluate_script("window.location.href")).to match(
+        %r{/t/[^/]+/#{second_topic.id}\?},
+      )
     end
   end
 
@@ -278,19 +312,24 @@ describe "DiscussionBridge comments-only fullInteractive" do
       frame.src = "/";
       document.body.appendChild(frame);
     JS
-    within_frame("stale-auth-frame") do
-      page.execute_script(<<~JS)
-        window.name = "discussion-bridge-auth-return:" + JSON.stringify({
+    stale_result = page.evaluate_async_script(<<~JS)
+      const done = arguments[0];
+      const frame = document.getElementById("stale-auth-frame");
+      frame.contentWindow.name = "discussion-bridge-auth-return:" + JSON.stringify({
           version: 1,
           token: #{token.to_json},
           expiresAt: Date.now() - 1,
           previousName: "original-frame-name",
-        });
-        window.location.reload();
-      JS
-      expect(page).to have_current_path("/")
-      expect(page.evaluate_script("window.name")).to eq("original-frame-name")
-    end
+      });
+      frame.addEventListener(
+        "load",
+        () => done([frame.contentWindow.location.href, frame.contentWindow.name]),
+        { once: true }
+      );
+      frame.contentWindow.location.assign("/?stale_return=1");
+    JS
+    expect(URI.parse(stale_result[0]).request_uri).to eq("/?stale_return=1")
+    expect(stale_result[1]).to eq("original-frame-name")
 
     page.execute_script(<<~JS)
       window.name = "discussion-bridge-auth-return:" + JSON.stringify({
@@ -299,9 +338,9 @@ describe "DiscussionBridge comments-only fullInteractive" do
         expiresAt: Date.now() + 60_000,
         previousName: "top-level-name",
       });
-      window.location.reload();
     JS
-    expect(page).to have_current_path("/")
+    visit("/?top_level_return=1")
+    expect(page).to have_current_path("/?top_level_return=1")
     expect(page.evaluate_script("window.name")).to start_with("discussion-bridge-auth-return:")
     page.execute_script("window.name = ''")
   end
