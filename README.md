@@ -42,8 +42,9 @@ avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one.
 Core's popup sign-in/sign-up flow reloads the mapped iframe directly. Session
 loss must be represented honestly as signed-out state; after separate
 Core-owned logout, DiscussionBridge intercepts only Core's exact **You were
-logged out / Refresh** action in a completed mapped embed and asks Core's own
-logout helper to reload the current mapped route instead of `/`.
+logged out / Refresh** action in an actual child iframe that remains on its
+initially qualified completed-mapping route, and asks Core's own logout helper
+to reload that current mapped route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
 authentication, account creation, sessions, authorization, moderation,
 editing, and post submission.
@@ -98,8 +99,10 @@ logout-button system test therefore qualified an unreachable trigger rather
 than the production interface. Alpha.5 is immutable rejected evidence and must
 not be installed. Alpha.6 removes that unsupported return-state machinery and
 the server attestation/restore surface that existed only to support it. It
-instead contains Core's real logout-dialog **Refresh** action narrowly on the
-current mapped embed route while leaving Core responsible for logout cleanup.
+instead contains Core's real logout-dialog **Refresh** action narrowly in an
+actual child iframe that remains on its initially qualified mapped route, while
+leaving Core responsible for logout cleanup. Top-level embed-mode pages and
+post-navigation/non-mapped states are not intercepted.
 The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
@@ -211,8 +214,8 @@ the assumed embedded logout control; the synthetic automated trigger was not a
 production interface. Alpha.5 is rejected for installation with no tag rewrite.
 The tag's README retains its truthful prepublication sentence as dated evidence.
 Alpha.6 removes the unreachable logout feature, contains Core's actual mapped
-embed logout-refresh action without inventing a logout control, and is not yet
-published. All six published tags remain
+child-iframe logout-refresh action without inventing a logout control, and is
+not yet published. All six published tags remain
 immutable and must not be rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
@@ -469,9 +472,10 @@ The human acceptance record must confirm:
    authorization and moderation;
 9. after a separately performed Core-owned logout or other deliberate session
    loss, Core's **You were logged out / Refresh** dialog remains Core-owned. In
-   a completed comments-only mapped iframe, DiscussionBridge intercepts only
-   that dialog's primary refresh action and calls Core's own logout helper with
-   the current mapped embed route, rather than allowing Core's default `/`
+   an actual child iframe that remains on its initially qualified completed
+   comments-only mapping route, DiscussionBridge intercepts only that dialog's
+   primary refresh action and calls Core's own logout helper with the current
+   mapped embed route, rather than allowing Core's default `/`
    destination to render the forum homepage inside the comments section.
    Reopening or reloading the known mapped Astro page must show honest signed-out
    state without a popup or top-level forum redirect; a subsequent reviewed
