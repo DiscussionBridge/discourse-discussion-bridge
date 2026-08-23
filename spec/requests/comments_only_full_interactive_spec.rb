@@ -36,12 +36,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       "embed_mode" => "true",
       "class_name" => "discussion-bridge-comments-only",
     )
-    expect(query["discussion_bridge_embed_token"]).to start_with("#{topic.id}.")
-    expect(
-      DiscussionBridge::EmbedRouteAttestation.verify(
-        query["discussion_bridge_embed_token"],
-      )[:mapping].topic_id,
-    ).to eq(topic.id)
+    expect(query).not_to have_key("discussion_bridge_embed_token")
 
     follow_redirect!
     expect(response.body).to match(
@@ -77,64 +72,6 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     query = Rack::Utils.parse_nested_query(location.query)
     expect(location.path).to eq(URI.parse(topic.url).path)
     expect(query["class_name"]).to eq("operator-theme discussion-bridge-comments-only")
-    attestation =
-      DiscussionBridge::EmbedRouteAttestation.verify(query["discussion_bridge_embed_token"])
-    expect(attestation[:class_name]).to eq("operator-theme discussion-bridge-comments-only")
-  end
-
-  it "restores only a currently completed attested mapping" do
-    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
-    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
-      "discussion_bridge_embed_token",
-    )
-
-    get "/discussion-bridge/embed/restore", params: { token: token }
-    expect(response).to have_http_status(:redirect)
-    restored = URI.parse(response.location)
-    expect(restored.path).to eq(URI.parse(topic.url).path)
-    expect(Rack::Utils.parse_nested_query(restored.query)).to include(
-      "embed_mode" => "true",
-      "class_name" => "discussion-bridge-comments-only",
-      "discussion_bridge_embed_token" => token,
-    )
-
-    SiteSetting.embed_full_app = false
-    get "/discussion-bridge/embed/restore", params: { token: token }
-    expect(response).to have_http_status(:not_found)
-    SiteSetting.embed_full_app = true
-
-    SiteSetting.embed_full_app_signin_flow = false
-    get "/discussion-bridge/embed/restore", params: { token: token }
-    expect(response).to have_http_status(:not_found)
-    SiteSetting.embed_full_app_signin_flow = true
-
-    DiscussionBridgeConnection.update_all(state: "failed")
-    get "/discussion-bridge/embed/restore", params: { token: token }
-    expect(response).to have_http_status(:not_found)
-  end
-
-  it "rejects forged, malformed, and topic-mismatched attestations" do
-    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
-    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
-      "discussion_bridge_embed_token",
-    )
-
-    [
-      "#{topic.id}.forged-marker-without-a-server-signature",
-      "not-a-topic-route-token",
-      token.sub(/\A#{topic.id}\./, "#{topic.id + 1}."),
-    ].each do |invalid_token|
-      get "/discussion-bridge/embed/restore", params: { token: invalid_token }
-      expect(response).to have_http_status(:not_found)
-    end
-
-    mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
-    same_second_usec = mapping.updated_at.usec == 123_456 ? 654_321 : 123_456
-    same_second_update = mapping.updated_at.change(usec: same_second_usec)
-    expect(same_second_update.to_i).to eq(mapping.updated_at.to_i)
-    expect(same_second_update).not_to eq(mapping.updated_at)
-    mapping.update_column(:updated_at, same_second_update)
-    expect(DiscussionBridge::EmbedRouteAttestation.verify(token)).to be_nil
   end
 
   it "does not add the class for ordinary, incomplete, or disabled mappings" do

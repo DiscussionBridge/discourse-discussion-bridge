@@ -35,24 +35,15 @@ origins, unavailable operating identities, nonexistent categories, and
 nonexistent tags. Visible product copy uses `DiscussionBridge`; machine IDs,
 route paths, setting names, and compatibility hooks retain their established
 `discussion_bridge` or `discourse-discussion-bridge` forms.
-A corrected Alpha.5 candidate also keeps the mapped comments route across
-in-frame authentication transitions and gives Core's compact composer submit
-control an explicit visible **Post reply** label for creation/reply and **Save
-edit** while editing an allowed post. For a completed mapping, the server issues
-an expiring signed attestation bound to the exact mapping, database-precision
-mapping version, topic, and accepted presentation class. The browser arms a
-two-minute, one-use return only when the user activates Core's actual logout
-control inside that mapped iframe. The state
-travels in that iframe's own browsing context and is consumed and cleared on the
-next initialized iframe page. Restoration occurs only at Core's reviewed logout
-destinations, where the server revalidates it before restoring the exact mapped
-topic; every other destination fails closed. It does not store a general topic
-URL, react to ordinary navigation, share state across sibling iframes, or
-redirect a popup or top-level forum window. Malformed clocks, future issue times,
-and expiry windows longer than two minutes fail closed. Restoration also rechecks
-both Core full-app and full-app sign-in-flow settings. Core's popup sign-in/sign-up flow
-continues to reload the already mapped iframe directly. Discourse Core owns authentication, account
-creation, sessions, authorization, moderation, editing, and post submission.
+The corrected Alpha.6 development candidate gives Core's compact composer
+submit control an explicit visible **Post reply** label for creation/reply and
+**Save edit** while editing an allowed post. Core's qualified embed exposes no
+avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one or
+intercept session mutation. Core's popup sign-in/sign-up flow reloads the mapped
+iframe directly. Session loss must be represented honestly as signed-out state;
+the host may reload the known mapped Astro page after a separate Core-owned
+logout. Discourse Core owns authentication, account creation, sessions,
+authorization, moderation, editing, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
 view of connection mappings and audit evidence. It exposes canonical source and
 digest identity, state/outcome, topic, operating identity, reason, lane, and
@@ -97,30 +88,20 @@ under `theme-components`.
 
 ## Local verification
 
-Initial Alpha.5 commit `7d6945a453048c92e64d235a8ed1652e6a8efc16`
-passed automated qualification, but independent Code review rejected its
-origin-wide client route storage. That commit is evidence ancestry, not a
-release candidate. Corrected production-code commit
-`8e311968990a61f0fb3d07ae7757647d0783c71a` binds attestation to the exact
-database-precision mapping version, rechecks the complete Core readiness
-contract at restore, and enforces a fail-closed two-minute, one-use,
-per-browsing-context logout return. That exact head passed Discourse's official reusable
-plugin workflow against stable-preproduction Discourse commit
-`36698aae084678151dffa875d49c8d59216d2733` (public version
-`2026.8.0-latest.1`) in
-[workflow run 32656418990](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32656418990).
-The corrected suite reports 83 server/plugin and 11 browser/system examples with
-zero failures, plus passing lint and annotations. It covers editing, actual
-logout restoration, two mapped sibling iframes, an unrelated Core iframe, stale
-state, future/overlong/malformed clock state, deliberate non-auth navigation,
-top-level non-redirection, post-issuance readiness-setting changes, and forged,
-mapping-mismatched, or same-second subsecond-stale attestations. It continues to prove
-the completed-mapping 503 guard, readiness
-blockers, comments-only isolation, native empty-state and existing-post replies,
-Like persistence, and Quote submission in Core embed mode. The plugin has no
-QUnit files. The actual Astro-hosted iframe and signed-out embed sign-in flow
-remain mandatory human release gates below; direct Core system tests do not
-substitute for those two browser boundaries.
+Published Alpha.5 at `94f90811e5178752b1c54c16c15207dfe78e3bb6`
+passed automated qualification, but Phil's real Astro-hosted human pass proved
+that qualified Core renders no embedded logout control. Its synthetic
+logout-button system test therefore qualified an unreachable trigger rather
+than the production interface. Alpha.5 is immutable rejected evidence and must
+not be installed. Alpha.6 removes that unsupported return-state machinery and
+the server attestation/restore surface that existed only to support it. The
+remaining suite must continue to prove the completed-mapping 503 guard,
+readiness blockers, comments-only isolation, native empty-state and
+existing-post replies, Like persistence, Quote submission, editing, and visible
+composer labels in Core embed mode. The plugin has no QUnit files. The actual
+Astro-hosted iframe, signed-out state, sign-in, and sign-up flows remain
+mandatory human release gates below; direct Core system tests do not substitute
+for those browser boundaries.
 
 Earlier Alpha.2-era qualification additionally proved natural empty/replied
 iframe sizing and that increasing omitted companion-post content does not inflate
@@ -214,14 +195,18 @@ remains immutable evidence. Corrected Alpha.4 displays the exact chosen filename
 as part of the protected-copy step, but human acceptance found an ambiguous
 icon-only submit action, comments-route loss across authentication transitions,
 and a missing new-user sign-up/return gate. Alpha.4 is rejected for installation
-and remains immutable evidence. Alpha.5 labels the submit action, adds
-server-attested one-use iframe logout recovery, and adds explicit
+and remains immutable evidence. Alpha.5 labels the submit action, attempted
+server-attested one-use iframe logout recovery, and added explicit
 sign-up/activation/approval/return acceptance. It was published as immutable
 prerelease candidate `v0.1.0-alpha.5` at exact commit
 `94f90811e5178752b1c54c16c15207dfe78e3bb6`; its
 [release page](https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.5)
-is the publication authority. The tag's README retains its truthful
-prepublication sentence as dated evidence. All six published tags remain
+is the publication authority. Its human gate proved that Core does not expose
+the assumed embedded logout control; the synthetic automated trigger was not a
+production interface. Alpha.5 is rejected for installation with no tag rewrite.
+The tag's README retains its truthful prepublication sentence as dated evidence.
+Alpha.6 removes the unreachable logout feature and is not yet published. All
+six published tags remain
 immutable and must not be rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
@@ -476,11 +461,11 @@ The human acceptance record must confirm:
    clear visible **Save edit** label, saves successfully without top-level or
    popup navigation, and remains subject to Discourse Core's ordinary editing
    authorization and moderation;
-9. an existing user signs out, the mapped Astro discussion handles the lost
-   session honestly with signed-out state visible and no popup or top-level forum
-   restoration, and a subsequent reviewed sign-in returns to the validated
-   originating Astro discussion without an orphan forum-homepage state or manual
-   refresh;
+9. after a separately performed Core-owned logout or other deliberate session
+   loss, reloading the known mapped Astro page shows honest signed-out state
+   without a popup or top-level forum redirect; a subsequent reviewed sign-in
+   returns to that mapped Astro discussion. The embed has no logout control, and
+   **Open discussion** is an external handoff rather than an in-frame logout;
 10. a brand-new ordinary user initiates sign-up from the Astro-hosted discussion,
    completes the forum's email activation and approval policy where required,
    returns through the validated original Astro context, and participates under

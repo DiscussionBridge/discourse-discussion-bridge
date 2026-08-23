@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed control plane for DiscussionBridge connections.
 # meta_topic_id: 0
-# version: 0.1.0.alpha.5
+# version: 0.1.0.alpha.6
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -47,14 +47,12 @@ after_initialize do
   require_relative "lib/discussion_bridge/audit_writer"
   require_relative "lib/discussion_bridge/create_or_resolve"
   require_relative "lib/discussion_bridge/comments_only_presenter"
-  require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/controllers/discussion_bridge/connections_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/operations_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
-  require_relative "app/controllers/discussion_bridge/embed_routes_controller"
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -93,12 +91,9 @@ after_initialize do
             full_app: true,
             existing_class_name: params[:class_name],
           )
-          mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
-          token = EmbedRouteAttestation.issue(mapping: mapping, class_name: bridge_class)
           query = {
             embed_mode: true,
             class_name: bridge_class,
-            discussion_bridge_embed_token: token,
           }
           response.headers["X-Robots-Tag"] = "noindex, indexifembedded"
           response.headers["Cache-Control"] = "no-store"
@@ -128,7 +123,6 @@ after_initialize do
     get "/admin/health" => "health#show"
     get "/admin/operations" => "operations#index"
     get "/admin/reconciliation" => "reconciliation#index"
-    get "/embed/restore" => "embed_routes#show"
     post "/admin/reconciliation/:mapping_id/authorize-retry" => "reconciliation#authorize_retry"
     post "/admin/reconciliation/:mapping_id/revoke-retry" => "reconciliation#revoke_retry"
   end
