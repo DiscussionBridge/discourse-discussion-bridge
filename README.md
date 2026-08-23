@@ -366,14 +366,25 @@ cp -a "containers/web_only.yml.pre-discussionbridge-<TIMESTAMP>" containers/web_
 ./launcher rebuild web_only
 ```
 
-For the split topology, never edit or rebuild `data` during plugin removal.
-After the rebuild, confirm the plugin path is absent, the forum/admin/HTTPS/
-PostgreSQL/Redis baseline is healthy, ordinary topics and Core embeds are
-unchanged, and retained mapping/audit data follows the approved policy. If the
-forum or migrations fail, stop normal work and invoke the predeclared
-application-backup or provider-snapshot rollback; do not improvise destructive
-migration reversal. Reverse migrations only under that separately reviewed
-backup and rollback plan.
+For the split topology, never edit or rebuild `data` during rollback or removal.
+Then apply only the postcondition matching the preflight state:
+
+- **Fresh-install removal:** the restored configuration had no DiscussionBridge
+  hook. Enter the rebuilt `app` or `web_only` container, repeat the postflight
+  path discovery, and confirm no `discourse-discussion-bridge/.git` path exists.
+- **Pinned-upgrade rollback:** the restored configuration contains the recorded
+  prior official hook. Enter the rebuilt `app` or `web_only` container, repeat
+  the postflight path discovery, and confirm the plugin is present, its HEAD is
+  exactly `<PRIOR_SHA>`, and tracked status is clean. Absence is a rollback
+  failure in this case; do not remove the legitimate prior installation.
+
+For either outcome, confirm the forum/admin/HTTPS/PostgreSQL/Redis baseline is
+healthy, ordinary topics and Core embeds are unchanged, and retained
+mapping/audit data follows the approved policy. If the forum or migrations fail,
+stop normal work and invoke the predeclared application-backup or
+provider-snapshot rollback; do not improvise destructive migration reversal.
+Reverse migrations only under that separately reviewed backup and rollback
+plan.
 
 Existing-topic authorship, visibility, category, tag, or mapping changes
 require a separate migration plan.
