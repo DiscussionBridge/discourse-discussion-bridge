@@ -43,8 +43,11 @@ Core's popup sign-in/sign-up flow reloads the mapped iframe directly. Session
 loss must be represented honestly as signed-out state; after separate
 Core-owned logout, DiscussionBridge intercepts only Core's exact **You were
 logged out / Refresh** action in an actual child iframe that remains on its
-initially qualified completed-mapping route, and asks Core's own logout helper
-to reload that current mapped route instead of `/`.
+server-attested, initially qualified completed-mapping route. The attestation is
+signed by the forum, bound to the exact current mapping version/topic/class,
+and revalidated during the final topic render; caller-supplied query markers do
+not qualify a route. DiscussionBridge then asks Core's own logout helper to
+reload that current mapped route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
 authentication, account creation, sessions, authorization, moderation,
 editing, and post submission.
@@ -102,7 +105,9 @@ the server attestation/restore surface that existed only to support it. It
 instead contains Core's real logout-dialog **Refresh** action narrowly in an
 actual child iframe that remains on its initially qualified mapped route, while
 leaving Core responsible for logout cleanup. Top-level embed-mode pages and
-post-navigation/non-mapped states are not intercepted.
+post-navigation/non-mapped states are not intercepted. A forged direct topic
+URL, an incomplete mapping, or an ordinary topic cannot obtain the required
+server-rendered mapping attestation.
 The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
@@ -455,6 +460,18 @@ is not an install or migration failure.
 
 The human acceptance record must confirm:
 
+Each host record must identify the corrected adapter production commit
+`476c581d8003e8286121133d8fcb2f4883ecc701` and exact 96,291-byte package
+artifact (SHA-256
+`4ca56bdc1da672285a34ab9b24c64e178bf21bb09a39f7f42a3af03af5a20661`).
+On both the sandbox `app` and dev `web_only` gates, repeat topic-progress
+navigation, lower-frame scrolling, composer open/close and interaction, and the
+credit boundary at desktop plus iPhone portrait and landscape sizes. No Core
+content/control may be clipped or falsely overlapped by the host. Phil's prior
+sandbox desktop/mobile PASS closed the originally deployed `70vh` defect, but
+the exact Alpha.6 combined install record must retain this regression check and
+the separate dev record must prove it independently.
+
 1. backup/rollback identity before the change;
 2. successful install and migrations from the public release instructions;
 3. the installed commit equals the release record;
@@ -472,10 +489,11 @@ The human acceptance record must confirm:
    authorization and moderation;
 9. after a separately performed Core-owned logout or other deliberate session
    loss, Core's **You were logged out / Refresh** dialog remains Core-owned. In
-   an actual child iframe that remains on its initially qualified completed
-   comments-only mapping route, DiscussionBridge intercepts only that dialog's
-   primary refresh action and calls Core's own logout helper with the current
-   mapped embed route, rather than allowing Core's default `/`
+   an actual child iframe that remains on its server-attested, initially
+   qualified completed comments-only mapping route, DiscussionBridge
+   intercepts only that dialog's primary refresh action and calls Core's own
+   logout helper with the current mapped embed route, rather than allowing
+   Core's default `/`
    destination to render the forum homepage inside the comments section.
    Reopening or reloading the known mapped Astro page must show honest signed-out
    state without a popup or top-level forum redirect; a subsequent reviewed
