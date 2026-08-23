@@ -79,7 +79,8 @@ under `theme-components`.
 
 ## Local verification
 
-The Alpha.3 source is qualified against the exact stable-preproduction Discourse
+The production behavior inherited by the Alpha.4 candidate is qualified against
+the exact stable-preproduction Discourse
 commit `36698aae084678151dffa875d49c8d59216d2733` (public version
 `2026.8.0-latest.1`) through Discourse's official reusable plugin workflow. Both
 plugin migrations pass; annotation, i18n, RuboCop, Syntax Tree, and the applicable
@@ -144,12 +145,12 @@ they do not prove that a real forum administrator can install the published
 prerelease candidate from its public instructions. Every Alpha prerelease
 candidate that claims plugin-backed `fullInteractive` support therefore requires
 human-admin installations of the exact published plugin candidate in both
-supported server layouts: the standard single-container `app` proof on
+supported container arrangements: the standard single-container `app` proof on
 `sandbox-forum.discussionbridge.dev` and the official split `data` + `web_only`
 proof on `dev-forum.discussionbridge.dev`. The same person may perform both, but
-each forum/server layout must begin from its recorded clean rollback point and
-produce its own acceptance record. `forum.repealobbba.org` is not a substitute or third
-current release-gate install; any later independent real-world proof there
+each forum/container arrangement must begin from its recorded clean rollback
+point and produce its own acceptance record. `forum.repealobbba.org` is not a
+substitute or third current release-gate install; any later independent real-world proof there
 requires separate OBBBA authorization and recovery acceptance.
 
 The release record must name the immutable plugin tag and commit SHA. The human
@@ -175,8 +176,13 @@ as immutable prerelease candidate `v0.1.0-alpha.3` at commit
 record. The tag's own immutable README necessarily retains the prepublication
 candidate-state sentence that existed before the tag and release were created;
 that dated sentence is superseded by the release record and this current README.
-All four existing tags remain immutable and must not be rewritten, retagged, or
-silently replaced.
+Alpha.3's human preflight then exposed that the procedure required the operator
+to record the protected rollback-configuration filename but never displayed its
+expanded value. The test stopped before configuration edit, rebuild, plugin
+installation, or forum mutation. Alpha.3 is rejected for installation and
+remains immutable evidence. Corrected Alpha.4 displays the exact chosen filename
+as part of the protected-copy step. All four published tags remain immutable and
+must not be rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
 
@@ -192,7 +198,7 @@ test -f containers/app.yml && echo SINGLE_CONTAINER_CANDIDATE
 test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 ```
 
-Stop if this is not the intended forum, the server layout is unclear, an
+Stop if this is not the intended forum, the container arrangement is unclear, an
 unrecognized DiscussionBridge entry or installation exists, the forum is
 unhealthy, capacity is inadequate, or the release tag does not resolve to the
 recorded SHA. If the host has an expected, recorded, pinned DiscussionBridge
@@ -208,21 +214,33 @@ records the forum-owned artifact without printing secrets. Record the accepted
 artifact or snapshot identity, completion, time, and protected location; never
 paste protected contents into the release record.
 
-Create a protected copy of only the confirmed server layout's application
-configuration:
+Create a protected copy of only the confirmed container arrangement's
+application configuration. Run exactly one of the following blocks.
+
+For the standard single-container `app` arrangement:
 
 ```bash
 cd /var/discourse
 umask 077
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-# Choose exactly one after confirming the server layout:
-cp -a containers/app.yml "containers/app.yml.pre-discussionbridge-$stamp"
-# OR, for the split server layout:
-cp -a containers/web_only.yml "containers/web_only.yml.pre-discussionbridge-$stamp"
+rollback_config="containers/app.yml.pre-discussionbridge-$stamp"
+cp -a containers/app.yml "$rollback_config"
+printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
 ```
 
-Record the chosen backup filename. Do not copy or edit `data.yml` for the split
-server layout.
+For the split `data` + `web_only` arrangement:
+
+```bash
+cd /var/discourse
+umask 077
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+rollback_config="containers/web_only.yml.pre-discussionbridge-$stamp"
+cp -a containers/web_only.yml "$rollback_config"
+printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
+```
+
+Record the displayed `ROLLBACK_CONFIG` value. Do not copy or edit `data.yml` for
+the split container arrangement.
 
 #### 2A. Standard single-container install
 
@@ -267,34 +285,34 @@ Do not add the plugin to `data.yml`, edit `data.yml`, or rebuild `data`.
 #### 2C. Existing pinned installation upgrade
 
 Use this path only when preflight identifies an expected prior installation and
-the confirmed server-layout configuration contains exactly one clone of the
-official
+the confirmed container-arrangement configuration contains exactly one clone of
+the official
 `DiscussionBridge/discourse-discussion-bridge` repository with exactly one
 recorded immutable commit pin. Stop if the repository is nonstandard, the prior
 identity is unknown, the hook is duplicated, or it follows a branch or other
 moving reference.
 
 Record the prior installed/configured SHA and the protected configuration copy
-created during preflight. In only the confirmed server-layout file, replace the
-old
+created during preflight. In only the confirmed container-arrangement file,
+replace the old
 immutable checkout SHA with `<RELEASE_SHA>` while preserving the existing hook
 form, URL, surrounding hooks, and YAML indentation. Do not add a second clone
 command and do not update the running container with `git pull`.
 
 Confirm the configuration diff changes only that one pinned SHA. Then rebuild
-only the application container matching the confirmed server layout:
+only the application container matching the confirmed container arrangement:
 
 ```bash
 cd /var/discourse
 # Standard single-container only:
 ./launcher rebuild app
 
-# OR official split server layout only:
+# OR official split container arrangement only:
 ./launcher rebuild web_only
 ```
 
-For the split server layout, never edit `data.yml` or rebuild `data`. Continue
-with the
+For the split container arrangement, never edit `data.yml` or rebuild `data`.
+Continue with the
 same postflight, safe-default, forum-health, enable/configure, and rollback
 checks below. Rollback restores the protected pre-upgrade configuration copy and
 rebuilds only the same application container, returning the hook to the recorded
@@ -421,7 +439,7 @@ unchanged. Export or retain mapping/audit rows under the approved retention
 policy; never drop them merely to disable the plugin.
 
 Restore the exact protected configuration copy created during preflight. Use
-only the command matching the confirmed server layout and substitute the
+only the command matching the confirmed container arrangement and substitute the
 recorded
 timestamp:
 
@@ -431,12 +449,12 @@ cd /var/discourse
 cp -a "containers/app.yml.pre-discussionbridge-<TIMESTAMP>" containers/app.yml
 ./launcher rebuild app
 
-# OR split server layout only:
+# OR split container arrangement only:
 cp -a "containers/web_only.yml.pre-discussionbridge-<TIMESTAMP>" containers/web_only.yml
 ./launcher rebuild web_only
 ```
 
-For the split server layout, never edit or rebuild `data` during rollback or
+For the split container arrangement, never edit or rebuild `data` during rollback or
 removal.
 Then apply only the postcondition matching the preflight state:
 

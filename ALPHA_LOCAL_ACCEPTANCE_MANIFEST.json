@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "createdDate": "2026-08-23",
-  "status": "alpha3-release-candidate",
+  "status": "alpha4-release-candidate",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 69 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 69,
-    "bytes": 179466.0,
-    "sha256": "bee6355abed2c48c8a8bfde87af78f2dd27cdd390d88d60a65ac9200fbeda085"
+    "bytes": 180715.0,
+    "sha256": "586d0070ed01de29db8763dadc17ce45ce656ef8da08598fdb1da49bf5bcd28b"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -48,8 +48,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 23048,
-      "sha256": "11aae52b7421413581379533e281a4a38de4c7ec8762349db0fb7e613853dbbb"
+      "bytes": 24297,
+      "sha256": "1870edb7a995efd6ca54804f2da184f027c5963c3f72a970d63b05f2332b21ef"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -264,7 +264,7 @@
     {
       "path": "plugin.rb",
       "bytes": 4473,
-      "sha256": "4618b8af3fb3be9363dfac2408e2f3cacad6c966cf44edced56ea3740f986971"
+      "sha256": "df25912b4d38af1cdcfa9544c668d30bb6e74b1d4b19bbaed580fd8ecf831b38"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
