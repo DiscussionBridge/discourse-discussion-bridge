@@ -106,6 +106,12 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(Guardian.new(interactive_user).post_can_act?(reply, :like)).to eq(true)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
+    warn(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('#post_#{reply.post_number} button')).map((button) => button.outerHTML).join('\\n')",
+      ),
+    )
+
     within("#post_#{reply.post_number}") do
       find("button[aria-label='like this post']").click
       expect(page).to have_css("button[aria-label='undo like']")
