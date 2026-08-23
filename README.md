@@ -93,20 +93,22 @@ under `theme-components`.
 
 ## Local verification
 
-Initial Alpha.5 production-code commit
-`7d6945a453048c92e64d235a8ed1652e6a8efc16` passed Discourse's official
-reusable plugin workflow against the exact stable-preproduction Discourse
-commit `36698aae084678151dffa875d49c8d59216d2733` (public version
+Initial Alpha.5 commit `7d6945a453048c92e64d235a8ed1652e6a8efc16`
+passed automated qualification, but independent Code review rejected its
+origin-wide client route storage. That commit is evidence ancestry, not a
+release candidate. Corrected production-code commit
+`1b84234edc50962e2ed0fff8dd66be8a52f25d0d` uses server attestation plus a
+one-use, per-browsing-context logout return. Exact evidence head
+`71e7aea9e70d09a70d4308ffbd73e9ce89ab1c02` passed Discourse's official reusable
+plugin workflow against stable-preproduction Discourse commit
+`36698aae084678151dffa875d49c8d59216d2733` (public version
 `2026.8.0-latest.1`) in
-[workflow run 32653423914](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32653423914),
-but independent Code review rejected its origin-wide client route storage. That
-commit is evidence ancestry, not a release candidate. The corrected design uses
-server attestation plus a one-use, per-browsing-context logout return. It adds
-forgery/mapping-mismatch request negatives and system coverage for editing,
-actual logout restoration, two mapped sibling iframes, an unrelated Core iframe,
-stale state, deliberate non-auth navigation, and top-level non-redirection. The
-corrected suite expects 83 server/plugin and 11 browser/system examples and
-requires fresh exact qualification. It continues to prove
+[workflow run 32655533551](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32655533551).
+The corrected suite reports 83 server/plugin and 11 browser/system examples with
+zero failures, plus passing lint and annotations. It covers editing, actual
+logout restoration, two mapped sibling iframes, an unrelated Core iframe, stale
+state, deliberate non-auth navigation, top-level non-redirection, and forged or
+mapping-mismatched attestations. It continues to prove
 the completed-mapping 503 guard, readiness
 blockers, comments-only isolation, native empty-state and existing-post replies,
 Like persistence, and Quote submission in Core embed mode. The plugin has no
