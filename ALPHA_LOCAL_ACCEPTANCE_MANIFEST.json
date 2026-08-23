@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 69,
-    "bytes": 179084.0,
-    "sha256": "cd08fec015a2b9c473f1f687df5773a936df043d0d89b314b9f52d6e08997e05"
+    "bytes": 179389.0,
+    "sha256": "fb31237b76f8670ce8517560776c25d4a0eb08ed589629e80179c8300e90409f"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -35,6 +35,21 @@
       "path": ".rubocop.yml",
       "bytes": 51,
       "sha256": "ec10bb4a3ab7d38292bbf38de2cc9c6feef9de89f7472522ee730f43c1b7df04"
+    },
+    {
+      "path": "Gemfile",
+      "bytes": 134,
+      "sha256": "10261078eb9153d74f949d75cccbe3af9509a42680b9d62d35c6be6f412944c3"
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 277,
+      "sha256": "53643582afba5b122ee1c2521b022093b88ce83ca3831e82356fd517a7db8853"
+    },
+    {
+      "path": "README.md",
+      "bytes": 23048,
+      "sha256": "11aae52b7421413581379533e281a4a38de4c7ec8762349db0fb7e613853dbbb"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -167,11 +182,6 @@
       "sha256": "d84cf3b6c72f0fff0cde33ef57dc3db593eb8edd59daf78a0c88a6c387c7f2d0"
     },
     {
-      "path": "Gemfile",
-      "bytes": 134,
-      "sha256": "10261078eb9153d74f949d75cccbe3af9509a42680b9d62d35c6be6f412944c3"
-    },
-    {
       "path": "lib/discussion_bridge/audit_state.rb",
       "bytes": 1531,
       "sha256": "6c6223517daf6eac2eb14b541272beadd57fd03ae47d5ebcadee49c7a7ad8908"
@@ -252,19 +262,9 @@
       "sha256": "9ca7e23aa1305dea289d7ddaf83f3b55e8be7468d8743056921514b8f81647cf"
     },
     {
-      "path": "LICENSE",
-      "bytes": 277,
-      "sha256": "53643582afba5b122ee1c2521b022093b88ce83ca3831e82356fd517a7db8853"
-    },
-    {
       "path": "plugin.rb",
       "bytes": 4473,
       "sha256": "4618b8af3fb3be9363dfac2408e2f3cacad6c966cf44edced56ea3740f986971"
-    },
-    {
-      "path": "README.md",
-      "bytes": 23048,
-      "sha256": "11aae52b7421413581379533e281a4a38de4c7ec8762349db0fb7e613853dbbb"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
@@ -368,8 +368,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 7072,
-      "sha256": "1231aa8409df8a37deeaf56bc275f3e9c04685f2b45f357ae0ee738ce00352e4"
+      "bytes": 7377,
+      "sha256": "af61add261d6423fec38c86b254aefdeeebe63819ab1ac9d272622ad5d95704e"
     }
   ]
 }

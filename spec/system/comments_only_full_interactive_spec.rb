@@ -6,6 +6,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
   fab!(:interactive_user) do
     Fabricate(:user, trust_level: TrustLevel[1], refresh_auto_groups: true)
   end
+  fab!(:interaction_author) { Fabricate(:user, refresh_auto_groups: true) }
 
   before do
     SiteSetting.discussion_bridge_enabled = true
@@ -94,8 +95,15 @@ describe "DiscussionBridge comments-only fullInteractive" do
   end
 
   it "completes native reply and like actions without leaving embed mode" do
-    reply = Fabricate(:post, topic: topic, raw: "A reply ready for interaction")
+    reply =
+      Fabricate(
+        :post,
+        topic: topic,
+        user: interaction_author,
+        raw: "A reply ready for interaction",
+      )
     sign_in(interactive_user)
+    expect(Guardian.new(interactive_user).post_can_act?(reply, :like)).to eq(true)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     within("#post_#{reply.post_number}") do
@@ -118,7 +126,13 @@ describe "DiscussionBridge comments-only fullInteractive" do
   end
 
   it "completes a native quote reply without leaving embed mode" do
-    quoted_post = Fabricate(:post, topic: topic, raw: "Words selected for an embedded quote")
+    quoted_post =
+      Fabricate(
+        :post,
+        topic: topic,
+        user: interaction_author,
+        raw: "Words selected for an embedded quote",
+      )
     sign_in(interactive_user)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
