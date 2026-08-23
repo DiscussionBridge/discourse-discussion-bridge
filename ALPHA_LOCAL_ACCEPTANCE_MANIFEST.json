@@ -7,7 +7,7 @@
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
   "candidateProductionCodeCommit": "7d6945a453048c92e64d235a8ed1652e6a8efc16",
   "verification": {
-    "officialWorkflow": "Production-code workflow run 32653423914 passed against the exact verified Discourse commit. A second official workflow run on the final evidence head and the eventual exact-tag run remain required before publication.",
+    "officialWorkflow": "Production-code workflow run 32653423914 passed against the exact verified Discourse commit. The authoritative final evidence-head and eventual exact-tag workflow run URLs and dispositions belong in the GitHub prerelease and durable product checkpoint.",
     "completeRSpec": "81 examples, 0 failures",
     "browserRSpec": "8 examples, 0 failures",
     "fullInteractive": "Completed-mapping fail-closed guard, readiness blockers, native empty-state reply, existing-post reply, Like persistence, Quote submission, mapped-route restoration in an actual same-origin iframe, comments-only presentation, and ordinary-topic isolation covered.",
