@@ -27,6 +27,26 @@ export default <template>
       {{/if}}
     </div>
 
+    <div class="discussion-bridge-health__readiness">
+      <strong>{{i18n "discussion_bridge.admin.full_interactive_readiness"}}:</strong>
+      <strong>
+        {{if
+          @status.readiness.full_interactive_ready
+          (i18n "discussion_bridge.admin.ready")
+          (i18n "discussion_bridge.admin.needs_attention")
+        }}
+      </strong>
+      {{#if @status.readiness.full_interactive_blockers.length}}
+        <ul>
+          {{#each @status.readiness.full_interactive_blockers as |blocker|}}
+            <li><code>{{blocker}}</code></li>
+          {{/each}}
+        </ul>
+      {{else}}
+        <p>{{i18n "discussion_bridge.admin.full_interactive_ready"}}</p>
+      {{/if}}
+    </div>
+
     <div class="discussion-bridge-health__grid">
       <section>
         <h3>{{i18n "discussion_bridge.admin.features"}}</h3>

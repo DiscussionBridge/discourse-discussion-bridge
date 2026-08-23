@@ -5,15 +5,18 @@ module DiscussionBridge
     CSS_CLASS = "discussion-bridge-comments-only"
     CLASS_NAME_PATTERN = /\A[a-zA-Z0-9\-_ ]+\z/
 
-    def self.class_name(topic_id:, embed_mode:)
-      return unless SiteSetting.discussion_bridge_enabled
-      return unless SiteSetting.discussion_bridge_comments_only_full_interactive
-      return unless SiteSetting.embed_full_app
-      return unless embed_mode
+    def self.requested_for?(topic_id:)
+      return false unless SiteSetting.discussion_bridge_enabled
+      return false unless SiteSetting.discussion_bridge_comments_only_full_interactive
 
       id = Integer(topic_id, exception: false)
-      return unless id&.positive?
-      return unless DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
+      id&.positive? && DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
+    end
+
+    def self.class_name(topic_id:, embed_mode:)
+      return unless SiteSetting.embed_full_app
+      return unless embed_mode
+      return unless requested_for?(topic_id: topic_id)
 
       CSS_CLASS
     end

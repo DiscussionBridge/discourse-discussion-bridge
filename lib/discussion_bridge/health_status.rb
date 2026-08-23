@@ -24,6 +24,8 @@ module DiscussionBridge
         readiness: {
           controlled_creation_ready: blockers.empty?,
           blockers: blockers,
+          full_interactive_ready: full_interactive_blockers.empty?,
+          full_interactive_blockers: full_interactive_blockers,
         },
       }
     end
@@ -132,6 +134,16 @@ module DiscussionBridge
       blockers << "lane_policy_invalid" unless lane_policy_status[:valid]
       blockers << (authority&.reason || "authorization_incomplete") unless authority&.allowed?
       blockers.uniq
+    end
+
+    def full_interactive_blockers
+      blockers = []
+      unless SiteSetting.discussion_bridge_comments_only_full_interactive
+        blockers << "comments_only_full_interactive_disabled"
+      end
+      blockers << "embed_full_app_disabled" unless SiteSetting.embed_full_app
+      blockers << "embed_full_app_signin_flow_disabled" unless SiteSetting.embed_full_app_signin_flow
+      blockers
     end
 
     def valid_actor?(actor)

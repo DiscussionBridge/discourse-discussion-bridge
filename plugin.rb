@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed control plane for DiscussionBridge connections.
 # meta_topic_id: 0
-# version: 0.1.0.alpha.3.dev
+# version: 0.1.0.alpha.3
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -68,6 +68,14 @@ after_initialize do
           elsif params[:embed_url].present?
             TopicEmbed.topic_id_for_embed(params[:embed_url])
           end
+
+        if params[:full_app].present? &&
+             CommentsOnlyPresenter.requested_for?(topic_id: topic_id) &&
+             !SiteSetting.embed_full_app
+          render plain: I18n.t("discussion_bridge.full_interactive_requires_core_full_app"),
+                 status: :service_unavailable
+          return
+        end
 
         if params[:full_app].present?
           bridge_class = CommentsOnlyPresenter.redirect_class_name(

@@ -21,7 +21,12 @@ comments-only `fullInteractive` presentation is implemented locally behind a
 default-disabled forum setting. For completed DiscussionBridge mappings, the
 plugin adds its scoped class through Discourse Core's full-app redirect and
 removes companion post 1 from embed layout only. The ordinary topic and its
-first post remain unchanged. A native, administrator-only Health page reports
+first post remain unchanged. Discourse Core supplies the native in-frame
+composer, reply, quote, edit, Like, and sign-in behavior; DiscussionBridge does
+not reimplement those security-sensitive actions. If the plugin capability is
+enabled for a completed mapping while Discourse's `embed_full_app` setting is
+off, the request fails closed instead of silently serving the legacy
+Start/Continue Discussion handoff embed. A native, administrator-only Health page reports
 feature switches, connection readiness, operating identity, forum authority,
 mapping state, and audit counts without exposing the connection credential.
 The native Discourse Settings tab is the sole editable operator surface. Its
@@ -160,9 +165,11 @@ installation and rollback, but Phil's real-user pass proved its behavior labeled
 `fullInteractive` renders comments and hands interaction off to Discourse rather
 than completing native actions inside the Astro-page iframe. Code and historical
 doctrine review confirm that is a product-contract blocker. Alpha.2 is rejected
-for installation and no replacement prerelease candidate is published yet. All
-three tags remain immutable and must not be rewritten, retagged, or silently
-replaced.
+for installation. The corrected Alpha.3 source fails closed when the required
+Core full-app setting is absent and adds native action-completion coverage; it
+is not a published prerelease candidate until exact qualification and review
+finish. All three existing tags remain immutable and must not be rewritten,
+retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
 
@@ -334,6 +341,21 @@ plugin is present. Apply the settings postcondition matching the preflight state
   by rebuilding. An upgrade must not be expected to reset existing settings to
   fresh-install defaults.
 
+Before claiming or exercising `fullInteractive`, use Discourse admin to search
+the Embedding settings and confirm both of these Core settings:
+
+- **Embed full app** is enabled. Without it, Discourse serves its legacy
+  Start/Continue Discussion embed rather than the interactive application.
+- **Embed full app signin flow** is enabled for the accepted same-site Alpha
+  hosts. For an unrelated host and forum domain, stop and review Discourse's
+  cookie requirements before enabling this setting.
+
+Then enable `discussion_bridge_comments_only_full_interactive` only under the
+reviewed host policy. The DiscussionBridge Health page must report **In-page
+interaction readiness: Ready** with no `embed_full_app_disabled` or
+`embed_full_app_signin_flow_disabled` blocker. A legacy Start/Continue
+Discussion button is a failed preflight, not `fullInteractive` acceptance.
+
 Confirm ordinary topics, admin access, HTTPS, PostgreSQL, and Redis remain
 healthy. Only then apply any separately reviewed settings change and exercise
 the approved create/resolve and presentation checks. Disable the endpoint at
@@ -352,7 +374,10 @@ The human acceptance record must confirm:
 5. ordinary forum topics, admin access, HTTPS, database, and Redis remain
    healthy;
 6. the documented enable/configure flow works for the intended connection;
-7. disable and rollback/removal instructions are understandable and effective.
+7. an authenticated human completes Reply, Like, and Quote inside the Astro-page
+   iframe without top-level navigation, and a signed-out human sees the reviewed
+   sign-in flow rather than an unlabeled handoff;
+8. disable and rollback/removal instructions are understandable and effective.
 
 Alpha release acceptance does not close until that human result is received
 and dispositioned. A failure produces a corrected candidate under a new tag;

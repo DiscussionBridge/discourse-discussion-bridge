@@ -3,6 +3,7 @@
 describe "DiscussionBridge comments-only fullInteractive" do
   fab!(:topic)
   fab!(:first_post) { Fabricate(:post, topic: topic, raw: "Companion source post") }
+  fab!(:interactive_user) { Fabricate(:user, trust_level: TrustLevel[1]) }
 
   before do
     SiteSetting.discussion_bridge_enabled = true
@@ -71,6 +72,69 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page).to have_css("#post_#{reply.post_number}", text: "A visible community reply")
     expect(page).to have_css("#post_#{reply.post_number} nav.post-controls")
     expect(page).to have_no_css(".embed-topic-footer__first-reply")
+  end
+
+  it "completes an authenticated reply inside the full-app embed" do
+    sign_in(interactive_user)
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    expect(page).to have_css("body.embed-mode")
+    expect(page).to have_css(".embed-topic-footer__first-reply")
+    find(".embed-topic-footer__first-reply button").click
+    expect(page).to have_css(".embed-mode-composer .d-editor-input")
+
+    find(".embed-mode-composer .d-editor-input").set("A native in-frame reply")
+    find(".embed-mode-composer .docked-composer__submit-btn").click
+
+    expect(page).to have_css(".topic-post", text: "A native in-frame reply")
+    expect(Post.exists?(topic_id: topic.id, user_id: interactive_user.id, raw: "A native in-frame reply")).to eq(true)
+    expect(page.current_url).to include("embed_mode=true")
+  end
+
+  it "completes native reply and like actions without leaving embed mode" do
+    reply = Fabricate(:post, topic: topic, raw: "A reply ready for interaction")
+    sign_in(interactive_user)
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    within("#post_#{reply.post_number}") do
+      find("button.reply").click
+    end
+    expect(page).to have_css(".embed-mode-composer .d-editor-input")
+    find(".embed-mode-composer .d-editor-input").set("Replying inside the embedded page")
+    find(".embed-mode-composer .docked-composer__submit-btn").click
+    expect(page).to have_css(".topic-post", text: "Replying inside the embedded page")
+
+    within("#post_#{reply.post_number}") do
+      find("button.toggle-like").click
+      expect(page).to have_css("button.toggle-like.has-like")
+    end
+    expect(
+      PostAction.exists?(
+        post_id: reply.id,
+        user_id: interactive_user.id,
+        post_action_type_id: PostActionType.types[:like],
+      ),
+    ).to eq(true)
+    expect(page.current_url).to include("embed_mode=true")
+  end
+
+  it "completes a native quote reply without leaving embed mode" do
+    quoted_post = Fabricate(:post, topic: topic, raw: "Words selected for an embedded quote")
+    sign_in(interactive_user)
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    select_text_range("#post_#{quoted_post.post_number} .cooked p", 0, 14)
+    find(".quote-button .insert-quote").click
+
+    expect(page).to have_css(".embed-mode-composer .d-editor-input")
+    expect(find(".embed-mode-composer .d-editor-input").value).to include("Words selected")
+    find(".embed-mode-composer .docked-composer__submit-btn").click
+
+    expect(page).to have_css(".topic-post blockquote", text: "Words selected")
+    expect(
+      Post.where(topic_id: topic.id, user_id: interactive_user.id).where.not(id: quoted_post.id).exists?,
+    ).to eq(true)
+    expect(page.current_url).to include("embed_mode=true")
   end
 
   it "does not change the ordinary topic presentation even for a long companion post" do

@@ -28,6 +28,10 @@ describe DiscussionBridge::HealthStatus do
     expect(status.dig(:forum_authority, :category_id)).to eq(category.id)
     expect(status[:lane_policies]).to eq(configured: false, count: 0, lanes: [], valid: true)
     expect(status.dig(:mappings, :total)).to eq(0)
+    expect(status.dig(:readiness, :full_interactive_ready)).to eq(false)
+    expect(status.dig(:readiness, :full_interactive_blockers)).to include(
+      "comments_only_full_interactive_disabled",
+    )
     expect(status.to_json).not_to include("never-render-this-secret")
   end
 
@@ -44,6 +48,26 @@ describe DiscussionBridge::HealthStatus do
       "credential_missing",
       "invalid_actor",
     )
+  end
+
+  it "separately reports the Core settings required for native in-page interaction" do
+    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.embed_full_app = false
+    SiteSetting.embed_full_app_signin_flow = false
+
+    status = described_class.call
+
+    expect(status.dig(:readiness, :controlled_creation_ready)).to eq(true)
+    expect(status.dig(:readiness, :full_interactive_ready)).to eq(false)
+    expect(status.dig(:readiness, :full_interactive_blockers)).to contain_exactly(
+      "embed_full_app_disabled",
+      "embed_full_app_signin_flow_disabled",
+    )
+
+    SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
+
+    expect(described_class.call.dig(:readiness, :full_interactive_ready)).to eq(true)
   end
 
 

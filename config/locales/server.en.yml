@@ -18,6 +18,7 @@ en:
     discussion_bridge_effective_tags_error: "Every configured DiscussionBridge tag must already exist in Discourse."
     discussion_bridge_lane_policies_error: "Use a JSON array of unique lowercase lane objects with an existing category_id, existing tag names, and visibility set to unlisted."
   discussion_bridge:
+    full_interactive_requires_core_full_app: "DiscussionBridge fullInteractive is unavailable because Discourse's Embed full app setting is disabled. An administrator must enable and verify the required full-app embed settings before this page can provide native in-frame interaction."
     errors:
       disabled: "DiscussionBridge is disabled."
       endpoint_disabled: "DiscussionBridge topic creation is not enabled."

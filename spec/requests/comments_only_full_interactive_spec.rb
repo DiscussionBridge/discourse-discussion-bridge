@@ -40,6 +40,26 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     )
   end
 
+  it "fails closed instead of serving the legacy handoff embed when Core full-app embedding is off" do
+    SiteSetting.embed_full_app = false
+
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+
+    expect(response).to have_http_status(:service_unavailable)
+    expect(response.body).to include("Embed full app setting is disabled")
+    expect(response.body).not_to include("Continue Discussion")
+  end
+
+  it "does not block an ordinary Core embed when the topic is not a completed mapping" do
+    DiscussionBridgeConnection.update_all(state: "failed")
+    SiteSetting.embed_full_app = false
+
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include("fullInteractive is unavailable")
+  end
+
   it "preserves a valid operator class and appends the comments-only class" do
     get "/embed/comments",
         params: { topic_id: topic.id, full_app: "true", class_name: "operator-theme" }
