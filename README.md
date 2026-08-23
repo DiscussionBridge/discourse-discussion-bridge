@@ -152,8 +152,12 @@ moving branch.
 Release history: public prerelease `v0.1.0-alpha.0` is immutable and remains as
 dated evidence. Its first human preflight exposed an unsupported launcher
 inspection command before any configuration edit, rebuild, or forum mutation.
-It is superseded for installation by corrected candidate `v0.1.0-alpha.1` and
-must not be rewritten, retagged, or silently replaced.
+Corrected `v0.1.0-alpha.1` then identified an expected historical pinned plugin
+hook but did not provide a public pinned-upgrade path; that pass also stopped
+before configuration edit, rebuild, or forum mutation. Both earlier tags remain
+immutable dated evidence and are superseded for installation by corrected
+candidate `v0.1.0-alpha.2`. They must not be rewritten, retagged, or silently
+replaced.
 
 #### 1. Preflight and recovery identity
 
@@ -168,9 +172,11 @@ test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 ```
 
 Stop if the root is not the intended forum, the topology is ambiguous, an
-unexpected DiscussionBridge entry or installation already exists, the forum is
+unrecognized DiscussionBridge entry or installation exists, the forum is
 unhealthy, capacity is inadequate, or the release tag does not resolve to the
-recorded SHA. Confirm the accepted host-specific recovery boundary before
+recorded SHA. If the host has an expected, recorded, pinned DiscussionBridge
+hook, use the pinned-upgrade procedure below rather than adding a second clone
+entry. Confirm the accepted host-specific recovery boundary before
 editing: a readable Discourse application backup, a completed provider snapshot,
 or both, according to the forum's recorded role and recovery decision. A
 disposable sandbox may use a separately accepted provider snapshot without an
@@ -235,6 +241,39 @@ cd /var/discourse
 ```
 
 Do not add the plugin to `data.yml`, edit `data.yml`, or rebuild `data`.
+
+#### 2C. Existing pinned installation upgrade
+
+Use this path only when preflight identifies an expected prior installation and
+the confirmed topology configuration contains exactly one clone of the official
+`DiscussionBridge/discourse-discussion-bridge` repository with exactly one
+recorded immutable commit pin. Stop if the repository is nonstandard, the prior
+identity is unknown, the hook is duplicated, or it follows a branch or other
+moving reference.
+
+Record the prior installed/configured SHA and the protected configuration copy
+created during preflight. In only the confirmed topology file, replace the old
+immutable checkout SHA with `<RELEASE_SHA>` while preserving the existing hook
+form, URL, surrounding hooks, and YAML indentation. Do not add a second clone
+command and do not update the running container with `git pull`.
+
+Confirm the configuration diff changes only that one pinned SHA. Then rebuild
+only the application container matching the confirmed topology:
+
+```bash
+cd /var/discourse
+# Standard single-container only:
+./launcher rebuild app
+
+# OR official split topology only:
+./launcher rebuild web_only
+```
+
+For split topology, never edit `data.yml` or rebuild `data`. Continue with the
+same postflight, safe-default, forum-health, enable/configure, and rollback
+checks below. Rollback restores the protected pre-upgrade configuration copy and
+rebuilds only the same application container, returning the hook to the recorded
+prior immutable SHA.
 
 #### 3. Postflight and acceptance
 
