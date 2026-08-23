@@ -107,8 +107,8 @@ describe "DiscussionBridge comments-only fullInteractive" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     within("#post_#{reply.post_number}") do
-      find("button.btn-toggle-reaction-like[title='Like this post']").click
-      expect(page).to have_css("button.btn-toggle-reaction-like[title='Remove this like']")
+      find(".discourse-reactions-reaction-button[title='Like this post']").click
+      expect(page).to have_css(".discourse-reactions-reaction-button[title='Remove this like']")
       find("button.reply").click
     end
     expect(

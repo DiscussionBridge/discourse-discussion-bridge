@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 69,
-    "bytes": 179456.0,
-    "sha256": "43c820c87de1887d6bba5a5b8377bc60a98195c9c671b79736c9bc9d4f10330d"
+    "bytes": 179466.0,
+    "sha256": "bee6355abed2c48c8a8bfde87af78f2dd27cdd390d88d60a65ac9200fbeda085"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -368,8 +368,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 7444,
-      "sha256": "251e044113d96fcfc517253e447101686389a1446e21aa4a0dcfaaf04a88a212"
+      "bytes": 7454,
+      "sha256": "7c272611a967f513f424bb2386bea2da97b6c4b2cb4bbcac12d61fa487f268ec"
     }
   ]
 }
