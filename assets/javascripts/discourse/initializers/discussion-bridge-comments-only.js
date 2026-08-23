@@ -1,8 +1,11 @@
 import { withPluginApi } from "discourse/lib/plugin-api";
+import logout from "discourse/lib/logout";
 import { i18n } from "discourse-i18n";
 
 const CSS_CLASS = "discussion-bridge-comments-only";
 const SUBMIT_LABEL_ATTRIBUTE = "data-discussion-bridge-submit-label";
+const LOGOUT_REFRESH_SELECTOR =
+  ".dialog-container__logout-refresh .dialog-footer button.btn-primary";
 
 function commentsOnlyRequested(url = new URL(window.location.href)) {
   const params = url.searchParams;
@@ -13,9 +16,7 @@ function commentsOnlyRequested(url = new URL(window.location.href)) {
 
 function labelSubmitControls() {
   document
-    .querySelectorAll(
-      ".embed-mode-composer .docked-composer__submit-btn"
-    )
+    .querySelectorAll(".embed-mode-composer .docked-composer__submit-btn")
     .forEach((button) => {
       const editing = button
         .closest(".embed-mode-composer")
@@ -23,12 +24,35 @@ function labelSubmitControls() {
       const label = i18n(
         editing
           ? "discussion_bridge.composer_save_edit"
-          : "discussion_bridge.composer_submit"
+          : "discussion_bridge.composer_submit",
       );
       button.setAttribute(SUBMIT_LABEL_ATTRIBUTE, label);
       button.setAttribute("aria-label", label);
       button.setAttribute("title", label);
     });
+}
+
+function currentEmbedRoute() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function interceptLogoutRefresh(event) {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+
+  const button = event.target.closest(LOGOUT_REFRESH_SELECTOR);
+  if (
+    !button ||
+    !document.documentElement.classList.contains(CSS_CLASS) ||
+    !document.body.classList.contains("embed-mode")
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  logout({ redirect: currentEmbedRoute() });
 }
 
 export default {
@@ -44,7 +68,7 @@ export default {
         window.requestAnimationFrame(() => {
           document.documentElement.classList.toggle(
             CSS_CLASS,
-            document.body.classList.contains("embed-mode")
+            document.body.classList.contains("embed-mode"),
           );
           labelSubmitControls();
         });
@@ -52,6 +76,7 @@ export default {
 
       const observer = new MutationObserver(labelSubmitControls);
       observer.observe(document.body, { childList: true, subtree: true });
+      document.addEventListener("click", interceptLogoutRefresh, true);
       api.onPageChange(syncClass);
       syncClass();
     });

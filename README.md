@@ -462,10 +462,16 @@ The human acceptance record must confirm:
    popup navigation, and remains subject to Discourse Core's ordinary editing
    authorization and moderation;
 9. after a separately performed Core-owned logout or other deliberate session
-   loss, reloading the known mapped Astro page shows honest signed-out state
-   without a popup or top-level forum redirect; a subsequent reviewed sign-in
-   returns to that mapped Astro discussion. The embed has no logout control, and
-   **Open discussion** is an external handoff rather than an in-frame logout;
+   loss, Core's **You were logged out / Refresh** dialog remains Core-owned. In
+   a completed comments-only mapped iframe, DiscussionBridge intercepts only
+   that dialog's primary refresh action and calls Core's own logout helper with
+   the current mapped embed route, rather than allowing Core's default `/`
+   destination to render the forum homepage inside the comments section.
+   Reopening or reloading the known mapped Astro page must show honest signed-out
+   state without a popup or top-level forum redirect; a subsequent reviewed
+   sign-in returns to that mapped Astro discussion. The embed has no logout
+   control, and **Open discussion** is an external handoff rather than an
+   in-frame logout;
 10. a brand-new ordinary user initiates sign-up from the Astro-hosted discussion,
    completes the forum's email activation and approval policy where required,
    returns through the validated original Astro context, and participates under

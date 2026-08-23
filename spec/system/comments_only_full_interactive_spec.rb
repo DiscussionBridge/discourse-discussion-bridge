@@ -199,6 +199,46 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page.current_url).to include("embed_mode=true")
   end
 
+  it "intercepts only Core's mapped-embed logout refresh action" do
+    sign_in(interactive_user)
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    page.execute_script(<<~JS)
+      window.__discussionBridgeCoreRefreshReached = false;
+      const dialog = document.createElement("div");
+      dialog.className = "dialog-container__logout-refresh";
+      dialog.innerHTML = `
+        <div class="dialog-body"><p>You were logged out.</p></div>
+        <div class="dialog-footer">
+          <button class="btn btn-primary" type="button">
+            <span class="d-button-label">Refresh</span>
+          </button>
+        </div>`;
+      dialog.querySelector("button").addEventListener("click", () => {
+        window.__discussionBridgeCoreRefreshReached = true;
+      });
+      document.body.appendChild(dialog);
+    JS
+
+    find(".dialog-container__logout-refresh .dialog-footer button.btn-primary").click
+    expect(page.evaluate_script("window.__discussionBridgeCoreRefreshReached")).to eq(false)
+    expect(page.current_url).to include("embed_mode=true")
+
+    page.execute_script(<<~JS)
+      window.__discussionBridgeGenericRefreshReached = false;
+      const button = document.createElement("button");
+      button.className = "btn btn-primary";
+      button.textContent = "Refresh";
+      button.addEventListener("click", () => {
+        window.__discussionBridgeGenericRefreshReached = true;
+      });
+      document.body.appendChild(button);
+    JS
+    all("body > button.btn-primary").last.click
+    expect(page.evaluate_script("window.__discussionBridgeGenericRefreshReached")).to eq(true)
+  end
+
   it "keeps mapped and ordinary iframe browsing contexts isolated" do
     second_topic = Fabricate(:topic)
     Fabricate(:post, topic: second_topic, raw: "Second companion source post")
