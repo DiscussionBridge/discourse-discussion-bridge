@@ -156,7 +156,7 @@ From a private administrator shell, confirm the install root and topology:
 ```bash
 cd /var/discourse
 pwd
-./launcher list
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 test -f containers/app.yml && echo SINGLE_CONTAINER_CANDIDATE
 test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 ```
@@ -164,11 +164,16 @@ test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 Stop if the root is not the intended forum, the topology is ambiguous, an
 unexpected DiscussionBridge entry or installation already exists, the forum is
 unhealthy, capacity is inadequate, or the release tag does not resolve to the
-recorded SHA. Confirm a readable Discourse application backup and the separate
-host/provider rollback identity before editing. Creating and verifying the
-application backup through `/admin/backups` is preferred because it records the
-forum-owned artifact without printing secrets. Record its name, completion,
-time, and protected location; never paste its contents into the release record.
+recorded SHA. Confirm the accepted host-specific recovery boundary before
+editing: a readable Discourse application backup, a completed provider snapshot,
+or both, according to the forum's recorded role and recovery decision. A
+disposable sandbox may use a separately accepted provider snapshot without an
+application backup; durable preproduction and production forums must follow
+their stricter recorded recovery policy. When an application backup is required,
+creating and verifying it through `/admin/backups` is preferred because it
+records the forum-owned artifact without printing secrets. Record the accepted
+artifact or snapshot identity, completion, time, and protected location; never
+paste protected contents into the release record.
 
 Create a protected copy of only the topology's application configuration:
 
