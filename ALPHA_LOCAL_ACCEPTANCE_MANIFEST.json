@@ -1,26 +1,26 @@
 {
   "schemaVersion": 2,
   "createdDate": "2026-08-23",
-  "status": "alpha4-release-candidate",
+  "status": "alpha5-release-candidate",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 69 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "1943923ec890d4686e088331ecfa62cd897add02",
+  "candidateProductionCodeCommit": "7d6945a453048c92e64d235a8ed1652e6a8efc16",
   "verification": {
-    "officialWorkflow": "Discourse official reusable plugin workflow pinned to the exact verified Discourse commit; the authoritative exact-tag run URL and disposition belong in the GitHub prerelease and durable product checkpoint.",
+    "officialWorkflow": "Production-code workflow run 32653423914 passed against the exact verified Discourse commit. A second official workflow run on the final evidence head and the eventual exact-tag run remain required before publication.",
     "completeRSpec": "81 examples, 0 failures",
-    "browserRSpec": "7 examples, 0 failures",
-    "fullInteractive": "Completed-mapping fail-closed guard, readiness blockers, native empty-state reply, existing-post reply, Like persistence, Quote submission, comments-only presentation, and ordinary-topic isolation covered.",
+    "browserRSpec": "8 examples, 0 failures",
+    "fullInteractive": "Completed-mapping fail-closed guard, readiness blockers, native empty-state reply, existing-post reply, Like persistence, Quote submission, mapped-route restoration in an actual same-origin iframe, comments-only presentation, and ordinary-topic isolation covered.",
     "lintAndStructure": "Migrations, schema annotations, i18n, RuboCop, Syntax Tree, and applicable frontend checks pass in the official workflow.",
     "clientQUnit": "No plugin QUnit files exist.",
-    "remainingHumanGate": "Separate exact-tag installs on sandbox-forum.discussionbridge.dev app and dev-forum.discussionbridge.dev web_only; each must prove the Astro-hosted authenticated iframe actions and reviewed signed-out embed sign-in flow, then rollback."
+    "remainingHumanGate": "Separate exact-tag installs on sandbox-forum.discussionbridge.dev app and dev-forum.discussionbridge.dev web_only; each must prove visible submit labeling, Astro-hosted authenticated actions, existing-user sign-in route restoration, brand-new-user signup/activation/approval and validated Astro return, then rollback."
   },
   "rowCommitment": {
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 69,
-    "bytes": 181852.0,
-    "sha256": "59a3738805f7ba7ea963d46e002c730745919b06c17344dcf6c7c367ee73dd30"
+    "bytes": 187234,
+    "sha256": "601df8dba667c6f7eaf8f44089a3e57757eccf31c3216834e45243efa6734da7"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -48,8 +48,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 25434,
-      "sha256": "96f24733cd2fc3fcab6eaecb43d536d231644402adccdc0e87e52630b55aa953"
+      "bytes": 27134,
+      "sha256": "0c67973426704c2f999ea10a11f50c72bfe6b99d7e67309520bb52f34581c1c7"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -138,8 +138,8 @@
     },
     {
       "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
-      "bytes": 836,
-      "sha256": "cd88320991e4e331b5690298551a864e22cb0705019b07fb4094822b72506ead"
+      "bytes": 2887,
+      "sha256": "1536ca5a6a4a1f1dc5b65027a2856e7986974bdbafca1f8fb3da66324c73be8a"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
@@ -148,13 +148,13 @@
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-comments-only.scss",
-      "bytes": 435,
-      "sha256": "1490e9c95446399688de35e135661cd39de94cb7aaed5b90c65b6c60a96fa133"
+      "bytes": 840,
+      "sha256": "1a2e54a91f2077f0f01d6212530638c3906b1280be8801d982891c390fa4d91f"
     },
     {
       "path": "config/locales/client.en.yml",
-      "bytes": 3513,
-      "sha256": "1de9756a2bfc1f461e214254e6219d5f3265f6c63b75cc0ddcebe91bf4b3e2fb"
+      "bytes": 3587,
+      "sha256": "6ff23b74f823aa5d5f06bc1ea471c1e18fbaf2d4a9dcf49d8c25c2bfc1a063fd"
     },
     {
       "path": "config/locales/server.en.yml",
@@ -264,7 +264,7 @@
     {
       "path": "plugin.rb",
       "bytes": 4473,
-      "sha256": "df25912b4d38af1cdcfa9544c668d30bb6e74b1d4b19bbaed580fd8ecf831b38"
+      "sha256": "e487f4cba5f1b9e62395e8fde4ce0ae4fe92cd8a34628220236ff4ff2b2dc8f3"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
@@ -368,8 +368,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 7454,
-      "sha256": "7c272611a967f513f424bb2386bea2da97b6c4b2cb4bbcac12d61fa487f268ec"
+      "bytes": 8606,
+      "sha256": "b9479a49b90e1711b3becb35707e618578a73a785b2f281b5341fa8c2cfcf40b"
     }
   ]
 }

@@ -86,16 +86,17 @@ under `theme-components`.
 
 ## Local verification
 
-The production behavior inherited by the Alpha.5 development candidate was
-qualified for Alpha.4 against
-the exact stable-preproduction Discourse
+The Alpha.5 production-code commit
+`7d6945a453048c92e64d235a8ed1652e6a8efc16` passed Discourse's official
+reusable plugin workflow against the exact stable-preproduction Discourse
 commit `36698aae084678151dffa875d49c8d59216d2733` (public version
-`2026.8.0-latest.1`) through Discourse's official reusable plugin workflow. Both
-plugin migrations passed; annotation, i18n, RuboCop, Syntax Tree, and the applicable
-frontend checks passed. Alpha.5 changes frontend presentation and
-authentication-transition recovery and therefore requires fresh exact
-qualification. Its proposed suite adds an iframe-route restoration example to
-the prior 81 server/plugin and 7 browser/system examples. It continues to prove
+`2026.8.0-latest.1`) in
+[workflow run 32653423914](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32653423914).
+Both plugin migrations passed; annotation, i18n, RuboCop, Syntax Tree, and the
+applicable frontend checks passed. The exact totals are 81 server/plugin
+examples and 8 browser/system examples, with zero failures. The added system
+example exercises mapped-route restoration in an actual same-origin iframe.
+The suite continues to prove
 the completed-mapping 503 guard, readiness
 blockers, comments-only isolation, native empty-state and existing-post replies,
 Like persistence, and Quote submission in Core embed mode. The plugin has no
