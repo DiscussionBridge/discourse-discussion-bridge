@@ -38,12 +38,15 @@ route paths, setting names, and compatibility hooks retain their established
 The corrected Alpha.6 development candidate gives Core's compact composer
 submit control an explicit visible **Post reply** label for creation/reply and
 **Save edit** while editing an allowed post. Core's qualified embed exposes no
-avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one or
-intercept session mutation. Core's popup sign-in/sign-up flow reloads the mapped
-iframe directly. Session loss must be represented honestly as signed-out state;
-the host may reload the known mapped Astro page after a separate Core-owned
-logout. Discourse Core owns authentication, account creation, sessions,
-authorization, moderation, editing, and post submission.
+avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one.
+Core's popup sign-in/sign-up flow reloads the mapped iframe directly. Session
+loss must be represented honestly as signed-out state; after separate
+Core-owned logout, DiscussionBridge intercepts only Core's exact **You were
+logged out / Refresh** action in a completed mapped embed and asks Core's own
+logout helper to reload the current mapped route instead of `/`.
+DiscussionBridge does not perform session cleanup. Discourse Core owns
+authentication, account creation, sessions, authorization, moderation,
+editing, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
 view of connection mappings and audit evidence. It exposes canonical source and
 digest identity, state/outcome, topic, operating identity, reason, lane, and
@@ -94,8 +97,10 @@ that qualified Core renders no embedded logout control. Its synthetic
 logout-button system test therefore qualified an unreachable trigger rather
 than the production interface. Alpha.5 is immutable rejected evidence and must
 not be installed. Alpha.6 removes that unsupported return-state machinery and
-the server attestation/restore surface that existed only to support it. The
-remaining suite must continue to prove the completed-mapping 503 guard,
+the server attestation/restore surface that existed only to support it. It
+instead contains Core's real logout-dialog **Refresh** action narrowly on the
+current mapped embed route while leaving Core responsible for logout cleanup.
+The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
 composer labels in Core embed mode. The plugin has no QUnit files. The actual
@@ -205,8 +210,9 @@ is the publication authority. Its human gate proved that Core does not expose
 the assumed embedded logout control; the synthetic automated trigger was not a
 production interface. Alpha.5 is rejected for installation with no tag rewrite.
 The tag's README retains its truthful prepublication sentence as dated evidence.
-Alpha.6 removes the unreachable logout feature and is not yet published. All
-six published tags remain
+Alpha.6 removes the unreachable logout feature, contains Core's actual mapped
+embed logout-refresh action without inventing a logout control, and is not yet
+published. All six published tags remain
 immutable and must not be rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity

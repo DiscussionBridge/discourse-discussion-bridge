@@ -5,22 +5,22 @@
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 69 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "153a4ce2449fbf978b0d3d36ef832b262add8340",
+  "candidateProductionCodeCommit": "48565ff73fac5d6833425ac01c7b5d4398694bb4",
   "verification": {
-    "officialWorkflow": "Workflow 32661090580 passed for exact production candidate 153a4ce2449fbf978b0d3d36ef832b262add8340 against the exact verified Discourse commit.",
+    "officialWorkflow": "Workflow 32670701832 passed at exact evidence head d492c499dbd9f733dfe4f22009f94b087cb7ec2e against the exact verified Discourse commit; production candidate 48565ff73fac5d6833425ac01c7b5d4398694bb4 is its direct parent.",
     "completeRSpec": "81 server/plugin examples, 0 failures.",
-    "browserRSpec": "10 browser/system examples, 0 failures.",
-    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, actual absence of an embedded logout control, mapped/ordinary iframe isolation, comments-only presentation, and ordinary-topic isolation covered. The unreachable Alpha.5 logout return machinery and restore endpoint are removed.",
+    "browserRSpec": "11 browser/system examples, 0 failures.",
+    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, actual absence of an embedded logout control, exact Core logout-refresh mapped-route containment, generic-Refresh isolation, mapped/ordinary iframe isolation, comments-only presentation, and ordinary-topic isolation covered. The unreachable Alpha.5 logout return machinery and restore endpoint remain removed.",
     "lintAndStructure": "Migrations, schema annotations, i18n, RuboCop, Syntax Tree, and applicable frontend checks pass in the official workflow.",
     "clientQUnit": "No plugin QUnit files exist.",
-    "remainingHumanGate": "Corrected adapter replay on sandbox-forum.discussionbridge.dev must prove topic-progress/composer scrolling without clipping. A superseding exact plugin tag must then be installed separately on sandbox app and dev web_only; each must prove visible Post reply and Save edit, Astro-hosted authenticated Reply/Like/Quote/edit, honest signed-out state after separate Core-owned session loss, sign-in and new-user signup return, then rollback."
+    "remainingHumanGate": "Publish the exact reviewed Alpha.6 candidate, install it separately on sandbox app and dev web_only, and retain one acceptance record per host. Each must prove visible Post reply and Save edit, Astro-hosted authenticated Reply/Like/Quote/edit, honest signed-out state after separate Core-owned session loss, Core logout-dialog Refresh returning to the mapped signed-out discussion without embedding the forum homepage, sign-in and new-user signup return, then rollback."
   },
   "rowCommitment": {
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 69,
-    "bytes": 192218,
-    "sha256": "de2510b4486e763e9da888ce25ab32860101f1249913729a96b1a34b29b8e95f"
+    "bytes": 195313,
+    "sha256": "73af68673558a46aabd02ab1c8559336797dbe49fad80970cbdb5ecea93d78fa"
   },
   "publicationAuthorized": true,
   "installationAuthorized": false,
@@ -48,8 +48,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28260,
-      "sha256": "918ce63e7de98b677068830a7a61037bd61d31859c1e902e13c49d00ded80cae"
+      "bytes": 29084,
+      "sha256": "5c18df9ea62031b9b57bf074c675d2ffcfbb91e9e2b54963194d58cc48a34dad"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -138,8 +138,8 @@
     },
     {
       "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
-      "bytes": 1723,
-      "sha256": "6baa9318707df69b147132b2a463865164bd3ae10c2226a4e33c9cc8d6e6ff84"
+      "bytes": 2491,
+      "sha256": "4a216fd3dbf769576be7c6338b586f4c53b3149ca7650811bce371fd6e01cc31"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
@@ -368,8 +368,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 12450,
-      "sha256": "dcbf60f608c7112e60e61e2fdb6726a91e355c5cb4b23d87cf5f3fb4dbe3dfbb"
+      "bytes": 13953,
+      "sha256": "5adf415845968ce0f010e546f8f71e2cfbdab85a751bcddb30d403fb7dccac95"
     }
   ],
   "predecessorRelease": {
