@@ -5,6 +5,8 @@ en:
         categories:
           discourse_discussion_bridge: "DiscussionBridge"
     discussion_bridge:
+      composer_submit: "Post reply"
+      composer_save_edit: "Save edit"
       admin:
         title: "DiscussionBridge"
         health_title: "Connection health"

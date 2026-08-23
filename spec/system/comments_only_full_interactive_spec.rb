@@ -85,6 +85,14 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page).to have_css(".embed-topic-footer__first-reply")
     find(".embed-topic-footer__first-reply button").click
     expect(page).to have_css(".embed-mode-composer .d-editor-input")
+    expect(page).to have_css(
+      ".embed-mode-composer .docked-composer__submit-btn[data-discussion-bridge-submit-label='Post reply'][aria-label='Post reply'][title='Post reply']",
+    )
+    expect(
+      page.evaluate_script(
+        "getComputedStyle(document.querySelector('.docked-composer__submit-btn'), '::after').content",
+      ),
+    ).to eq('"Post reply"')
 
     find(".embed-mode-composer .d-editor-input").set("A native in-frame reply")
     find(".embed-mode-composer .docked-composer__submit-btn").click
@@ -148,6 +156,27 @@ describe "DiscussionBridge comments-only fullInteractive" do
       Post.where(topic_id: topic.id, user_id: interactive_user.id).where.not(id: quoted_post.id).exists?,
     ).to eq(true)
     expect(page.current_url).to include("embed_mode=true")
+  end
+
+  it "restores the mapped comments route after an in-frame authentication navigation" do
+    embed_path = "/embed/comments?topic_id=#{topic.id}&full_app=true"
+    visit("/")
+    page.execute_script(<<~JS)
+      const frame = document.createElement("iframe");
+      frame.id = "discussion-bridge-auth-frame";
+      frame.src = #{embed_path.to_json};
+      document.body.appendChild(frame);
+    JS
+
+    within_frame("discussion-bridge-auth-frame") do
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      mapped_url = page.current_url
+
+      page.execute_script("window.location.assign('/')")
+
+      expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+      expect(page.current_url).to eq(mapped_url)
+    end
   end
 
   it "does not change the ordinary topic presentation even for a long companion post" do

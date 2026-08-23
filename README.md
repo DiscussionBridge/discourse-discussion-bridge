@@ -35,6 +35,13 @@ origins, unavailable operating identities, nonexistent categories, and
 nonexistent tags. Visible product copy uses `DiscussionBridge`; machine IDs,
 route paths, setting names, and compatibility hooks retain their established
 `discussion_bridge` or `discourse-discussion-bridge` forms.
+A corrected Alpha.5 candidate also keeps the mapped comments route across
+in-frame authentication transitions and gives Core's compact composer submit
+control an explicit visible **Post reply** label. The restoration state is scoped
+to an actual iframe, stores only a same-origin `/t/` URL carrying the
+server-authorized comments-only marker, and never redirects a top-level forum
+window. Discourse Core continues to own authentication, account creation,
+sessions, authorization, moderation, and post submission.
 A second administrator-only page provides a searchable, paginated, read-only
 view of connection mappings and audit evidence. It exposes canonical source and
 digest identity, state/outcome, topic, operating identity, reason, lane, and
@@ -79,13 +86,17 @@ under `theme-components`.
 
 ## Local verification
 
-The production behavior inherited by the Alpha.4 candidate is qualified against
+The production behavior inherited by the Alpha.5 development candidate was
+qualified for Alpha.4 against
 the exact stable-preproduction Discourse
 commit `36698aae084678151dffa875d49c8d59216d2733` (public version
 `2026.8.0-latest.1`) through Discourse's official reusable plugin workflow. Both
-plugin migrations pass; annotation, i18n, RuboCop, Syntax Tree, and the applicable
-frontend checks pass. The exact suite contains 81 server/plugin examples and 7
-browser/system examples. It proves the completed-mapping 503 guard, readiness
+plugin migrations passed; annotation, i18n, RuboCop, Syntax Tree, and the applicable
+frontend checks passed. Alpha.5 changes frontend presentation and
+authentication-transition recovery and therefore requires fresh exact
+qualification. Its proposed suite adds an iframe-route restoration example to
+the prior 81 server/plugin and 7 browser/system examples. It continues to prove
+the completed-mapping 503 guard, readiness
 blockers, comments-only isolation, native empty-state and existing-post replies,
 Like persistence, and Quote submission in Core embed mode. The plugin has no
 QUnit files. The actual Astro-hosted iframe and signed-out embed sign-in flow
@@ -181,13 +192,19 @@ to record the protected rollback-configuration filename but never displayed its
 expanded value. The test stopped before configuration edit, rebuild, plugin
 installation, or forum mutation. Alpha.3 is rejected for installation and
 remains immutable evidence. Corrected Alpha.4 displays the exact chosen filename
-as part of the protected-copy step. All four published tags remain immutable and
-must not be rewritten, retagged, or silently replaced.
+as part of the protected-copy step, but human acceptance found an ambiguous
+icon-only submit action, comments-route loss across authentication transitions,
+and a missing new-user sign-up/return gate. Alpha.4 is rejected for installation
+and remains immutable evidence. Alpha.5 is the unreleased correction candidate:
+it labels the submit action, restores the mapped comments route inside the iframe,
+and adds explicit sign-up/activation/approval/return acceptance. All five
+published tags remain immutable and must not be rewritten, retagged, or silently
+replaced.
 
 #### 1. Preflight and recovery identity
 
-From a private administrator shell, confirm the Discourse folder and server
-layout. A standard setup has one `app` container; a split setup has separate
+From a private administrator shell, confirm the Discourse folder and container
+arrangement. A standard setup has one `app` container; a split setup has separate
 `data` and `web_only` containers:
 
 ```bash
@@ -430,9 +447,17 @@ The human acceptance record must confirm:
    healthy;
 6. the documented enable/configure flow works for the intended connection;
 7. an authenticated human completes Reply, Like, and Quote inside the Astro-page
-   iframe without top-level navigation, and a signed-out human sees the reviewed
-   sign-in flow rather than an unlabeled handoff;
-8. disable and rollback/removal instructions are understandable and effective.
+   iframe without top-level navigation, and the composer submit action has a
+   clear visible **Post reply** label;
+8. a signed-out existing user completes the reviewed sign-in flow and returns to
+   the mapped Astro discussion without an orphan forum-homepage state or manual
+   refresh;
+9. a brand-new ordinary user initiates sign-up from the Astro-hosted discussion,
+   completes the forum's email activation and approval policy where required,
+   returns through the validated original Astro context, and participates under
+   normal hold/review moderation without staff elevation or unapproved-body
+   disclosure; and
+10. disable and rollback/removal instructions are understandable and effective.
 
 Alpha release acceptance does not close until that human result is received
 and dispositioned. A failure produces a corrected candidate under a new tag;

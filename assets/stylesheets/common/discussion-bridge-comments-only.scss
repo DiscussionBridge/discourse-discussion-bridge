@@ -6,4 +6,23 @@ html.discussion-bridge-comments-only body.embed-mode {
   .post-stream #post_1 {
     display: none !important;
   }
+
+  .embed-mode-composer {
+    .docked-composer__editor .d-editor-input {
+      padding-right: 7.5em;
+    }
+
+    .docked-composer__submit-btn.btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35em;
+      padding-inline: 0.65em;
+
+      &::after {
+        content: attr(data-discussion-bridge-submit-label);
+        color: var(--tertiary);
+        font-weight: 600;
+      }
+    }
+  }
 }
