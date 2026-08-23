@@ -3,8 +3,8 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed control plane for DiscussionBridge connections.
 # meta_topic_id: 0
-# version: 0.1.0.alpha.2
-# authors: DiscussionBridge contributors
+# version: 0.1.0.alpha.3.dev
+# authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
 

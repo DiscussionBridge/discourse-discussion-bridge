@@ -133,15 +133,15 @@ configuration before copying them. Do not substitute a moving branch.
 ### Human installation is a release gate
 
 The automated and stable-preproduction installations qualify the software, but
-they do not prove that a real forum administrator can install the released
-plugin from its public instructions. Every Alpha release that claims
-plugin-backed `fullInteractive` support therefore requires human-admin
-installations of the exact published plugin candidate in both supported
-deployment topologies: the standard single-container `app` proof on
+they do not prove that a real forum administrator can install the published
+prerelease candidate from its public instructions. Every Alpha prerelease
+candidate that claims plugin-backed `fullInteractive` support therefore requires
+human-admin installations of the exact published plugin candidate in both
+supported server layouts: the standard single-container `app` proof on
 `sandbox-forum.discussionbridge.dev` and the official split `data` + `web_only`
 proof on `dev-forum.discussionbridge.dev`. The same person may perform both, but
-each host/topology must begin from its recorded clean rollback point and produce
-its own acceptance record. `forum.repealobbba.org` is not a substitute or third
+each forum/server layout must begin from its recorded clean rollback point and
+produce its own acceptance record. `forum.repealobbba.org` is not a substitute or third
 current release-gate install; any later independent real-world proof there
 requires separate OBBBA authorization and recovery acceptance.
 
@@ -155,13 +155,20 @@ inspection command before any configuration edit, rebuild, or forum mutation.
 Corrected `v0.1.0-alpha.1` then identified an expected historical pinned plugin
 hook but did not provide a public pinned-upgrade path; that pass also stopped
 before configuration edit, rebuild, or forum mutation. Both earlier tags remain
-immutable dated evidence and are superseded for installation by corrected
-candidate `v0.1.0-alpha.2`. They must not be rewritten, retagged, or silently
+immutable dated evidence. Corrected `v0.1.0-alpha.2` completed public pinned
+installation and rollback, but Phil's real-user pass proved its behavior labeled
+`fullInteractive` renders comments and hands interaction off to Discourse rather
+than completing native actions inside the Astro-page iframe. Code and historical
+doctrine review confirm that is a product-contract blocker. Alpha.2 is rejected
+for installation and no replacement prerelease candidate is published yet. All
+three tags remain immutable and must not be rewritten, retagged, or silently
 replaced.
 
 #### 1. Preflight and recovery identity
 
-From a private administrator shell, confirm the install root and topology:
+From a private administrator shell, confirm the Discourse folder and server
+layout. A standard setup has one `app` container; a split setup has separate
+`data` and `web_only` containers:
 
 ```bash
 cd /var/discourse
@@ -171,7 +178,7 @@ test -f containers/app.yml && echo SINGLE_CONTAINER_CANDIDATE
 test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 ```
 
-Stop if the root is not the intended forum, the topology is ambiguous, an
+Stop if this is not the intended forum, the server layout is unclear, an
 unrecognized DiscussionBridge entry or installation exists, the forum is
 unhealthy, capacity is inadequate, or the release tag does not resolve to the
 recorded SHA. If the host has an expected, recorded, pinned DiscussionBridge
@@ -187,20 +194,21 @@ records the forum-owned artifact without printing secrets. Record the accepted
 artifact or snapshot identity, completion, time, and protected location; never
 paste protected contents into the release record.
 
-Create a protected copy of only the topology's application configuration:
+Create a protected copy of only the confirmed server layout's application
+configuration:
 
 ```bash
 cd /var/discourse
 umask 077
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-# Choose exactly one after confirming the topology:
+# Choose exactly one after confirming the server layout:
 cp -a containers/app.yml "containers/app.yml.pre-discussionbridge-$stamp"
-# OR, for the split topology:
+# OR, for the split server layout:
 cp -a containers/web_only.yml "containers/web_only.yml.pre-discussionbridge-$stamp"
 ```
 
 Record the chosen backup filename. Do not copy or edit `data.yml` for the split
-topology.
+server layout.
 
 #### 2A. Standard single-container install
 
@@ -245,31 +253,34 @@ Do not add the plugin to `data.yml`, edit `data.yml`, or rebuild `data`.
 #### 2C. Existing pinned installation upgrade
 
 Use this path only when preflight identifies an expected prior installation and
-the confirmed topology configuration contains exactly one clone of the official
+the confirmed server-layout configuration contains exactly one clone of the
+official
 `DiscussionBridge/discourse-discussion-bridge` repository with exactly one
 recorded immutable commit pin. Stop if the repository is nonstandard, the prior
 identity is unknown, the hook is duplicated, or it follows a branch or other
 moving reference.
 
 Record the prior installed/configured SHA and the protected configuration copy
-created during preflight. In only the confirmed topology file, replace the old
+created during preflight. In only the confirmed server-layout file, replace the
+old
 immutable checkout SHA with `<RELEASE_SHA>` while preserving the existing hook
 form, URL, surrounding hooks, and YAML indentation. Do not add a second clone
 command and do not update the running container with `git pull`.
 
 Confirm the configuration diff changes only that one pinned SHA. Then rebuild
-only the application container matching the confirmed topology:
+only the application container matching the confirmed server layout:
 
 ```bash
 cd /var/discourse
 # Standard single-container only:
 ./launcher rebuild app
 
-# OR official split topology only:
+# OR official split server layout only:
 ./launcher rebuild web_only
 ```
 
-For split topology, never edit `data.yml` or rebuild `data`. Continue with the
+For the split server layout, never edit `data.yml` or rebuild `data`. Continue
+with the
 same postflight, safe-default, forum-health, enable/configure, and rollback
 checks below. Rollback restores the protected pre-upgrade configuration copy and
 rebuilds only the same application container, returning the hook to the recorded
@@ -288,30 +299,56 @@ cd /var/discourse
 plugin_git=$(find / -type d -path '*/plugins/discourse-discussion-bridge/.git' -print -quit 2>/dev/null)
 test -n "$plugin_git" || { echo PLUGIN_PATH_NOT_FOUND; exit 1; }
 plugin_root=${plugin_git%/.git}
-git -C "$plugin_root" rev-parse --verify HEAD
-git -C "$plugin_root" status --short
+plugin_sha=$(git -c safe.directory="$plugin_root" -C "$plugin_root" rev-parse --verify HEAD) || {
+  echo PLUGIN_SHA_READ_FAILED
+  exit 1
+}
+plugin_status=$(git -c safe.directory="$plugin_root" -C "$plugin_root" status --porcelain) || {
+  echo PLUGIN_STATUS_READ_FAILED
+  exit 1
+}
+printf 'PLUGIN_SHA=%s\n' "$plugin_sha"
+test -z "$plugin_status" && echo PLUGIN_TRACKED_CLEAN=true || {
+  echo PLUGIN_TRACKED_CLEAN=false
+  exit 1
+}
 exit
 ```
 
-The reported HEAD must equal `<RELEASE_SHA>` and tracked status must be empty.
-In Discourse admin, confirm there is no failed or pending migration; the plugin
-is present; `discussion_bridge_enabled`,
-`discussion_bridge_endpoint_enabled`,
-`discussion_bridge_core_zero_touch_compatibility`, and
-`discussion_bridge_comments_only_full_interactive` are all off; no connection
-ID/secret, trusted origin, service username, category, tag, or lane policy was
-silently populated; and ordinary topics, admin access, HTTPS, PostgreSQL, and
-Redis remain healthy. Only then apply the separately reviewed connection
-settings, enable the plugin, and exercise the approved create/resolve and
-presentation checks. Disable the endpoint at rest unless a bounded creation
-request is actively running.
+The reported HEAD must equal `<RELEASE_SHA>`. The command-scoped
+`safe.directory` allowance handles the container's expected ownership boundary
+without changing global Git configuration, and any Git read failure stops rather
+than being misreported as a clean checkout.
+
+In Discourse admin, confirm there is no failed or pending migration and the
+plugin is present. Apply the settings postcondition matching the preflight state:
+
+- **Fresh install:** `discussion_bridge_enabled`,
+  `discussion_bridge_endpoint_enabled`,
+  `discussion_bridge_core_zero_touch_compatibility`, and
+  `discussion_bridge_comments_only_full_interactive` are all off; no connection
+  ID/secret, trusted origin, service username, category, tag, or lane policy was
+  silently populated.
+- **Pinned upgrade:** the previously recorded, approved sanitized settings are
+  preserved exactly; no setting is reset, enabled, disabled, or populated merely
+  by rebuilding. An upgrade must not be expected to reset existing settings to
+  fresh-install defaults.
+
+Confirm ordinary topics, admin access, HTTPS, PostgreSQL, and Redis remain
+healthy. Only then apply any separately reviewed settings change and exercise
+the approved create/resolve and presentation checks. Disable the endpoint at
+rest unless a bounded creation request is actively running. At rest, the plugin
+health view can label `endpoint_disabled` as **Needs attention**. In this
+specific state that label confirms the creation endpoint is safely closed; it
+is not an install or migration failure.
 
 The human acceptance record must confirm:
 
 1. backup/rollback identity before the change;
 2. successful install and migrations from the public release instructions;
 3. the installed commit equals the release record;
-4. all DiscussionBridge settings remain at safe defaults/off after rebuild;
+4. fresh-install settings remain at safe defaults/off, or a pinned upgrade
+   preserves the recorded approved settings exactly;
 5. ordinary forum topics, admin access, HTTPS, database, and Redis remain
    healthy;
 6. the documented enable/configure flow works for the intended connection;
@@ -352,7 +389,8 @@ unchanged. Export or retain mapping/audit rows under the approved retention
 policy; never drop them merely to disable the plugin.
 
 Restore the exact protected configuration copy created during preflight. Use
-only the command matching the confirmed topology and substitute the recorded
+only the command matching the confirmed server layout and substitute the
+recorded
 timestamp:
 
 ```bash
@@ -361,12 +399,13 @@ cd /var/discourse
 cp -a "containers/app.yml.pre-discussionbridge-<TIMESTAMP>" containers/app.yml
 ./launcher rebuild app
 
-# OR split topology only:
+# OR split server layout only:
 cp -a "containers/web_only.yml.pre-discussionbridge-<TIMESTAMP>" containers/web_only.yml
 ./launcher rebuild web_only
 ```
 
-For the split topology, never edit or rebuild `data` during rollback or removal.
+For the split server layout, never edit or rebuild `data` during rollback or
+removal.
 Then apply only the postcondition matching the preflight state:
 
 - **Fresh-install removal:** the restored configuration had no DiscussionBridge
