@@ -214,11 +214,15 @@ remains immutable evidence. Corrected Alpha.4 displays the exact chosen filename
 as part of the protected-copy step, but human acceptance found an ambiguous
 icon-only submit action, comments-route loss across authentication transitions,
 and a missing new-user sign-up/return gate. Alpha.4 is rejected for installation
-and remains immutable evidence. Alpha.5 is the unreleased correction candidate:
-it labels the submit action, adds server-attested one-use iframe logout recovery,
-and adds explicit sign-up/activation/approval/return acceptance. All five
-published tags remain immutable and must not be rewritten, retagged, or silently
-replaced.
+and remains immutable evidence. Alpha.5 labels the submit action, adds
+server-attested one-use iframe logout recovery, and adds explicit
+sign-up/activation/approval/return acceptance. It was published as immutable
+prerelease candidate `v0.1.0-alpha.5` at exact commit
+`94f90811e5178752b1c54c16c15207dfe78e3bb6`; its
+[release page](https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.5)
+is the publication authority. The tag's README retains its truthful
+prepublication sentence as dated evidence. All six published tags remain
+immutable and must not be rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
 

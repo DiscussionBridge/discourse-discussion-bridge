@@ -1,11 +1,14 @@
 {
   "schemaVersion": 2,
   "createdDate": "2026-08-23",
-  "status": "alpha5-release-candidate",
+  "status": "alpha5-published-prerelease-current-main",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the 71 listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
   "candidateProductionCodeCommit": "8e311968990a61f0fb3d07ae7757647d0783c71a",
+  "publishedTag": "v0.1.0-alpha.5",
+  "publishedCandidateCommit": "94f90811e5178752b1c54c16c15207dfe78e3bb6",
+  "releaseUrl": "https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.5",
   "verification": {
     "officialWorkflow": "Corrected production/evidence workflow run 32656418990 passed against the exact verified Discourse commit. The authoritative final evidence-head and eventual exact-tag workflow run URLs and dispositions belong in the GitHub prerelease and durable product checkpoint.",
     "completeRSpec": "83 examples, 0 failures",
@@ -19,8 +22,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 71,
-    "bytes": 208714,
-    "sha256": "43bf58764f120f277d5f5f53ddb532e06605781f69409c8d3934596f2ed44b6d"
+    "bytes": 209021,
+    "sha256": "44b27881ec61f771522f970d45ff1d144bd640741253be8912617383b258d635"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -48,8 +51,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 29046,
-      "sha256": "cb0a131f6c9a6155208c571a00abd73da715c302bf06493b2def6c2c1ac89d04"
+      "bytes": 29353,
+      "sha256": "f408de540e8e2f5ff92250f568fa55713a2e2ca8f9a531406e093525f53ae84c"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
