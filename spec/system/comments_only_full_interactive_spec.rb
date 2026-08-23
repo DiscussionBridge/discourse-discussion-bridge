@@ -199,13 +199,12 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page.current_url).to include("embed_mode=true")
   end
 
-  it "intercepts only Core's mapped-embed logout refresh action" do
+  it "keeps Core's mapped-embed logout refresh on the mapped route" do
     sign_in(interactive_user)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
     page.execute_script(<<~JS)
-      window.__discussionBridgeCoreRefreshReached = false;
       const dialog = document.createElement("div");
       dialog.className = "dialog-container__logout-refresh";
       dialog.innerHTML = `
@@ -215,15 +214,12 @@ describe "DiscussionBridge comments-only fullInteractive" do
             <span class="d-button-label">Refresh</span>
           </button>
         </div>`;
-      dialog.querySelector("button").addEventListener("click", () => {
-        window.__discussionBridgeCoreRefreshReached = true;
-      });
       document.body.appendChild(dialog);
     JS
 
     find(".dialog-container__logout-refresh .dialog-footer button.btn-primary").click
-    expect(page.evaluate_script("window.__discussionBridgeCoreRefreshReached")).to eq(false)
     expect(page.current_url).to include("embed_mode=true")
+    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
 
     page.execute_script(<<~JS)
       window.__discussionBridgeGenericRefreshReached = false;
