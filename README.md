@@ -119,15 +119,16 @@ acceptance, and only then the production `forum.discussionbridge.dev` forum.
 The three hosted forums must use separate databases, credentials, deployment
 identities, and rollback boundaries.
 
-This is development evidence, not installation or production acceptance.
+This is qualification evidence, not public-release or production acceptance.
 
 ## Install and acceptance
 
 Before any installation, record the exact supported Discourse commit and run
-the plugin through that checkout's standard plugin RSpec harness. An operator
-installation will normally place or symlink the plugin under
-`discourse/plugins/discourse-discussion-bridge`, run migrations, rebuild the
-application, and leave the plugin and endpoint disabled until acceptance.
+the plugin through that checkout's standard plugin RSpec harness. The release
+record must provide `<RELEASE_TAG>` and its exact 40-character `<RELEASE_SHA>`.
+The examples below assume an official Docker install rooted at
+`/var/discourse`; stop and confirm the real root, container names, and current
+configuration before copying them. Do not substitute a moving branch.
 
 ### Human installation is a release gate
 
@@ -139,10 +140,114 @@ installation of the exact published plugin candidate.
 
 The release record must name the immutable plugin tag and commit SHA. The human
 administrator must use that public GitHub identity, not a local checkout or
-moving branch. On a standard single-container Discourse install, add the pinned
-plugin clone/checkout to `containers/app.yml` and rebuild `app`. On the official
-two-container layout, add it only to `containers/web_only.yml` and rebuild
-`web_only`; do not rebuild or add application plugins to `data`.
+moving branch.
+
+#### 1. Preflight and recovery identity
+
+From a private administrator shell, confirm the install root and topology:
+
+```bash
+cd /var/discourse
+pwd
+./launcher list
+test -f containers/app.yml && echo SINGLE_CONTAINER_CANDIDATE
+test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
+```
+
+Stop if the root is not the intended forum, the topology is ambiguous, an
+unexpected DiscussionBridge entry or installation already exists, the forum is
+unhealthy, capacity is inadequate, or the release tag does not resolve to the
+recorded SHA. Confirm a readable Discourse application backup and the separate
+host/provider rollback identity before editing. Creating and verifying the
+application backup through `/admin/backups` is preferred because it records the
+forum-owned artifact without printing secrets. Record its name, completion,
+time, and protected location; never paste its contents into the release record.
+
+Create a protected copy of only the topology's application configuration:
+
+```bash
+cd /var/discourse
+umask 077
+stamp=$(date -u +%Y%m%dT%H%M%SZ)
+# Choose exactly one after confirming the topology:
+cp -a containers/app.yml "containers/app.yml.pre-discussionbridge-$stamp"
+# OR, for the split topology:
+cp -a containers/web_only.yml "containers/web_only.yml.pre-discussionbridge-$stamp"
+```
+
+Record the chosen backup filename. Do not copy or edit `data.yml` for the split
+topology.
+
+#### 2A. Standard single-container install
+
+Edit `containers/app.yml` and add these commands to its existing
+`hooks: after_code: - exec: cmd:` list. Preserve every existing hook and YAML
+indentation:
+
+```yaml
+          - git clone https://github.com/DiscussionBridge/discourse-discussion-bridge.git
+          - git -C discourse-discussion-bridge checkout --detach <RELEASE_SHA>
+```
+
+The hook's `cd` must be `$home/plugins`, as in the official Discourse plugin
+installation pattern. Confirm the resulting YAML diff contains only the two
+DiscussionBridge commands, then rebuild only `app`:
+
+```bash
+cd /var/discourse
+./launcher rebuild app
+```
+
+#### 2B. Official split `data` + `web_only` install
+
+Edit only `containers/web_only.yml` and add the same two commands to its
+existing `hooks: after_code: - exec: cmd:` list:
+
+```yaml
+          - git clone https://github.com/DiscussionBridge/discourse-discussion-bridge.git
+          - git -C discourse-discussion-bridge checkout --detach <RELEASE_SHA>
+```
+
+The hook's `cd` must be `$home/plugins`. Confirm the diff, then rebuild only
+`web_only`:
+
+```bash
+cd /var/discourse
+./launcher rebuild web_only
+```
+
+Do not add the plugin to `data.yml`, edit `data.yml`, or rebuild `data`.
+
+#### 3. Postflight and acceptance
+
+Because the application root inside a container can differ, discover the
+installed plugin path instead of assuming `/var/www/discourse`. Choose the same
+application container rebuilt above:
+
+```bash
+cd /var/discourse
+./launcher enter app
+# OR: ./launcher enter web_only
+plugin_git=$(find / -type d -path '*/plugins/discourse-discussion-bridge/.git' -print -quit 2>/dev/null)
+test -n "$plugin_git" || { echo PLUGIN_PATH_NOT_FOUND; exit 1; }
+plugin_root=${plugin_git%/.git}
+git -C "$plugin_root" rev-parse --verify HEAD
+git -C "$plugin_root" status --short
+exit
+```
+
+The reported HEAD must equal `<RELEASE_SHA>` and tracked status must be empty.
+In Discourse admin, confirm there is no failed or pending migration; the plugin
+is present; `discussion_bridge_enabled`,
+`discussion_bridge_endpoint_enabled`,
+`discussion_bridge_core_zero_touch_compatibility`, and
+`discussion_bridge_comments_only_full_interactive` are all off; no connection
+ID/secret, trusted origin, service username, category, tag, or lane policy was
+silently populated; and ordinary topics, admin access, HTTPS, PostgreSQL, and
+Redis remain healthy. Only then apply the separately reviewed connection
+settings, enable the plugin, and exercise the approved create/resolve and
+presentation checks. Disable the endpoint at rest unless a bounded creation
+request is actively running.
 
 The human acceptance record must confirm:
 
@@ -184,16 +289,37 @@ or promotion. Production remains a separate reviewed release gate.
 
 ## Disable, rollback, and removal
 
-1. Disable the endpoint.
-2. Disable the plugin.
-3. Verify ordinary topics and Core embeds remain unchanged.
-4. Export or retain mapping/audit rows under an approved retention policy.
-5. Reverse migrations only under a reviewed backup and rollback plan.
-6. Remove the plugin directory and rebuild Discourse.
+First disable `discussion_bridge_endpoint_enabled`, then
+`discussion_bridge_enabled`, and verify ordinary topics and Core embeds remain
+unchanged. Export or retain mapping/audit rows under the approved retention
+policy; never drop them merely to disable the plugin.
 
-Never drop mapping or audit data merely to disable the plugin. Existing-topic
-authorship, visibility, category, tag, or mapping changes require a separate
-migration plan.
+Restore the exact protected configuration copy created during preflight. Use
+only the command matching the confirmed topology and substitute the recorded
+timestamp:
+
+```bash
+cd /var/discourse
+# Single-container only:
+cp -a "containers/app.yml.pre-discussionbridge-<TIMESTAMP>" containers/app.yml
+./launcher rebuild app
+
+# OR split topology only:
+cp -a "containers/web_only.yml.pre-discussionbridge-<TIMESTAMP>" containers/web_only.yml
+./launcher rebuild web_only
+```
+
+For the split topology, never edit or rebuild `data` during plugin removal.
+After the rebuild, confirm the plugin path is absent, the forum/admin/HTTPS/
+PostgreSQL/Redis baseline is healthy, ordinary topics and Core embeds are
+unchanged, and retained mapping/audit data follows the approved policy. If the
+forum or migrations fail, stop normal work and invoke the predeclared
+application-backup or provider-snapshot rollback; do not improvise destructive
+migration reversal. Reverse migrations only under that separately reviewed
+backup and rollback plan.
+
+Existing-topic authorship, visibility, category, tag, or mapping changes
+require a separate migration plan.
 
 ## License
 
