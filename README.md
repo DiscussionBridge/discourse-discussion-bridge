@@ -223,9 +223,23 @@ For the standard single-container `app` arrangement:
 cd /var/discourse
 umask 077
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
+source_config="containers/app.yml"
 rollback_config="containers/app.yml.pre-discussionbridge-$stamp"
-cp -a containers/app.yml "$rollback_config"
-printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
+if [ ! -f "$source_config" ] || [ ! -r "$source_config" ]; then
+  printf 'SOURCE_CONFIG_NOT_READABLE=%s\n' "$source_config" >&2
+  false
+elif [ -e "$rollback_config" ]; then
+  printf 'ROLLBACK_CONFIG_EXISTS=%s\n' "$rollback_config" >&2
+  false
+elif cp -a -- "$source_config" "$rollback_config" &&
+  [ -f "$rollback_config" ] &&
+  [ -r "$rollback_config" ] &&
+  cmp -s -- "$source_config" "$rollback_config"; then
+  printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
+else
+  printf 'ROLLBACK_CONFIG_COPY_FAILED=%s\n' "$rollback_config" >&2
+  false
+fi
 ```
 
 For the split `data` + `web_only` arrangement:
@@ -234,13 +248,29 @@ For the split `data` + `web_only` arrangement:
 cd /var/discourse
 umask 077
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
+source_config="containers/web_only.yml"
 rollback_config="containers/web_only.yml.pre-discussionbridge-$stamp"
-cp -a containers/web_only.yml "$rollback_config"
-printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
+if [ ! -f "$source_config" ] || [ ! -r "$source_config" ]; then
+  printf 'SOURCE_CONFIG_NOT_READABLE=%s\n' "$source_config" >&2
+  false
+elif [ -e "$rollback_config" ]; then
+  printf 'ROLLBACK_CONFIG_EXISTS=%s\n' "$rollback_config" >&2
+  false
+elif cp -a -- "$source_config" "$rollback_config" &&
+  [ -f "$rollback_config" ] &&
+  [ -r "$rollback_config" ] &&
+  cmp -s -- "$source_config" "$rollback_config"; then
+  printf 'ROLLBACK_CONFIG=%s\n' "$rollback_config"
+else
+  printf 'ROLLBACK_CONFIG_COPY_FAILED=%s\n' "$rollback_config" >&2
+  false
+fi
 ```
 
-Record the displayed `ROLLBACK_CONFIG` value. Do not copy or edit `data.yml` for
-the split container arrangement.
+Proceed only when the chosen block prints `ROLLBACK_CONFIG`. Record that exact
+value. Any `SOURCE_CONFIG_NOT_READABLE`, `ROLLBACK_CONFIG_EXISTS`, or
+`ROLLBACK_CONFIG_COPY_FAILED` marker is a stop condition. Do not copy or edit
+`data.yml` for the split container arrangement.
 
 #### 2A. Standard single-container install
 
