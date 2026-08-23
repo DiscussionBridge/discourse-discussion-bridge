@@ -83,6 +83,10 @@ Safe defaults:
 The complete contract is maintained in the Astro repository at
 `docs/evidence/DISCUSSIONBRIDGE_PLUGIN_V0_1_CONTRACT_2026-08-02.md`.
 
+For a plain-English account of why the plugin exists, what it does and does not
+do, and which tempting features were deliberately declined, see
+[Why DiscussionBridge Has a Discourse Plugin](PRODUCT_BOUNDARIES.md).
+
 ## Development placement
 
 Current local root:
@@ -229,9 +233,12 @@ rewritten, retagged, or silently replaced.
 
 #### 1. Preflight and recovery identity
 
-From a private administrator shell, confirm the Discourse folder and container
-arrangement. A standard setup has one `app` container; a split setup has separate
-`data` and `web_only` containers:
+If you already administer this forum and know whether it uses the standard
+single `app` container or separate `data` and `web_only` containers, this block
+simply provides a quick confirmation before editing anything. It is especially
+useful when you have inherited a forum, are returning after some time away, or
+are still becoming familiar with its setup. Run it from a private administrator
+shell; it is read-only:
 
 ```bash
 cd /var/discourse
@@ -240,6 +247,12 @@ docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 test -f containers/app.yml && echo SINGLE_CONTAINER_CANDIDATE
 test -f containers/web_only.yml && echo TWO_CONTAINER_CANDIDATE
 ```
+
+Seeing `SINGLE_CONTAINER_CANDIDATE` means the standard `app.yml` instructions
+below are the likely match. Seeing `TWO_CONTAINER_CANDIDATE` means the split
+`web_only.yml` instructions are the likely match. If both or neither appears,
+pause and confirm the forum's arrangement before continuing. The labels are
+orientation aids, not errors or readiness judgments.
 
 Stop if this is not the intended forum, the container arrangement is unclear, an
 unrecognized DiscussionBridge entry or installation exists, the forum is

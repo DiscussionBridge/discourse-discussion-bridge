@@ -21,9 +21,9 @@
   "rowCommitment": {
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
-    "files": 70,
-    "bytes": 204905,
-    "sha256": "24afb7727679409bcf2283f755825023b819046e804bdba5dcd9606711d4bf05"
+    "files": 71,
+    "bytes": 212529,
+    "sha256": "55a69da172b33c936a39a9222c4929f39c78228b36ee95de2cf46aa3a0bd0a02"
   },
   "publicationAuthorized": true,
   "installationAuthorized": true,
@@ -50,9 +50,14 @@
       "sha256": "53643582afba5b122ee1c2521b022093b88ce83ca3831e82356fd517a7db8853"
     },
     {
+      "path": "PRODUCT_BOUNDARIES.md",
+      "bytes": 6824,
+      "sha256": "37b90c382865eebdaf9f3c6dce1d2119f3d1ee32ecdc59a225293f6e0496a433"
+    },
+    {
       "path": "README.md",
-      "bytes": 30839,
-      "sha256": "a247f0e1aac5bd13c2c4685d394087af19cf03ee26664f52d993d05df5d6287a"
+      "bytes": 31639,
+      "sha256": "d209101f2fba4de36588ad929d159de871971a6a04f9fffacb45e32cdfd96a83"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
