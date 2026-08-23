@@ -14,6 +14,26 @@ enabled_site_setting :discussion_bridge_enabled
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 
+register_html_builder("server:before-head-close") do |controller|
+  next unless defined?(DiscussionBridge::EmbedRouteAttestation)
+  next unless SiteSetting.discussion_bridge_enabled
+  next unless SiteSetting.discussion_bridge_comments_only_full_interactive
+  next unless SiteSetting.embed_full_app
+  next unless SiteSetting.embed_full_app_signin_flow
+  next unless controller.params[:embed_mode].to_s == "true"
+
+  topic = controller.instance_variable_get(:@topic_view)&.topic
+  attestation =
+    DiscussionBridge::EmbedRouteAttestation.verify(
+      controller.params[:discussion_bridge_embed_token],
+    )
+  next unless topic && attestation
+  next unless attestation[:mapping].topic_id == topic.id
+  next unless controller.params[:class_name].to_s == attestation[:class_name]
+
+  %(<meta name="discussion-bridge-completed-mapping" content="#{topic.id}">)
+end
+
 add_admin_route(
   "discussion_bridge.admin.title",
   "discourse-discussion-bridge",
@@ -47,6 +67,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/audit_writer"
   require_relative "lib/discussion_bridge/create_or_resolve"
   require_relative "lib/discussion_bridge/comments_only_presenter"
+  require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/controllers/discussion_bridge/connections_controller"
@@ -91,9 +112,12 @@ after_initialize do
             full_app: true,
             existing_class_name: params[:class_name],
           )
+          mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
+          token = EmbedRouteAttestation.issue(mapping: mapping, class_name: bridge_class)
           query = {
             embed_mode: true,
             class_name: bridge_class,
+            discussion_bridge_embed_token: token,
           }
           response.headers["X-Robots-Tag"] = "noindex, indexifembedded"
           response.headers["Cache-Control"] = "no-store"

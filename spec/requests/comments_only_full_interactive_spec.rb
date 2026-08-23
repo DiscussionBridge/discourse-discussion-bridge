@@ -36,12 +36,57 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       "embed_mode" => "true",
       "class_name" => "discussion-bridge-comments-only",
     )
-    expect(query).not_to have_key("discussion_bridge_embed_token")
+    expect(query["discussion_bridge_embed_token"]).to be_present
 
     follow_redirect!
     expect(response.body).to match(
       /<html[^>]+class="[^"]*discussion-bridge-comments-only[^"]*"/,
     )
+    expect(response.body).to include(
+      %(<meta name="discussion-bridge-completed-mapping" content="#{topic.id}">),
+    )
+  end
+
+  it "does not attest a forged direct topic URL" do
+    get topic.url,
+        params: {
+          embed_mode: "true",
+          class_name: "discussion-bridge-comments-only",
+          discussion_bridge_embed_token: "forged",
+        }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('meta name="discussion-bridge-completed-mapping"')
+  end
+
+  it "does not attest an ordinary topic with another mapping's valid token" do
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
+      "discussion_bridge_embed_token",
+    )
+    ordinary_topic = Fabricate(:topic)
+    Fabricate(:post, topic: ordinary_topic)
+
+    get ordinary_topic.url,
+        params: {
+          embed_mode: "true",
+          class_name: "discussion-bridge-comments-only",
+          discussion_bridge_embed_token: token,
+        }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('meta name="discussion-bridge-completed-mapping"')
+  end
+
+  it "does not attest a mapping that became incomplete after redirect issuance" do
+    get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
+    location = response.location
+    DiscussionBridgeConnection.update_all(state: "failed")
+
+    get location
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include('meta name="discussion-bridge-completed-mapping"')
   end
 
   it "fails closed instead of serving the legacy handoff embed when Core full-app embedding is off" do

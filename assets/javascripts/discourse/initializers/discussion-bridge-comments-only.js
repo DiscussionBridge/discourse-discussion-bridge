@@ -6,6 +6,8 @@ const CSS_CLASS = "discussion-bridge-comments-only";
 const SUBMIT_LABEL_ATTRIBUTE = "data-discussion-bridge-submit-label";
 const LOGOUT_REFRESH_SELECTOR =
   ".dialog-container__logout-refresh .dialog-footer button.btn-primary";
+const COMPLETED_MAPPING_META =
+  "meta[name='discussion-bridge-completed-mapping']";
 
 function commentsOnlyRequested(url = new URL(window.location.href)) {
   const params = url.searchParams;
@@ -36,6 +38,17 @@ function currentEmbedRoute() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+function serverAttestedCompletedMapping() {
+  const topicMatch = window.location.pathname.match(
+    /^\/t\/(?:[^/]+\/)?([1-9]\d*)(?:\/[1-9]\d*)?\/?$/,
+  );
+  const attestedTopicId = document.querySelector(
+    COMPLETED_MAPPING_META,
+  )?.content;
+
+  return Boolean(topicMatch && attestedTopicId === topicMatch[1]);
+}
+
 function interceptLogoutRefresh(event, qualifiedEmbedRoute) {
   if (!(event.target instanceof Element)) {
     return;
@@ -46,6 +59,7 @@ function interceptLogoutRefresh(event, qualifiedEmbedRoute) {
     !button ||
     window.self === window.top ||
     currentEmbedRoute() !== qualifiedEmbedRoute ||
+    !serverAttestedCompletedMapping() ||
     !document.documentElement.classList.contains(CSS_CLASS) ||
     !document.body.classList.contains("embed-mode")
   ) {
@@ -61,7 +75,7 @@ export default {
   name: "discussion-bridge-comments-only",
 
   initialize() {
-    if (!commentsOnlyRequested()) {
+    if (!commentsOnlyRequested() || !serverAttestedCompletedMapping()) {
       return;
     }
 
