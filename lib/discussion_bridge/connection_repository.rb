@@ -4,7 +4,7 @@ require "securerandom"
 
 module DiscussionBridge
   class ConnectionRepository
-    Reservation = Data.define(:state, :topic_id, :record_id, :token)
+    Reservation = Data.define(:state, :topic_id, :record_id, :token, :reason)
     Commit = Data.define(:mapping, :creation)
 
     def reserve!(canonical:, request:, policy:)
@@ -25,7 +25,7 @@ module DiscussionBridge
             effective_state: AuditState.effective(policy),
           )
         end
-      Reservation.new(state: "reserved", topic_id: nil, record_id: record.id, token: token)
+      Reservation.new(state: "reserved", topic_id: nil, record_id: record.id, token: token, reason: nil)
     rescue ActiveRecord::RecordNotUnique
       existing_reservation(canonical, request, policy)
     rescue ActiveRecord::RecordInvalid => error
@@ -39,7 +39,24 @@ module DiscussionBridge
       DiscussionBridgeConnection.transaction(requires_new: true) do
         existing = DiscussionBridgeConnection.lock.find_by!(source_identity_digest: canonical.identity_digest)
         if existing.state == "complete" && existing.canonical_source_url == canonical.source_url
-          reservation = Reservation.new(state: "complete", topic_id: existing.topic_id, record_id: existing.id, token: nil)
+          integrity = ExistingMappingIntegrity.call(mapping: existing, policy: policy, request: request)
+          reservation = if integrity.usable?
+            Reservation.new(
+              state: "complete",
+              topic_id: existing.topic_id,
+              record_id: existing.id,
+              token: nil,
+              reason: nil,
+            )
+          else
+            Reservation.new(
+              state: "conflict",
+              topic_id: nil,
+              record_id: existing.id,
+              token: nil,
+              reason: integrity.reason,
+            )
+          end
         elsif existing.retry_authorized_at.present? && existing.canonical_source_url == canonical.source_url
           token = SecureRandom.hex(32)
           existing.update!(
@@ -54,9 +71,21 @@ module DiscussionBridge
             retry_authorized_at: nil,
             retry_authorized_by_id: nil,
           )
-          reservation = Reservation.new(state: "reserved", topic_id: nil, record_id: existing.id, token: token)
+          reservation = Reservation.new(
+            state: "reserved",
+            topic_id: nil,
+            record_id: existing.id,
+            token: token,
+            reason: nil,
+          )
         else
-          reservation = Reservation.new(state: "conflict", topic_id: existing.topic_id, record_id: existing.id, token: nil)
+          reservation = Reservation.new(
+            state: "conflict",
+            topic_id: nil,
+            record_id: existing.id,
+            token: nil,
+            reason: "identity_conflict",
+          )
         end
       end
       reservation

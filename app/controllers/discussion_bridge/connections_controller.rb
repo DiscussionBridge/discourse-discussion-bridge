@@ -12,7 +12,7 @@ module DiscussionBridge
     before_action :authenticate_connection
 
     def create
-      request_data = connection_params.to_h.symbolize_keys
+      request_data = ConnectionRequest.call(params.require(:connection))
       actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
       lane_resolution = LanePolicies.resolve(
         value: SiteSetting.discussion_bridge_lane_policies,
@@ -62,28 +62,13 @@ module DiscussionBridge
       supplied_id = request.headers["X-DiscussionBridge-Connection"]
       supplied_secret = request.headers["X-DiscussionBridge-Secret"]
 
-      authorized = expected_id.present? && expected_secret.present? &&
+      supplied_headers_bounded = supplied_id.is_a?(String) && supplied_secret.is_a?(String) &&
+        supplied_id.bytesize <= ConnectionRequest::MAX_CONNECTION_ID_BYTES &&
+        supplied_secret.bytesize <= 1024
+      authorized = supplied_headers_bounded && expected_id.present? && expected_secret.present? &&
         ActiveSupport::SecurityUtils.secure_compare(supplied_id.to_s, expected_id) &&
         ActiveSupport::SecurityUtils.secure_compare(supplied_secret.to_s, expected_secret)
       render json: { outcome: "rejected", reason: "unauthorized", core_fallback: false }, status: :unauthorized unless authorized
-    end
-
-    def connection_params
-      connection = params.require(:connection)
-      connection.require(:connection_id)
-      connection.require(:source_url)
-      connection.require(:title)
-      connection.permit(
-        :connection_id,
-        :adapter_id,
-        :source_url,
-        :title,
-        :visibility,
-        :lane,
-        :correlation_id,
-        :category_id,
-        tags: [],
-      )
     end
 
     def policy_settings

@@ -8,6 +8,12 @@ class DiscussionBridgeAuditEvent < ActiveRecord::Base
 
   validates :connection_id, :source_identity_digest, :outcome, :reason, presence: true
   validates :source_identity_digest, length: { is: 64 }
+  validates :connection_id, length: { maximum: DiscussionBridge::CanonicalSource::MAX_CONNECTION_ID_LENGTH }
+  validates :adapter_id, length: { maximum: DiscussionBridge::ConnectionRequest::MAX_ADAPTER_ID_BYTES }, allow_nil: true
+  validates :correlation_id,
+            length: { maximum: DiscussionBridge::ConnectionRequest::MAX_CORRELATION_ID_BYTES },
+            allow_nil: true
+  validates :outcome, :reason, length: { maximum: 100 }
   validate :payload_is_allowlisted
 
   private

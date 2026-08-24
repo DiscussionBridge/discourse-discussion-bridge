@@ -10,6 +10,8 @@ module DiscussionBridge
         severity: params[:severity],
         page: params[:page],
       )
+    rescue ArgumentError
+      render json: { error: "invalid_reconciliation_query" }, status: :unprocessable_entity
     end
 
     def authorize_retry

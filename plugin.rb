@@ -16,10 +16,7 @@ register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
-  next unless SiteSetting.discussion_bridge_enabled
-  next unless SiteSetting.discussion_bridge_comments_only_full_interactive
-  next unless SiteSetting.embed_full_app
-  next unless SiteSetting.embed_full_app_signin_flow
+  next unless DiscussionBridge::FullInteractiveReadiness.ready?
   next unless controller.params[:embed_mode].to_s == "true"
 
   topic = controller.instance_variable_get(:@topic_view)&.topic
@@ -30,6 +27,12 @@ register_html_builder("server:before-head-close") do |controller|
   next unless topic && attestation
   next unless attestation[:mapping].topic_id == topic.id
   next unless controller.params[:class_name].to_s == attestation[:class_name]
+  integrity = DiscussionBridge::ExistingMappingIntegrity.current(
+    mapping_id: attestation[:mapping].id,
+    expected_topic_id: topic.id,
+    expected_updated_at: attestation[:mapping].updated_at,
+  )
+  next unless integrity.usable?
 
   %(<meta name="discussion-bridge-completed-mapping" content="#{topic.id}">)
 end
@@ -53,6 +56,7 @@ after_initialize do
   end
 
   require_relative "lib/discussion_bridge/canonical_source"
+  require_relative "lib/discussion_bridge/connection_request"
   require_relative "lib/discussion_bridge/site_setting_label_formatter_extension"
   require_relative "lib/discussion_bridge/lane_policies"
   require_relative "lib/discussion_bridge/policy_evaluator"
@@ -62,10 +66,12 @@ after_initialize do
   require_relative "lib/discussion_bridge/reconciliation_index"
   require_relative "lib/discussion_bridge/retry_authorization"
   require_relative "lib/discussion_bridge/audit_state"
+  require_relative "lib/discussion_bridge/existing_mapping_integrity"
   require_relative "lib/discussion_bridge/connection_repository"
   require_relative "lib/discussion_bridge/topic_creator"
   require_relative "lib/discussion_bridge/audit_writer"
   require_relative "lib/discussion_bridge/create_or_resolve"
+  require_relative "lib/discussion_bridge/full_interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "app/models/discussion_bridge_connection"
@@ -90,30 +96,74 @@ after_initialize do
             TopicEmbed.topic_id_for_embed(params[:embed_url])
           end
 
-        mapped_full_app =
-          params[:full_app].present? && CommentsOnlyPresenter.requested_for?(topic_id: topic_id)
+        mapped_topic = CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id)
+        full_app_supplied = params.key?(:full_app)
+        full_app_requested = params[:full_app].is_a?(String) && params[:full_app] == "true"
+
+        if mapped_topic && full_app_supplied && !full_app_requested
+          render plain: I18n.t("discussion_bridge.full_interactive_invalid_request"),
+                 status: :unprocessable_entity
+          return
+        end
+
+        mapped_full_app = mapped_topic && full_app_requested
 
         if mapped_full_app
+          unless CommentsOnlyPresenter.valid_existing_class_name?(params[:class_name])
+            render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+                   status: :unprocessable_entity
+            return
+          end
+
           unless params[:topic_id].present? || EmbeddableHost.url_allowed?(params[:embed_url])
             raise Discourse::InvalidAccess.new("invalid embed host")
           end
 
-          unless SiteSetting.embed_full_app
-            render plain: I18n.t("discussion_bridge.full_interactive_requires_core_full_app"),
+          blockers = FullInteractiveReadiness.blockers
+          if blockers.any?
+            render plain: I18n.t(
+                     "discussion_bridge.full_interactive_unavailable",
+                     reasons: blockers.join(", "),
+                   ),
                    status: :service_unavailable
             return
           end
 
-          topic = Topic.find_by(id: topic_id)
-          raise Discourse::NotFound if topic.blank? || !guardian.can_see?(topic)
+          mapping = DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
+          unless mapping
+            render plain: I18n.t(
+                     "discussion_bridge.full_interactive_unavailable",
+                     reasons: "mapping_changed",
+                   ),
+                   status: :service_unavailable
+            return
+          end
+          integrity = ExistingMappingIntegrity.current(
+            mapping_id: mapping.id,
+            expected_topic_id: topic_id.to_i,
+            expected_updated_at: mapping.updated_at,
+          )
+          unless integrity.usable? && guardian.can_see?(integrity.topic)
+            render plain: I18n.t(
+                     "discussion_bridge.full_interactive_unavailable",
+                     reasons: integrity.reason || "topic_denied",
+                   ),
+                   status: :service_unavailable
+            return
+          end
+          topic = integrity.topic
 
           bridge_class = CommentsOnlyPresenter.redirect_class_name(
             topic_id: topic_id,
             full_app: true,
             existing_class_name: params[:class_name],
           )
-          mapping = DiscussionBridgeConnection.find_by!(topic_id: topic.id, state: "complete")
-          token = EmbedRouteAttestation.issue(mapping: mapping, class_name: bridge_class)
+          unless CommentsOnlyPresenter.valid_final_class_name?(bridge_class)
+            render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+                   status: :unprocessable_entity
+            return
+          end
+          token = EmbedRouteAttestation.issue(mapping: integrity.mapping, class_name: bridge_class)
           query = {
             embed_mode: true,
             class_name: bridge_class,
@@ -125,7 +175,7 @@ after_initialize do
           return
         end
 
-        if params[:full_app].present?
+        if full_app_requested
           bridge_class = CommentsOnlyPresenter.redirect_class_name(
             topic_id: topic_id,
             full_app: true,
@@ -141,6 +191,53 @@ after_initialize do
 
   EmbedController.prepend(DiscussionBridge::EmbedControllerExtension) unless
     EmbedController < DiscussionBridge::EmbedControllerExtension
+
+  module ::DiscussionBridge
+    module TopicControllerFullInteractiveGuard
+      def show
+        guard_discussion_bridge_full_interactive_destination
+        return if performed?
+
+        super
+      end
+
+      private
+
+      def guard_discussion_bridge_full_interactive_destination
+        token = params[:discussion_bridge_embed_token]
+        payload = EmbedRouteAttestation.authenticated_payload(token)
+        return unless payload
+
+        requested_topic_id = Integer(params[:topic_id] || params[:id], exception: false)
+        return unless requested_topic_id == payload["topic_id"]
+
+        attestation = EmbedRouteAttestation.verify(token)
+        class_name = params[:class_name].to_s
+        integrity = attestation && ExistingMappingIntegrity.current(
+          mapping_id: attestation[:mapping].id,
+          expected_topic_id: requested_topic_id,
+          expected_updated_at: attestation[:mapping].updated_at,
+        )
+        valid = FullInteractiveReadiness.ready? &&
+          params[:embed_mode].to_s == "true" &&
+          attestation &&
+          attestation[:mapping].topic_id == requested_topic_id &&
+          class_name == attestation[:class_name] &&
+          integrity&.usable? && guardian.can_see?(integrity.topic)
+        return if valid
+
+        render plain: I18n.t(
+                 "discussion_bridge.full_interactive_unavailable",
+                 reasons: "stale_or_unready_route",
+               ),
+               status: :service_unavailable
+      end
+
+    end
+  end
+
+  TopicsController.prepend(DiscussionBridge::TopicControllerFullInteractiveGuard) unless
+    TopicsController < DiscussionBridge::TopicControllerFullInteractiveGuard
 
   DiscussionBridge::Engine.routes.draw do
     post "/connections/resolve" => "connections#create"

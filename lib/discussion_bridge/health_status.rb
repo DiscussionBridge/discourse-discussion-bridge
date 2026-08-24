@@ -10,15 +10,16 @@ module DiscussionBridge
 
     def call
       actor = configured_actor
-      authority = configured_authority(actor)
-      blockers = readiness_blockers(actor, authority)
+      lanes = lane_policy_status(actor)
+      authority = lanes[:configured] ? nil : configured_authority(actor)
+      blockers = readiness_blockers(actor, authority, lanes)
 
       {
         features: feature_status,
         connection: connection_status,
-        lane_policies: lane_policy_status,
+        lane_policies: lanes,
         operating_identity: actor_status(actor),
-        forum_authority: authority_status(authority),
+        forum_authority: lanes[:configured] ? lane_authority_status(lanes) : authority_status(authority),
         mappings: mapping_status,
         audits: audit_status,
         readiness: {
@@ -54,16 +55,27 @@ module DiscussionBridge
       User.find_by(username_lower: username.downcase) if username.present?
     end
 
-    def lane_policy_status
+    def lane_policy_status(actor)
       policies = LanePolicies.parse(SiteSetting.discussion_bridge_lane_policies)
+      lane_statuses = policies.map do |policy|
+        authority = if valid_actor?(actor)
+          ForumAuthority.call(actor: actor, category_id: policy[:category_id], tags: policy[:tags])
+        end
+        {
+          lane: policy[:lane],
+          ready: authority&.allowed? || false,
+          reason: authority&.reason || "invalid_actor",
+        }
+      end
       {
         configured: policies.any?,
         count: policies.length,
         lanes: policies.map { |policy| policy[:lane] },
+        statuses: lane_statuses,
         valid: true,
       }
     rescue LanePolicies::ParseError
-      { configured: true, count: 0, lanes: [], valid: false }
+      { configured: true, count: 0, lanes: [], statuses: [], valid: false }
     end
 
     def actor_status(actor)
@@ -106,6 +118,18 @@ module DiscussionBridge
       }
     end
 
+    def lane_authority_status(lanes)
+      ready = lanes[:valid] && lanes[:statuses].all? { |lane| lane[:ready] }
+      {
+        allowed: ready,
+        reason: ready ? "lane_policies_authorized" : "lane_policy_authorization_incomplete",
+        category_id: nil,
+        category_name: nil,
+        configured_tags: [],
+        missing_tags: [],
+      }
+    end
+
     def mapping_status
       grouped = DiscussionBridgeConnection.group(:state).count
       counts = STATES.to_h { |state| [state, grouped.fetch(state, 0)] }
@@ -123,7 +147,7 @@ module DiscussionBridge
       }
     end
 
-    def readiness_blockers(actor, authority)
+    def readiness_blockers(actor, authority, lanes)
       blockers = []
       blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
@@ -131,19 +155,19 @@ module DiscussionBridge
       blockers << "credential_missing" if SiteSetting.discussion_bridge_connection_secret.blank?
       blockers << "trusted_origins_missing" if SiteSetting.discussion_bridge_trusted_origins.blank?
       blockers << "invalid_actor" unless valid_actor?(actor)
-      blockers << "lane_policy_invalid" unless lane_policy_status[:valid]
-      blockers << (authority&.reason || "authorization_incomplete") unless authority&.allowed?
+      blockers << "lane_policy_invalid" unless lanes[:valid]
+      if lanes[:valid] && lanes[:configured]
+        lanes[:statuses].each do |lane|
+          blockers << "lane:#{lane[:lane]}:#{lane[:reason]}" unless lane[:ready]
+        end
+      elsif lanes[:valid]
+        blockers << (authority&.reason || "authorization_incomplete") unless authority&.allowed?
+      end
       blockers.uniq
     end
 
     def full_interactive_blockers
-      blockers = []
-      unless SiteSetting.discussion_bridge_comments_only_full_interactive
-        blockers << "comments_only_full_interactive_disabled"
-      end
-      blockers << "embed_full_app_disabled" unless SiteSetting.embed_full_app
-      blockers << "embed_full_app_signin_flow_disabled" unless SiteSetting.embed_full_app_signin_flow
-      blockers
+      FullInteractiveReadiness.blockers
     end
 
     def valid_actor?(actor)

@@ -46,6 +46,27 @@ describe DiscussionBridge::ConnectionsController do
     }
   end
 
+  it "rejects malformed connection containers without persistence or exception leakage" do
+    [nil, false, true, "connection", 1, [], ["nested"]].each do |container|
+      post "/discussion-bridge/connections/resolve.json",
+           headers: request_headers,
+           params: { connection: container },
+           as: :json
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body).to include("reason" => "invalid_request")
+      expect(DiscussionBridgeConnection.count).to eq(0)
+      expect(DiscussionBridgeAuditEvent.count).to eq(0)
+    end
+
+    post "/discussion-bridge/connections/resolve.json",
+         headers: request_headers,
+         params: {},
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include("reason" => "invalid_request")
+  end
+
   it "rejects a bad connection credential before creating or auditing anything" do
     post "/discussion-bridge/connections/resolve.json",
          headers: request_headers(secret: "wrong"),
@@ -168,5 +189,44 @@ describe DiscussionBridge::ConnectionsController do
     expect(response.parsed_body).to include("outcome" => "rejected", "reason" => "invalid_request")
     expect(DiscussionBridgeConnection.count).to eq(0)
     expect(DiscussionBridgeAuditEvent.count).to eq(0)
+  end
+
+  it "rejects unknown, wrongly typed, and oversized request fields before persistence" do
+    invalid_payloads = [
+      connection_payload(unknown: "field"),
+      connection_payload(adapter_id: { nested: true }),
+      connection_payload(correlation_id: "x" * 201),
+      connection_payload(tags: Array.new(21, "tag")),
+    ]
+
+    invalid_payloads.each do |payload|
+      post "/discussion-bridge/connections/resolve.json",
+           headers: request_headers,
+           params: payload
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body).to include("reason" => "invalid_request")
+    end
+    expect(DiscussionBridgeConnection.count).to eq(0)
+    expect(DiscussionBridgeAuditEvent.count).to eq(0)
+  end
+
+  it "returns reconciliation_required instead of a successful binding for a deleted mapped topic" do
+    post "/discussion-bridge/connections/resolve.json",
+         headers: request_headers,
+         params: connection_payload
+    mapping = DiscussionBridgeConnection.last
+    mapping.topic.update!(deleted_at: Time.zone.now)
+
+    post "/discussion-bridge/connections/resolve.json",
+         headers: request_headers,
+         params: connection_payload
+
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body).to include(
+      "outcome" => "reconciliation_required",
+      "reason" => "mapping_topic_deleted",
+      "topic_id" => nil,
+    )
+    expect(mapping.reload).to have_attributes(state: "complete")
   end
 end

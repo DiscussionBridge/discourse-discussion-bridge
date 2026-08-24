@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 describe "DiscussionBridge comments-only fullInteractive" do
-  fab!(:topic)
+  fab!(:service_actor, :admin)
+  fab!(:topic) { Fabricate(:topic, user: service_actor) }
   fab!(:first_post) { Fabricate(:post, topic: topic, raw: "Companion source post") }
   fab!(:interactive_user) do
     Fabricate(:user, trust_level: TrustLevel[1], refresh_auto_groups: true)
@@ -14,6 +15,10 @@ describe "DiscussionBridge comments-only fullInteractive" do
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
+    SiteSetting.discussion_bridge_service_username = service_actor.username
+    SiteSetting.discussion_bridge_effective_category_id = topic.category_id
+    SiteSetting.discussion_bridge_effective_tags = ""
+    SiteSetting.discussion_bridge_lane_policies = "[]"
     DiscussionBridgeConnection.create!(
       connection_id: "astro",
       canonical_source_url: "https://example.com/article",
@@ -46,7 +51,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
 
     initial_height = page.evaluate_script("document.querySelector('#main').scrollHeight")
 
-    much_longer_topic = Fabricate(:topic)
+    much_longer_topic = Fabricate(:topic, user: service_actor, category: topic.category)
     Fabricate(:post, topic: much_longer_topic, raw: ("Much longer companion content. " * 900))
     DiscussionBridgeConnection.create!(
       connection_id: "astro-much-longer",
@@ -261,10 +266,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
       page.execute_script(<<~JS)
         const url = new URL(window.location.href);
-        const topicPath = url.pathname.endsWith("/")
-          ? url.pathname.slice(0, -1)
-          : url.pathname;
-        url.pathname = `${topicPath}/2`;
+        url.pathname = `/t/#{topic.id}/2`;
         window.history.pushState({}, "", `${url.pathname}${url.search}`);
         const dialog = document.createElement("div");
         dialog.className = "dialog-container__logout-refresh";
@@ -296,13 +298,34 @@ describe "DiscussionBridge comments-only fullInteractive" do
     )
 
     page.execute_script(<<~JS)
+      const composer = document.createElement("div");
+      composer.className = "embed-mode-composer";
+      composer.innerHTML = `
+        <button
+          id="lifecycle-submit-control"
+          class="docked-composer__submit-btn"
+          aria-label="Core submit"
+          title="Core title"
+          data-discussion-bridge-submit-label="Core marker"
+          data-discussion-bridge-original-aria-label="Caller-owned value"
+        >Core action</button>`;
+      document.body.appendChild(composer);
+    JS
+    expect(page).to have_css(
+      "#lifecycle-submit-control[data-discussion-bridge-submit-label='Post reply'][aria-label='Post reply'][title='Post reply']",
+    )
+
+    page.execute_script(<<~JS)
+      const button = document.getElementById("lifecycle-submit-control");
+      button.setAttribute("aria-label", "Core newer submit");
+      button.removeAttribute("title");
+      button.setAttribute("data-discussion-bridge-submit-label", "Core newer marker");
       const url = new URL(window.location.href);
       url.pathname = "/t/#{another_topic.slug}/#{another_topic.id}";
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
-      const composer = document.createElement("div");
-      composer.className = "embed-mode-composer";
-      composer.innerHTML = '<button class="docked-composer__submit-btn">Core action</button>';
-      document.body.appendChild(composer);
+      button.closest(".embed-mode-composer").remove();
+      button.className = "core-reparented-submit-control";
+      document.body.appendChild(button);
     JS
 
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
@@ -310,9 +333,166 @@ describe "DiscussionBridge comments-only fullInteractive" do
       "none",
     )
     expect(page).to have_css(
-      ".embed-mode-composer .docked-composer__submit-btn:not([data-discussion-bridge-submit-label])",
+      "#lifecycle-submit-control.core-reparented-submit-control[data-discussion-bridge-submit-label='Core newer marker'][aria-label='Core newer submit']:not([title])[data-discussion-bridge-original-aria-label='Caller-owned value']",
       text: "Core action",
     )
+  end
+
+
+  it "releases an owned control that becomes ineligible on the same qualified route" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    page.execute_script(<<~JS)
+      const composer = document.createElement("div");
+      composer.className = "embed-mode-composer";
+      composer.innerHTML = `
+        <button id="same-route-submit" class="docked-composer__submit-btn"
+          aria-label="Core submit" title="Core title"
+          data-discussion-bridge-submit-label="Core marker">Core action</button>`;
+      document.body.appendChild(composer);
+    JS
+    expect(page).to have_css("#same-route-submit[aria-label='Post reply']")
+
+    page.execute_script(<<~JS)
+      document.getElementById("same-route-submit").className = "core-other-control";
+    JS
+
+    expect(page).to have_css(
+      "#same-route-submit.core-other-control[aria-label='Core submit'][title='Core title'][data-discussion-bridge-submit-label='Core marker']",
+    )
+    expect(page).to have_css("html[data-discussion-bridge-comments-only-attested]")
+  end
+
+  it "restores the latest detached Core state when removal and mutation share a delivery" do
+    another_topic = Fabricate(:topic)
+    Fabricate(:post, topic: another_topic, raw: "Another topic source post")
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    page.execute_script(<<~JS)
+      const composer = document.createElement("div");
+      composer.id = "remove-mutate-composer";
+      composer.className = "embed-mode-composer";
+      composer.innerHTML = `
+        <button id="remove-mutate-submit" class="docked-composer__submit-btn"
+          aria-label="Core original" title="Core original title">Core action</button>`;
+      document.body.appendChild(composer);
+    JS
+    expect(page).to have_css("#remove-mutate-submit[aria-label='Post reply']")
+
+    page.execute_script(<<~JS)
+      const button = document.getElementById("remove-mutate-submit");
+      window.__removeMutateButton = button;
+      document.getElementById("remove-mutate-composer").remove();
+      button.setAttribute("aria-label", "Core detached latest");
+      button.removeAttribute("title");
+      button.setAttribute("data-discussion-bridge-submit-label", "Core detached marker");
+    JS
+    expect(page.evaluate_script("window.__removeMutateButton.getAttribute('aria-label')")).to eq(
+      "Core detached latest",
+    )
+    expect(page.evaluate_script("window.__removeMutateButton.hasAttribute('title')")).to eq(false)
+    expect(
+      page.evaluate_script(
+        "window.__removeMutateButton.getAttribute('data-discussion-bridge-submit-label')",
+      ),
+    ).to eq("Core detached marker")
+
+    page.execute_script(<<~JS)
+      const url = new URL(window.location.href);
+      url.pathname = "/t/#{another_topic.slug}/#{another_topic.id}";
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      document.body.appendChild(window.__removeMutateButton);
+    JS
+    expect(page).to have_css(
+      "#remove-mutate-submit[aria-label='Core detached latest'][data-discussion-bridge-submit-label='Core detached marker']:not([title])",
+    )
+  end
+
+
+  it "restores a detached owned control before later non-mapped reinsertion" do
+    another_topic = Fabricate(:topic)
+    Fabricate(:post, topic: another_topic, raw: "Another topic source post")
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    page.execute_script(<<~JS)
+      const composer = document.createElement("div");
+      composer.id = "detached-composer";
+      composer.className = "embed-mode-composer";
+      composer.innerHTML = `
+        <button id="detached-submit" class="docked-composer__submit-btn"
+          aria-label="Core detached" title="Core detached title">Core action</button>`;
+      document.body.appendChild(composer);
+    JS
+    expect(page).to have_css("#detached-submit[data-discussion-bridge-submit-label='Post reply']")
+
+    page.execute_script(<<~JS)
+      window.__detachedBridgeButton = document.getElementById("detached-submit");
+      document.getElementById("detached-composer").remove();
+    JS
+    expect(page.evaluate_script("window.__detachedBridgeButton.getAttribute('aria-label')")).to eq(
+      "Core detached",
+    )
+    expect(
+      page.evaluate_script("window.__detachedBridgeButton.hasAttribute('data-discussion-bridge-submit-label')"),
+    ).to eq(false)
+
+    page.execute_script(<<~JS)
+      const url = new URL(window.location.href);
+      url.pathname = "/t/#{another_topic.slug}/#{another_topic.id}";
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      document.body.appendChild(window.__detachedBridgeButton);
+    JS
+
+    expect(page).to have_css(
+      "#detached-submit:not([data-discussion-bridge-submit-label])[aria-label='Core detached'][title='Core detached title']",
+    )
+  end
+
+  it "qualifies slugless subfolder topic and post routes for the attested topic" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    page.execute_script(<<~JS)
+      let base = document.querySelector("meta[name='discourse-base-uri']");
+      if (!base) {
+        base = document.createElement("meta");
+        base.name = "discourse-base-uri";
+        document.head.appendChild(base);
+      }
+      base.content = "/forum";
+      const url = new URL(window.location.href);
+      url.pathname = "/forum/t/#{topic.id}/2";
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      document.body.appendChild(document.createElement("span"));
+    JS
+
+    expect(page).to have_css("html[data-discussion-bridge-comments-only-attested]")
+  end
+
+  [
+    ["root duplicate slash", "/t//%{id}", nil],
+    ["subfolder duplicate slash", "/forum/t/%{id}//2", "/forum"],
+    ["encoded separator", "/t/slug%2Fextra/%{id}", nil],
+    ["malformed post ordinal", "/t/%{id}/not-a-post", nil],
+    ["extra segment", "/t/slug/%{id}/2/extra", nil],
+  ].each do |label, path_template, base_path|
+    it "rejects #{label} during in-document qualification" do
+      visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+      page.execute_script(<<~JS)
+        const basePath = #{base_path.to_json};
+        if (basePath) {
+          let base = document.querySelector("meta[name='discourse-base-uri']");
+          if (!base) {
+            base = document.createElement("meta");
+            base.name = "discourse-base-uri";
+            document.head.appendChild(base);
+          }
+          base.content = basePath;
+        }
+        const url = new URL(window.location.href);
+        url.pathname = #{format(path_template, id: topic.id).to_json};
+        window.history.pushState({}, "", `${url.pathname}${url.search}`);
+        document.body.appendChild(document.createElement("span"));
+      JS
+
+      expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
+    end
   end
 
   it "does not intercept Core's logout refresh on a top-level embed-mode page" do
@@ -410,7 +590,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
   end
 
   it "keeps mapped and ordinary iframe browsing contexts isolated" do
-    second_topic = Fabricate(:topic)
+    second_topic = Fabricate(:topic, user: service_actor, category: topic.category)
     Fabricate(:post, topic: second_topic, raw: "Second companion source post")
     DiscussionBridgeConnection.create!(
       connection_id: "astro-second",
@@ -522,32 +702,25 @@ describe "DiscussionBridge comments-only fullInteractive" do
     )
   end
 
-  it "does not hide post 1 after the attested mapping is invalidated" do
+  it "fails explicitly after an authentic attested mapping is invalidated" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
     mapped_url = page.current_url
     DiscussionBridgeConnection.update_all(state: "failed")
 
     visit(mapped_url)
 
-    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_content("DiscussionBridge fullInteractive is unavailable")
+    expect(page).to have_no_css("#post_1")
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
-    expect(page).to have_css("#post_1", text: "Companion source post")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
-      "none",
-    )
   end
 
-  it "strips a caller-supplied reserved marker when the operator option is disabled" do
+  it "fails explicitly when the mapped capability is disabled" do
     SiteSetting.discussion_bridge_comments_only_full_interactive = false
 
-    visit(
-      "/embed/comments?topic_id=#{topic.id}&full_app=true&#{
-        { class_name: "discussion-bridge-comments-only <bad" }.to_query
-      }",
-    )
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
-    expect(page).to have_no_css("html.discussion-bridge-comments-only")
-    expect(page).to have_css("#post_1", text: "Companion source post")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq("none")
+    expect(page).to have_content("DiscussionBridge fullInteractive is unavailable")
+    expect(page).to have_no_css("#post_1")
+    expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
   end
 end

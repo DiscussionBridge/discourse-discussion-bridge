@@ -11,6 +11,6 @@ permissions:
 
 jobs:
   ci:
-    uses: discourse/.github/.github/workflows/discourse-plugin.yml@v1
+    uses: discourse/.github/.github/workflows/discourse-plugin.yml@05b8c4ee75d2408ffd23a2fbfb948dd82037fc57
     with:
       core_ref: 36698aae084678151dffa875d49c8d59216d2733

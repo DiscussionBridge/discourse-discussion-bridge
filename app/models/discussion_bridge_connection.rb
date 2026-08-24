@@ -13,6 +13,9 @@ class DiscussionBridgeConnection < ActiveRecord::Base
 
   validates :connection_id, :canonical_source_url, :source_identity_digest, :state, presence: true
   validates :source_identity_digest, length: { is: 64 }, uniqueness: true
+  validates :connection_id, length: { maximum: DiscussionBridge::CanonicalSource::MAX_CONNECTION_ID_LENGTH }
+  validates :lane, length: { maximum: DiscussionBridge::ConnectionRequest::MAX_LANE_BYTES }, allow_nil: true
+  validates :requested_visibility, :effective_visibility, length: { maximum: 32 }
   validates :state, inclusion: { in: STATES }
   validates :reservation_token, length: { is: 64 }, allow_nil: true
   validates :topic_id, uniqueness: true, allow_nil: true

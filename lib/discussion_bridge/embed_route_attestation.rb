@@ -1,26 +1,33 @@
 # frozen_string_literal: true
 
+require "time"
+
 module DiscussionBridge
   class EmbedRouteAttestation
     PURPOSE = "discussion-bridge-comments-only-embed-route"
     MAX_AGE = 12.hours
+    MAX_TOKEN_BYTES = 4096
 
     def self.issue(mapping:, class_name:)
+      unless CommentsOnlyPresenter.valid_final_class_name?(class_name)
+        raise ArgumentError, "invalid attestation class"
+      end
+
       verifier.generate(
         {
           "mapping_id" => mapping.id,
           "topic_id" => mapping.topic_id,
           "mapping_updated_at" => mapping.updated_at.utc.iso8601(6),
           "class_name" => class_name,
+          "issued_at" => Time.zone.now.utc.iso8601(6),
         },
         purpose: PURPOSE,
-        expires_in: MAX_AGE,
       )
     end
 
     def self.verify(token)
-      payload = verifier.verified(token.to_s, purpose: PURPOSE)
-      return unless payload.is_a?(Hash)
+      payload = authenticated_payload(token)
+      return unless live_payload?(payload)
 
       mapping =
         DiscussionBridgeConnection.find_by(
@@ -31,13 +38,28 @@ module DiscussionBridge
       return unless mapping
       return unless mapping.updated_at.utc.iso8601(6) == payload["mapping_updated_at"]
 
-      class_name = payload["class_name"].to_s
-      return unless class_name.match?(CommentsOnlyPresenter::CLASS_NAME_PATTERN)
-      return if class_name.split.exclude?(CommentsOnlyPresenter::CSS_CLASS)
+      class_name = payload["class_name"]
+      return unless CommentsOnlyPresenter.valid_final_class_name?(class_name)
 
       { mapping: mapping, class_name: class_name }
+    end
+
+    def self.authenticated_payload(token)
+      return if token.to_s.bytesize > MAX_TOKEN_BYTES
+
+      payload = verifier.verified(token.to_s, purpose: PURPOSE)
+      payload if payload.is_a?(Hash)
     rescue ActiveSupport::MessageVerifier::InvalidSignature
       nil
+    end
+
+    def self.live_payload?(payload, now: Time.zone.now)
+      return false unless payload.is_a?(Hash)
+
+      issued_at = Time.iso8601(payload["issued_at"].to_s)
+      issued_at <= now && issued_at >= now - MAX_AGE
+    rescue ArgumentError
+      false
     end
 
     def self.verifier

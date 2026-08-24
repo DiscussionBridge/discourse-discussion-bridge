@@ -39,4 +39,42 @@ describe DiscussionBridge::LanePolicies do
     expect { described_class.parse(listed) }.to raise_error(described_class::ParseError)
     expect { described_class.parse("{") }.to raise_error(described_class::ParseError)
   end
+
+  it "requires the exact bounded policy schema" do
+    missing = [{ lane: "docs", category_id: 1, tags: [] }].to_json
+    extra = [
+      { lane: "docs", category_id: 1, tags: [], visibility: "unlisted", tagz: ["typo"] },
+    ].to_json
+    duplicate_tags = [
+      { lane: "docs", category_id: 1, tags: %w[Alpha alpha], visibility: "unlisted" },
+    ].to_json
+
+    [missing, extra, duplicate_tags].each do |value|
+      expect { described_class.parse(value) }.to raise_error(described_class::ParseError)
+    end
+  end
+
+  it "rejects mistyped lanes and control-bearing tags" do
+    invalid = [
+      [{ lane: 1, category_id: 1, tags: [], visibility: "unlisted" }],
+      [{ lane: true, category_id: 1, tags: [], visibility: "unlisted" }],
+      [{ lane: nil, category_id: 1, tags: [], visibility: "unlisted" }],
+      [{ lane: "docs", category_id: 1, tags: ["bad\u0000tag"], visibility: "unlisted" }],
+      [{ lane: "docs", category_id: 1, tags: ["bad\ttag"], visibility: "unlisted" }],
+      [{ lane: "docs", category_id: 1, tags: ["bad\ntag"], visibility: "unlisted" }],
+    ]
+
+    invalid.each do |value|
+      expect { described_class.parse(value.to_json) }.to raise_error(described_class::ParseError)
+    end
+  end
+
+  it "rejects duplicate raw JSON object members" do
+    value = '[{"lane":"docs","lane":"news","category_id":1,"tags":[],"visibility":"unlisted"}]'
+
+    expect { described_class.parse(value) }.to raise_error(
+      described_class::ParseError,
+      /duplicate lane policy field/,
+    )
+  end
 end

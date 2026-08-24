@@ -23,6 +23,7 @@ describe DiscussionBridge::CommentsOnlyPresenter do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_comments_only_full_interactive = true
     SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
   end
 
   it "marks a completed mapped topic only in full-app embed mode" do

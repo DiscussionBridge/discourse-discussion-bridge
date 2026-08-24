@@ -26,7 +26,12 @@ module DiscussionBridge
         return result
       end
       if reservation.state != "reserved"
-        result = result_for("reconciliation_required", "identity_conflict", request, policy)
+        result = result_for(
+          "reconciliation_required",
+          (reservation.respond_to?(:reason) && reservation.reason) || "identity_conflict",
+          request,
+          policy,
+        )
         audit_writer.call(result)
         return result
       end

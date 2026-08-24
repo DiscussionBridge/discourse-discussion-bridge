@@ -36,6 +36,7 @@ describe DiscussionBridge::ReconciliationIndex do
 
   def compliant_topic
     topic = Fabricate(:topic, user: actor, category: category, visible: false)
+    Fabricate(:post, topic: topic, user: actor, post_number: 1) unless topic.first_post
     topic.tags = [tag]
     topic
   end
@@ -49,6 +50,15 @@ describe DiscussionBridge::ReconciliationIndex do
     expect(result[:summary]).to eq(critical: 0, high: 0, medium: 0, total: 0)
   end
 
+  it "covers every shared estate integrity reason with a reconciliation code" do
+    expect(described_class::RECOMMENDATIONS.keys).to include(
+      *DiscussionBridge::ExistingMappingIntegrity::ESTATE_REASON_TO_RECONCILIATION_CODE.values,
+    )
+    expect(DiscussionBridge::ExistingMappingIntegrity::REQUEST_RELATIVE_REASONS).to eq(
+      ["mapping_lane_drift"],
+    )
+  end
+
   it "detects missing topics and stale or failed mappings" do
     create_mapping(topic: nil)
     create_mapping(state: "failed")
@@ -57,6 +67,28 @@ describe DiscussionBridge::ReconciliationIndex do
     result = described_class.call
 
     expect(result[:items].pluck(:code)).to contain_exactly("topic_missing", "failed_mapping", "stale_reservation")
+  end
+
+  it "detects deleted topics and missing or deleted companion first posts" do
+    deleted_topic = compliant_topic
+    deleted_topic.update_column(:deleted_at, Time.zone.now)
+    create_mapping(topic: deleted_topic)
+
+    deleted_post_topic = compliant_topic
+    create_mapping(topic: deleted_post_topic)
+    deleted_post_topic.first_post.update_column(:deleted_at, Time.zone.now)
+
+    missing_post_topic = Fabricate(:topic, user: actor, category: category, visible: false)
+    missing_post_topic.tags = [tag]
+    create_mapping(topic: missing_post_topic)
+
+    result = described_class.call
+
+    expect(result[:items].pluck(:code)).to include(
+      "topic_deleted",
+      "first_post_deleted",
+      "first_post_missing",
+    )
   end
 
   it "detects forum policy drift without mutating the mapping or topic" do
@@ -70,6 +102,44 @@ describe DiscussionBridge::ReconciliationIndex do
     expect(topic.reload).to have_attributes(category_id: other_category.id, visible: true)
   end
 
+  it "projects every estate-detectable topic and visibility integrity blocker" do
+    closed = compliant_topic
+    closed.update!(closed: true)
+    create_mapping(topic: closed)
+
+    archived = compliant_topic
+    archived.update!(archived: true)
+    create_mapping(topic: archived)
+
+    nonregular = compliant_topic
+    nonregular.update_column(:archetype, Archetype.private_message)
+    create_mapping(topic: nonregular)
+
+    visibility_mapping = create_mapping(topic: compliant_topic)
+    visibility_mapping.update!(effective_visibility: "listed")
+
+    result = described_class.call
+
+    expect(result[:items].pluck(:code)).to include(
+      "topic_closed",
+      "topic_archived",
+      "topic_archetype_mismatch",
+      "effective_visibility_drift",
+    )
+    expect(result[:items]).to all(include(:recommendation))
+  end
+
+  it "reports invalid lane policy configuration for mapped estate rows" do
+    create_mapping(topic: compliant_topic)
+    SiteSetting.discussion_bridge_lane_policies = "{"
+
+    result = described_class.call
+
+    expect(result[:items]).to contain_exactly(
+      include(code: "lane_policy_invalid", severity: "high", recommendation: "review_lane_policy"),
+    )
+  end
+
   it "detects an unknown configured lane as a high-severity issue" do
     SiteSetting.discussion_bridge_lane_policies = [
       { lane: "news", category_id: category.id, tags: [tag.name], visibility: "unlisted" },
@@ -79,5 +149,29 @@ describe DiscussionBridge::ReconciliationIndex do
     result = described_class.call(query: mapping.canonical_source_url)
 
     expect(result[:items]).to contain_exactly(include(code: "lane_denied", severity: "high", recommendation: "review_lane_policy"))
+  end
+
+  it "keeps estate-wide counts and stable pagination beyond one page" do
+    30.times { create_mapping(state: "failed") }
+
+    first = described_class.call(severity: "medium", page: 1)
+    second = described_class.call(severity: "medium", page: 2)
+
+    expect(first.dig(:pagination, :total)).to eq(30)
+    expect(first[:items].length).to eq(25)
+    expect(second[:items].length).to eq(5)
+    expect(first[:items].pluck(:mapping_id) & second[:items].pluck(:mapping_id)).to be_empty
+    expect(first[:summary]).to eq(critical: 0, high: 0, medium: 30, total: 30)
+  end
+
+  it "rejects unbounded query and page inputs" do
+    expect { described_class.call(query: "x" * 201) }.to raise_error(ArgumentError)
+    expect { described_class.call(page: described_class::MAX_PAGE + 1) }.to raise_error(ArgumentError)
+  end
+
+  it "escapes wildcard and backslash query input without changing the result set" do
+    create_mapping(state: "failed")
+
+    expect(described_class.call(query: "%_\\")[:items]).to eq([])
   end
 end

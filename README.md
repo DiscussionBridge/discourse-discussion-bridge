@@ -15,7 +15,12 @@ operator may optionally configure explicit lane policies that select the
 forum-owned category and tags for each adapter lane. Once lane policies exist,
 missing and unknown lanes fail closed; adapter category/tag requests never
 override forum policy. An empty lane-policy list preserves the global Alpha
-category/tag behavior.
+category/tag behavior. Each configured lane entry must contain exactly `lane`,
+`category_id`, `tags`, and `visibility`; unknown, missing, duplicate, malformed,
+or oversized values fail closed. Health evaluates the same live actor/category/
+tag authorization path for every declared lane, and controlled creation is
+ready only when every declared lane is usable. Unused global category/tag
+settings do not determine readiness while lane policies are authoritative.
 
 comments-only `fullInteractive` presentation is implemented locally behind a
 default-disabled forum setting. For completed DiscussionBridge mappings, the
@@ -24,8 +29,9 @@ removes companion post 1 from embed layout only. The ordinary topic and its
 first post remain unchanged. Discourse Core supplies the native in-frame
 composer, reply, quote, edit, Like, and sign-in behavior; DiscussionBridge does
 not reimplement those security-sensitive actions. If the plugin capability is
-enabled for a completed mapping while Discourse's `embed_full_app` setting is
-off, the request fails closed instead of silently serving the legacy
+enabled for a completed mapping while the plugin capability, Discourse
+`embed_full_app`, or `embed_full_app_signin_flow` prerequisite is off, the
+request fails closed instead of silently serving the legacy
 Start/Continue Discussion handoff embed. A native, administrator-only Health page reports
 feature switches, connection readiness, operating identity, forum authority,
 mapping state, and audit counts without exposing the connection credential.
@@ -56,12 +62,23 @@ topic, a missing or changed token, a top-level page, and a non-mapped route.
 The caller-controlled query class is only a bootstrap request: plugin-owned
 comments-only presentation activates under an HTML data attribute that the
 client adds only after finding the verified server-rendered mapping attestation.
-Query parameters cannot synthesize that attribute. A forged, ordinary, expired,
-or invalidated route therefore keeps post 1 visible.
+Query parameters cannot synthesize that attribute. A forged token, or a valid
+token used on another topic, leaves the ordinary topic presentation unchanged
+and keeps post 1 visible. An authentic same-topic route that expires, becomes
+invalid, or loses readiness fails explicitly with an unavailable response; it
+does not degrade to an ordinary topic page.
 The initializer revalidates the current topic/token on every Discourse page
 change and relevant DOM mutation. If an in-document transition leaves the
 attested mapping, it immediately removes the presentation attribute and its
 composer labels; a same-topic post-number transition remains qualified.
+The current local, uncommitted remediation replaces public DOM ownership with
+private per-element state, restores the latest exact Core accessibility state
+for attached or detached controls, and understands both slugged and slugless
+topic/post routes under root and subfolder Discourse installations. It also
+requires a mapped request's supplied `full_app` value to be exactly `true`;
+absence remains Core's ordinary embed path, while false-like or malformed
+values are rejected explicitly. This source work is not an accepted Alpha
+candidate until its exact identity and evidence are rebuilt.
 DiscussionBridge then asks Core's own logout helper to reload the current mapped
 route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
@@ -73,9 +90,11 @@ digest identity, state/outcome, topic, operating identity, reason, lane, and
 timestamps, but omits credentials and raw requested/effective payloads. It has
 no reconciliation or mutation controls.
 A third administrator-only page provides a read-only reconciliation queue. It
-detects missing/deleted topics, stale reservations, failed mappings, unknown
-lanes, category/tag/actor/visibility drift, system authorship, and duplicate
-source/topic claims if database invariants have been compromised. Every issue
+detects missing/deleted, nonregular, closed, or archived topics; missing/deleted
+first posts; stale reservations; failed mappings; unknown lanes;
+category/tag/actor/topic-visibility/persisted-visibility drift; system
+authorship; and duplicate source/topic claims if database invariants have been
+compromised. Every issue
 has a deterministic severity, reason, and recommended operator action; the page
 contains no delete, relist, retag, remap, or authorship control. Its first
 bounded reconciliation action lets an administrator authorize one fresh
@@ -83,6 +102,32 @@ adapter retry for a failed mapping or a reservation stale for at least 15
 minutes. Authorization is audited and may be revoked before use. The next
 authenticated adapter request consumes it, replaces the old reservation token,
 and must pass current forum policy before creating anything.
+Reconciliation filtering, estate-wide summaries, duplicate detection, and
+stable pagination now derive from one database statement rather than loading
+the complete mapping estate into application memory. A complete mapping is
+returned as resolved only from a locked snapshot in which its regular,
+unlisted, open, non-archived topic, first post, actor, lane, category, and tags
+still satisfy current policy. Any inconsistency returns a typed
+`reconciliation_required` result without recreating or mutating the topic or
+mapping and without returning a successful topic binding.
+
+The connection request uses an exact bounded schema before policy, topic,
+database, or audit work. Unknown/nested fields, invalid types or encodings,
+controls, oversized scalar/tag/aggregate values, and ambiguous identifiers are
+rejected without persisting unbounded rejection evidence. This semantic schema
+is applied after pinned Rails parameter parsing; raw duplicate JSON member
+behavior is therefore owned by that parser and callers must not send duplicate
+members. Canonical source URLs
+also reject repeated, encoded, or traversal-like path separators rather than
+silently collapsing two possible HTTP resource identities. Accepted HTTP URL
+aliases normalize default ports, percent-encoding hex case, and encoded
+unreserved path characters to one digest; trailing-dot hosts are rejected
+rather than treated as a second source identity. Source hosts must be ordinary
+DNS names: IP literals, numeric host aliases, encoded reg-names, and zone
+identifiers are outside the supported identity contract and fail closed. The
+accepted host grammar is ASCII letter/digit/hyphen DNS labels (63 bytes per
+label, 253 bytes total); single-label development names and valid punycode
+A-labels are supported deliberately.
 
 Safe defaults:
 
@@ -143,8 +188,10 @@ caller-controlled bootstrap class activate comments-only CSS without a valid
 server attestation. The superseding Alpha.7 correction makes every query class
 presentation-neutral and applies an HTML data attribute only after verified
 server meta. Browser regressions require valid completed
-mappings to hide post 1 while forged-token, ordinary-topic-with-another-token,
-and invalidated-mapping routes retain the first post.
+mappings to hide post 1 while forged-token and
+ordinary-topic-with-another-token routes retain the first post. The superseding
+contract requires an authentic same-topic route whose mapping is invalidated to
+return the explicit unavailable response rather than ordinary topic content.
 An in-document navigation regression also proves that leaving the mapped topic
 removes the attested attribute, restores post 1 and leaves a subsequently
 rendered Core submit control unlabeled. Same-topic post-number navigation keeps

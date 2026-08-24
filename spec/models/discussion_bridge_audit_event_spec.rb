@@ -25,4 +25,20 @@ describe DiscussionBridgeAuditEvent do
     expect(secret).not_to be_valid
     expect(nested).not_to be_valid
   end
+
+  it "rejects oversized or control-bearing durable evidence" do
+    oversized = described_class.new(
+      valid_attributes.merge(requested_state: { "adapter_id" => "x" * 2049 }),
+    )
+    too_many = described_class.new(
+      valid_attributes.merge(requested_state: { "tags" => Array.new(21, "tag") }),
+    )
+    control = described_class.new(
+      valid_attributes.merge(requested_state: { "adapter_id" => "bad\u0000value" }),
+    )
+
+    expect(oversized).not_to be_valid
+    expect(too_many).not_to be_valid
+    expect(control).not_to be_valid
+  end
 end

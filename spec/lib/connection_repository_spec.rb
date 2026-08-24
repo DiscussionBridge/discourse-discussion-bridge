@@ -12,6 +12,7 @@ describe DiscussionBridge::ConnectionRepository do
   )
 
   fab!(:actor, :user)
+  fab!(:category)
   let(:repository) { described_class.new }
   let(:canonical) do
     DiscussionBridge::CanonicalSource.call(
@@ -24,7 +25,7 @@ describe DiscussionBridge::ConnectionRepository do
     RepositoryPolicy.new(
       effective_actor_id: actor.id,
       effective_visibility: "unlisted",
-      effective_category_id: 1,
+      effective_category_id: category.id,
       effective_tags: [],
       reason: "forum_policy_applied",
     )
@@ -56,12 +57,33 @@ describe DiscussionBridge::ConnectionRepository do
 
   it "resolves the completed mapping on a later retry" do
     reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
-    topic = Fabricate(:topic)
+    topic = Fabricate(:topic, user: actor, category: category, visible: false)
+    Fabricate(:post, topic: topic, user: actor, post_number: 1)
     creation = Struct.new(:topic).new(topic)
     repository.commit!(reservation: reservation) { creation }
 
     retry_reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
     expect(retry_reservation).to have_attributes(state: "complete", topic_id: topic.id)
+  end
+
+  it "returns reconciliation_required state without mutation for an unusable completed mapping" do
+    reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
+    topic = Fabricate(:topic, user: actor, category: category, visible: false)
+    Fabricate(:post, topic: topic, user: actor, post_number: 1)
+    repository.commit!(reservation: reservation) { Struct.new(:topic).new(topic) }
+    topic.update!(deleted_at: Time.zone.now)
+
+    retry_reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
+
+    expect(retry_reservation).to have_attributes(
+      state: "conflict",
+      topic_id: nil,
+      reason: "mapping_topic_deleted",
+    )
+    expect(DiscussionBridgeConnection.find(reservation.record_id)).to have_attributes(
+      state: "complete",
+      topic_id: topic.id,
+    )
   end
 
   it "consumes an operator-authorized retry and invalidates the old reservation token" do

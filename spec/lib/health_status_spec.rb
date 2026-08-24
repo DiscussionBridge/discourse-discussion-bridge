@@ -26,7 +26,13 @@ describe DiscussionBridge::HealthStatus do
     expect(status.dig(:connection, :credential_configured)).to eq(true)
     expect(status.dig(:operating_identity, :username)).to eq(service_actor.username)
     expect(status.dig(:forum_authority, :category_id)).to eq(category.id)
-    expect(status[:lane_policies]).to eq(configured: false, count: 0, lanes: [], valid: true)
+    expect(status[:lane_policies]).to eq(
+      configured: false,
+      count: 0,
+      lanes: [],
+      statuses: [],
+      valid: true,
+    )
     expect(status.dig(:mappings, :total)).to eq(0)
     expect(status.dig(:readiness, :full_interactive_ready)).to eq(false)
     expect(status.dig(:readiness, :full_interactive_blockers)).to include(
@@ -70,6 +76,17 @@ describe DiscussionBridge::HealthStatus do
     expect(described_class.call.dig(:readiness, :full_interactive_ready)).to eq(true)
   end
 
+  it "does not report fullInteractive ready while the plugin is disabled" do
+    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
+    SiteSetting.discussion_bridge_enabled = false
+
+    expect(described_class.call.dig(:readiness, :full_interactive_blockers)).to include(
+      "plugin_disabled",
+    )
+  end
+
 
   it "reports configured lane names without exposing their source payload" do
     SiteSetting.discussion_bridge_lane_policies = [
@@ -79,6 +96,32 @@ describe DiscussionBridge::HealthStatus do
 
     status = described_class.call
 
-    expect(status[:lane_policies]).to eq(configured: true, count: 2, lanes: %w[docs news], valid: true)
+    expect(status[:lane_policies]).to include(
+      configured: true,
+      count: 2,
+      lanes: %w[docs news],
+      valid: true,
+    )
+    expect(status.dig(:lane_policies, :statuses)).to contain_exactly(
+      { lane: "docs", ready: true, reason: "authorized" },
+      { lane: "news", ready: true, reason: "authorized" },
+    )
+  end
+
+
+  it "requires every declared lane and ignores unused global authority" do
+    unavailable = Fabricate(:category)
+    SiteSetting.discussion_bridge_effective_category_id = 0
+    SiteSetting.discussion_bridge_lane_policies = [
+      { lane: "docs", category_id: category.id, tags: [], visibility: "unlisted" },
+      { lane: "news", category_id: unavailable.id, tags: [], visibility: "unlisted" },
+    ].to_json
+    unavailable.destroy!
+
+    status = described_class.call
+
+    expect(status.dig(:readiness, :controlled_creation_ready)).to eq(false)
+    expect(status.dig(:readiness, :blockers)).to include("lane:news:category_unavailable")
+    expect(status.dig(:readiness, :blockers)).not_to include("authorization_incomplete")
   end
 end

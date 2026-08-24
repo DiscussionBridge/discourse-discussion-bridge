@@ -37,9 +37,16 @@ companion topic for a canonical source page. It:
 - applies forum-owned category, tag, lane, and visibility policy;
 - defaults new Alpha topics to unlisted;
 - reserves and stores the canonical mapping durably;
-- resolves a retry to the existing mapping instead of creating a duplicate;
+- resolves a retry to the existing mapping only while a locked snapshot proves
+  that its topic and forum-owned policy remain usable, otherwise requiring
+  reconciliation instead of returning a broken binding;
 - fails closed when policy, identity, lane, or configuration is invalid; and
 - records durable audit evidence without exposing the credential.
+
+The request and lane-policy documents use exact bounded schemas. Unknown or
+mistyped fields do not disappear silently, and ambiguous repeated-slash or
+encoded-separator source paths are rejected rather than normalized into another
+page's identity.
 
 The creation endpoint is disabled at rest. It is enabled only for a bounded
 creation window and is not a general posting API.
@@ -57,7 +64,11 @@ authentication, sign-up, authorization, moderation, and post persistence. The
 plugin adds only the integration needed to make that supported Core surface
 honest and usable for the mapped discussion. It fails closed instead of
 silently presenting the legacy handoff when Core full-app embedding and its
-sign-in flow are not ready.
+sign-in flow are not ready. A mapped request that supplies `full_app` must use
+the exact `true` contract; an absent value remains Core's ordinary embed path.
+The same readiness evaluator drives issuance, final-route qualification, and
+operator Health so a disabled prerequisite cannot produce a false-ready or
+degraded 200 state.
 
 The plugin also makes the compact composer action explicit as **Post reply** or
 **Save edit**, and narrowly contains Core's post-logout **Refresh** action so an

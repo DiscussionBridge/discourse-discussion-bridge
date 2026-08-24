@@ -19,6 +19,9 @@ en:
     discussion_bridge_lane_policies_error: "Use a JSON array of unique lowercase lane objects with an existing category_id, existing tag names, and visibility set to unlisted."
   discussion_bridge:
     full_interactive_requires_core_full_app: "DiscussionBridge fullInteractive is unavailable because Discourse's Embed full app setting is disabled. An administrator must enable and verify the required full-app embed settings before this page can provide native in-frame interaction."
+    full_interactive_invalid_request: "DiscussionBridge fullInteractive requires the exact full_app=true request contract."
+    full_interactive_invalid_class: "DiscussionBridge fullInteractive requires an absent, blank, or valid bounded class_name."
+    full_interactive_unavailable: "DiscussionBridge fullInteractive is unavailable because required readiness checks failed: %{reasons}."
     errors:
       disabled: "DiscussionBridge is disabled."
       endpoint_disabled: "DiscussionBridge topic creation is not enabled."
