@@ -58,6 +58,10 @@ comments-only presentation activates under an HTML data attribute that the
 client adds only after finding the verified server-rendered mapping attestation.
 Query parameters cannot synthesize that attribute. A forged, ordinary, expired,
 or invalidated route therefore keeps post 1 visible.
+The initializer revalidates the current topic/token on every Discourse page
+change and relevant DOM mutation. If an in-document transition leaves the
+attested mapping, it immediately removes the presentation attribute and its
+composer labels; a same-topic post-number transition remains qualified.
 DiscussionBridge then asks Core's own logout helper to reload the current mapped
 route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
@@ -141,6 +145,10 @@ presentation-neutral and applies an HTML data attribute only after verified
 server meta. Browser regressions require valid completed
 mappings to hide post 1 while forged-token, ordinary-topic-with-another-token,
 and invalidated-mapping routes retain the first post.
+An in-document navigation regression also proves that leaving the mapped topic
+removes the attested attribute, restores post 1 and leaves a subsequently
+rendered Core submit control unlabeled. Same-topic post-number navigation keeps
+the attested presentation and Refresh containment.
 The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
