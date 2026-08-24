@@ -8,8 +8,8 @@
     "tree": "d769feec1ce3b7321a8262121af799f24f427797",
     "parent": "eeddc3b8b7a5892e69bce4657577d797f3d6dcb2",
     "branch": "main",
-    "originMain": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
-    "remoteMain": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "originMainAtQualification": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "remoteMainAtQualification": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
     "subject": "Refresh deleted-post fixture association",
     "worktreeCleanAtQualification": true,
     "acceptanceInheritance": "Source ancestry is recorded as provenance. No prior PASS is inherited."
