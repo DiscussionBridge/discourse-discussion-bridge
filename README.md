@@ -35,19 +35,26 @@ origins, unavailable operating identities, nonexistent categories, and
 nonexistent tags. Visible product copy uses `DiscussionBridge`; machine IDs,
 route paths, setting names, and compatibility hooks retain their established
 `discussion_bridge` or `discourse-discussion-bridge` forms.
-The published Alpha.6 prerelease candidate gives Core's compact composer
+The rejected Alpha.6 prerelease candidate gave Core's compact composer
 submit control an explicit visible **Post reply** label for creation/reply and
 **Save edit** while editing an allowed post. Core's qualified embed exposes no
 avatar-menu **Log Out** control, so DiscussionBridge does not synthesize one.
 Core's popup sign-in/sign-up flow reloads the mapped iframe directly. Session
 loss must be represented honestly as signed-out state; after separate
-Core-owned logout, DiscussionBridge intercepts only Core's exact **You were
-logged out / Refresh** action in an actual child iframe that remains on its
-server-attested, initially qualified completed-mapping route. The attestation is
-signed by the forum, bound to the exact current mapping version/topic/class,
-and revalidated during the final topic render; caller-supplied query markers do
-not qualify a route. DiscussionBridge then asks Core's own logout helper to
-reload that current mapped route instead of `/`.
+Core-owned logout, DiscussionBridge must intercept only Core's exact **You were
+logged out / Refresh** action in an actual child iframe that remains on the
+server-attested completed mapping and carries the original signed token. The
+attestation is signed by the forum, bound to the exact current mapping
+version/topic/class, and revalidated during the final topic render;
+caller-supplied query markers do not qualify a route. Core may legitimately add
+a post-number segment while the reader remains in the same topic. Alpha.6
+incorrectly disqualified that route advance and allowed Core's Refresh default
+to embed the forum homepage on dev-forum. Alpha.6 is immutable rejected
+evidence and must not be installed. The unpublished Alpha.7 correction keeps
+same-topic post-number routes qualified while continuing to reject another
+topic, a missing or changed token, a top-level page, and a non-mapped route.
+DiscussionBridge then asks Core's own logout helper to reload the current mapped
+route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
 authentication, account creation, sessions, authorization, moderation,
 editing, and post submission.
@@ -112,6 +119,16 @@ its initially qualified mapped route, while leaving Core responsible for logout
 cleanup. Top-level embed-mode pages and post-navigation/non-mapped states are
 not intercepted. A forged direct topic URL, an incomplete mapping, or an
 ordinary topic cannot obtain the required server-rendered mapping attestation.
+The real dev-forum Alpha.6 gate later proved that Core can legitimately advance
+the mapped route from the topic root to a same-topic post-number route during
+normal interaction. Alpha.6's exact-route comparison then stood down and Core's
+logout-dialog Refresh embedded the forum homepage. The direct forum topic and
+its companion first post remained correct; the defect was confined to Refresh
+containment inside the Astro embed. Alpha.6 is therefore immutable rejected
+evidence and must not be installed. The unpublished Alpha.7 candidate qualifies
+same-topic post-number navigation by the server-attested topic and original
+signed token while failing closed for another topic, a missing or changed
+token, top-level use, and non-mapped navigation.
 The remaining suite must continue to prove the completed-mapping 503 guard,
 readiness blockers, comments-only isolation, native empty-state and
 existing-post replies, Like persistence, Quote submission, editing, and visible
@@ -227,9 +244,14 @@ mapped child-iframe logout-refresh action without inventing a logout control.
 It is published as immutable prerelease `v0.1.0-alpha.6` at exact commit
 `787e3c02cbf5706664b5fef1f63d2435b4338067`; its
 [release page](https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.6)
-is the publication authority. The tag README's prepublication wording remains
-dated evidence. All seven published tags remain immutable and must not be
-rewritten, retagged, or silently replaced.
+is the publication authority. The dev-forum human gate exposed Alpha.6's
+same-topic post-number route defect: after normal interaction advanced `/45`
+to `/45/4`, logout-dialog Refresh embedded the forum homepage. Alpha.6 is
+rejected for installation; its tag README's prepublication wording remains
+dated evidence. Unpublished Alpha.7 corrects that containment without changing
+the direct forum topic or comments-only first-post presentation. All seven
+published tags remain immutable and must not be rewritten, retagged, or
+silently replaced.
 
 #### 1. Preflight and recovery identity
 
@@ -486,7 +508,7 @@ navigation, lower-frame scrolling, composer open/close and interaction, and the
 credit boundary at desktop plus iPhone portrait and landscape sizes. No Core
 content/control may be clipped or falsely overlapped by the host. Phil's prior
 sandbox desktop/mobile PASS closed the originally deployed `70vh` defect, but
-the exact Alpha.6 combined install record must retain this regression check and
+the exact Alpha.7 combined install record must retain this regression check and
 the separate dev record must prove it independently.
 
 1. backup/rollback identity before the change;
@@ -506,8 +528,9 @@ the separate dev record must prove it independently.
    authorization and moderation;
 9. after a separately performed Core-owned logout or other deliberate session
    loss, Core's **You were logged out / Refresh** dialog remains Core-owned. In
-   an actual child iframe that remains on its server-attested, initially
-   qualified completed comments-only mapping route, DiscussionBridge
+   an actual child iframe that remains on its server-attested completed
+   comments-only mapping topic and retains the original signed token,
+   DiscussionBridge
    intercepts only that dialog's primary refresh action and calls Core's own
    logout helper with the current mapped embed route, rather than allowing
    Core's default `/`
