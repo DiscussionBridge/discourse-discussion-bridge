@@ -88,6 +88,10 @@ after_initialize do
 
   module ::DiscussionBridge
     module EmbedControllerExtension
+      def self.prepended(base)
+        base.prepend_before_action :guard_discussion_bridge_embed_parameters, only: [:comments]
+      end
+
       def comments
         topic_id =
           if params[:topic_id].present?
@@ -185,6 +189,29 @@ after_initialize do
         end
 
         super
+      end
+
+      private
+
+      def guard_discussion_bridge_embed_parameters
+        topic_id =
+          if params[:topic_id].present?
+            params[:topic_id]
+          elsif params[:embed_url].present? && EmbeddableHost.url_allowed?(params[:embed_url])
+            TopicEmbed.topic_id_for_embed(params[:embed_url])
+          end
+        return unless CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id)
+        return unless params.key?(:full_app)
+
+        unless params[:full_app].is_a?(String) && params[:full_app] == "true"
+          render plain: I18n.t("discussion_bridge.full_interactive_invalid_request"),
+                 status: :unprocessable_entity
+          return
+        end
+        return if CommentsOnlyPresenter.valid_existing_class_name?(params[:class_name])
+
+        render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+               status: :unprocessable_entity
       end
     end
   end

@@ -2,7 +2,7 @@
 
 describe "DiscussionBridge comments-only fullInteractive" do
   fab!(:service_actor, :admin)
-  fab!(:topic) { Fabricate(:topic, user: service_actor) }
+  fab!(:topic) { Fabricate(:topic, user: service_actor, visible: false) }
   fab!(:first_post) { Fabricate(:post, topic: topic, raw: "Companion source post") }
   fab!(:interactive_user) do
     Fabricate(:user, trust_level: TrustLevel[1], refresh_auto_groups: true)
@@ -51,7 +51,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
 
     initial_height = page.evaluate_script("document.querySelector('#main').scrollHeight")
 
-    much_longer_topic = Fabricate(:topic, user: service_actor, category: topic.category)
+    much_longer_topic = Fabricate(:topic, user: service_actor, category: topic.category, visible: false)
     Fabricate(:post, topic: much_longer_topic, raw: ("Much longer companion content. " * 900))
     DiscussionBridgeConnection.create!(
       connection_id: "astro-much-longer",
@@ -486,7 +486,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
           base.content = basePath;
         }
         const url = new URL(window.location.href);
-        url.pathname = #{format(path_template, id: topic.id).to_json};
+        url.pathname = #{path_template.gsub("%{id}", topic.id.to_s).to_json};
         window.history.pushState({}, "", `${url.pathname}${url.search}`);
         document.body.appendChild(document.createElement("span"));
       JS
@@ -590,7 +590,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
   end
 
   it "keeps mapped and ordinary iframe browsing contexts isolated" do
-    second_topic = Fabricate(:topic, user: service_actor, category: topic.category)
+    second_topic = Fabricate(:topic, user: service_actor, category: topic.category, visible: false)
     Fabricate(:post, topic: second_topic, raw: "Second companion source post")
     DiscussionBridgeConnection.create!(
       connection_id: "astro-second",

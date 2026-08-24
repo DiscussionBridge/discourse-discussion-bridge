@@ -54,7 +54,7 @@ module DiscussionBridge
             candidate.split("/").any? { |segment| %w[. ..].include?(segment) }
 
         decoded = URI::DEFAULT_PARSER.unescape(candidate)
-        return if decoded == candidate
+        break if decoded == candidate
         raise ArgumentError, "source_url path remains ambiguously encoded" if pass == MAX_PATH_DECODE_PASSES
         candidate = decoded
       end

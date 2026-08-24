@@ -46,7 +46,11 @@ module DiscussionBridge
       classes = existing_class_name.to_s.split.reject { |name| name == CSS_CLASS }
       classes << CSS_CLASS if class_name(topic_id: topic_id, embed_mode: true)
       result = classes.join(" ").presence
-      result if valid_final_class_name?(result)
+      if classes.include?(CSS_CLASS)
+        result if valid_final_class_name?(result)
+      else
+        result if valid_existing_class_name?(result)
+      end
     end
   end
 end

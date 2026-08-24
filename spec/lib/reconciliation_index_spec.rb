@@ -75,8 +75,9 @@ describe DiscussionBridge::ReconciliationIndex do
     create_mapping(topic: deleted_topic)
 
     deleted_post_topic = compliant_topic
+    deleted_post = deleted_post_topic.first_post
     create_mapping(topic: deleted_post_topic)
-    deleted_post_topic.first_post.update_column(:deleted_at, Time.zone.now)
+    deleted_post.update_column(:deleted_at, Time.zone.now)
 
     missing_post_topic = Fabricate(:topic, user: actor, category: category, visible: false)
     missing_post_topic.tags = [tag]
@@ -112,7 +113,7 @@ describe DiscussionBridge::ReconciliationIndex do
     create_mapping(topic: archived)
 
     nonregular = compliant_topic
-    nonregular.update_column(:archetype, Archetype.private_message)
+    nonregular.update_columns(archetype: Archetype.private_message, category_id: nil)
     create_mapping(topic: nonregular)
 
     visibility_mapping = create_mapping(topic: compliant_topic)
@@ -131,7 +132,7 @@ describe DiscussionBridge::ReconciliationIndex do
 
   it "reports invalid lane policy configuration for mapped estate rows" do
     create_mapping(topic: compliant_topic)
-    SiteSetting.discussion_bridge_lane_policies = "{"
+    SiteSetting.stubs(:discussion_bridge_lane_policies).returns("{")
 
     result = described_class.call
 

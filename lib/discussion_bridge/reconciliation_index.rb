@@ -35,7 +35,7 @@ module DiscussionBridge
     def initialize(query:, severity:, page:, now:)
       @query = query.to_s.strip
       raise ArgumentError, "query is too large" if @query.bytesize > MAX_QUERY_BYTES
-      @severity = severity.present? ? severity.to_s : nil
+      @severity = severity.presence&.to_s
       raise ArgumentError, "invalid severity" if @severity && !SEVERITIES.include?(@severity)
       parsed_page = Integer(page.presence || 1, exception: false)
       raise ArgumentError, "invalid page" unless parsed_page&.between?(1, MAX_PAGE)

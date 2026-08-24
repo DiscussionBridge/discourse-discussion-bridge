@@ -86,6 +86,22 @@ describe DiscussionBridge::ConnectionRepository do
     )
   end
 
+  it "distinguishes a deleted first post from a missing first post" do
+    reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
+    topic = Fabricate(:topic, user: actor, category: category, visible: false)
+    first_post = Fabricate(:post, topic: topic, user: actor, post_number: 1)
+    repository.commit!(reservation: reservation) { Struct.new(:topic).new(topic) }
+    first_post.update_column(:deleted_at, Time.zone.now)
+
+    retry_reservation = repository.reserve!(canonical: canonical, request: request, policy: policy)
+
+    expect(retry_reservation).to have_attributes(
+      state: "conflict",
+      topic_id: nil,
+      reason: "mapping_first_post_deleted",
+    )
+  end
+
   it "consumes an operator-authorized retry and invalidates the old reservation token" do
     original = repository.reserve!(canonical: canonical, request: request, policy: policy)
     record = DiscussionBridgeConnection.find(original.record_id)

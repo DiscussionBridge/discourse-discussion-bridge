@@ -20,7 +20,10 @@ describe DiscussionBridge::EmbedRouteAttestation do
   end
 
   it "authenticates issuance separately from its bounded live/current mapping check" do
-    freeze_time do
+    issued_at = Time.zone.now
+    token = nil
+    payload = nil
+    freeze_time(issued_at) do
       token = described_class.issue(
         mapping: mapping,
         class_name: DiscussionBridge::CommentsOnlyPresenter::CSS_CLASS,
@@ -33,8 +36,9 @@ describe DiscussionBridge::EmbedRouteAttestation do
       )
       expect(described_class.live_payload?(payload)).to eq(true)
       expect(described_class.verify(token)).to be_present
+    end
 
-      travel described_class::MAX_AGE + 1.second
+    freeze_time(issued_at + described_class::MAX_AGE + 1.second) do
       expect(described_class.authenticated_payload(token)).to eq(payload)
       expect(described_class.live_payload?(payload)).to eq(false)
       expect(described_class.verify(token)).to be_nil

@@ -162,11 +162,14 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
   end
 
   it "fails closed after an authentic route attestation expires" do
-    freeze_time do
+    issued_at = Time.zone.now
+    location = nil
+    freeze_time(issued_at) do
       get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
       location = response.location
+    end
 
-      travel DiscussionBridge::EmbedRouteAttestation::MAX_AGE + 1.second
+    freeze_time(issued_at + DiscussionBridge::EmbedRouteAttestation::MAX_AGE + 1.second) do
       get location
 
       expect(response).to have_http_status(:service_unavailable)
@@ -220,7 +223,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       example.__send__(:topic).tags = [Fabricate(:tag)]
     },
     "lane policy" => lambda { |_example|
-      SiteSetting.discussion_bridge_lane_policies = "{"
+      SiteSetting.stubs(:discussion_bridge_lane_policies).returns("{")
     },
     "closed topic" => lambda { |example|
       example.__send__(:topic).update!(closed: true)
@@ -229,7 +232,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
       example.__send__(:topic).update!(archived: true)
     },
     "nonregular archetype" => lambda { |example|
-      example.__send__(:topic).update_column(:archetype, Archetype.private_message)
+      example.__send__(:topic).update_columns(archetype: Archetype.private_message, category_id: nil)
     },
     "missing first post" => lambda { |example|
       example.__send__(:topic).first_post.update_column(:deleted_at, Time.zone.now)

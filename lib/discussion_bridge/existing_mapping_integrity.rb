@@ -57,7 +57,7 @@ module DiscussionBridge
     def self.call(mapping:, policy:, request:)
       return denied("mapping_topic_missing") unless mapping.topic_id
 
-      topic = Topic.lock.find_by(id: mapping.topic_id)
+      topic = Topic.unscoped.lock.find_by(id: mapping.topic_id)
       return denied("mapping_topic_missing") unless topic
       return denied("mapping_topic_deleted") if topic.deleted_at.present?
       return denied("mapping_topic_archetype_mismatch") unless topic.archetype == Archetype.default
@@ -77,7 +77,7 @@ module DiscussionBridge
       actual_tags = Tag.lock.where(id: locked_tag_ids).pluck(:name).sort
       return denied("mapping_tag_drift") unless actual_tags == expected_tags
 
-      first_post = Post.lock.find_by(topic_id: topic.id, post_number: 1)
+      first_post = Post.unscoped.lock.find_by(topic_id: topic.id, post_number: 1)
       return denied("mapping_first_post_missing") unless first_post
       return denied("mapping_first_post_deleted") if first_post.deleted_at.present?
 
