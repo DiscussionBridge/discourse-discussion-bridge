@@ -5,12 +5,12 @@
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "membershipRule": "Exactly the listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
   "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "eea5d016f29b5706b495ad3ccd738c34c919e451",
+  "candidateProductionCodeCommit": "8e0faf18bca4e807891b097d5a1ea0aba2dae2e4",
   "verification": {
-    "officialWorkflow": "Workflow 32682257270 passed for the exact Alpha.7 production/test ancestry headed by 4d37c3458e32a0b9da344f56df2a65c3daf96d2 against the exact verified Discourse commit.",
+    "officialWorkflow": "Workflow 32682782431 passed for exact Alpha.7 production candidate 8e0faf18bca4e807891b097d5a1ea0aba2dae2e4 against the exact verified Discourse commit.",
     "completeRSpec": "84 server/plugin examples, 0 failures.",
-    "browserRSpec": "15 browser/system examples, 0 failures.",
-    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, actual absence of an embedded logout control, signed current-mapping final-route attestation, Core logout-refresh containment after same-topic post-number navigation, changed-token/other-topic/non-mapped/top-level/generic-Refresh negatives, mapped/ordinary iframe isolation, comments-only presentation, and ordinary-topic isolation covered. Alpha.6's immutable rejected exact-whole-route behavior and the unreachable Alpha.5 logout return machinery remain superseded.",
+    "browserRSpec": "18 browser/system examples, 0 failures.",
+    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, actual absence of an embedded logout control, signed current-mapping final-route attestation, Core logout-refresh containment after same-topic post-number navigation, changed-token/other-topic/non-mapped/top-level/generic-Refresh negatives, mapped/ordinary iframe isolation, and ordinary-topic isolation covered. Plugin-owned comments-only presentation requires a distinct attested client class; the caller-controlled bootstrap class alone cannot hide post 1. Browser negatives prove forged-token, ordinary-topic-with-another-token, and invalidated-mapping routes retain post 1. Alpha.6's immutable rejected exact-whole-route behavior and the unreachable Alpha.5 logout return machinery remain superseded.",
     "lintAndStructure": "Migrations, schema annotations, i18n, RuboCop, Syntax Tree, and applicable frontend checks pass in the official workflow.",
     "clientQUnit": "No plugin QUnit files exist.",
     "remainingHumanGate": "After exact workflow and independent review pass, publish Alpha.7 without rewriting rejected Alpha.6. Upgrade dev web_only first and repeat the actual same-topic-post-navigation logout-dialog Refresh path that failed Alpha.6; the mapped signed-out discussion must return without embedding the forum homepage. Retain the already passed Like/Reply/Quote/Save-edit evidence where executable paths are unchanged, then complete the separate sandbox app Alpha.7 record and topology-matched rollback. Both records must retain corrected adapter commit 476c581d8003e8286121133d8fcb2f4883ecc701 and its 96,291-byte package artifact SHA-256 4ca56bdc1da672285a34ab9b24c64e178bf21bb09a39f7f42a3af03af5a20661."
@@ -19,8 +19,8 @@
     "algorithm": "SHA-256",
     "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
     "files": 71,
-    "bytes": 217750,
-    "sha256": "a139dce569aa341e49ea620a07fea3603fd2964a9bfbc7e23c520e7ea60be614"
+    "bytes": 220986,
+    "sha256": "675ecb8a68c1987d9123fbc0f7bf0ab69dcd5a0736c22b8987b360dbb1aa74f9"
   },
   "publicationAuthorized": true,
   "installationAuthorized": false,
@@ -53,8 +53,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 33249,
-      "sha256": "2cadc21c313cc50808308e9a716c51970b2f83745aaa4bb5a8f08c0f1498a391"
+      "bytes": 34069,
+      "sha256": "0672ccadeb147d4ac2d3dbc1069fd825143cc0ee8d174a39bf30ebd359d55e55"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -143,8 +143,8 @@
     },
     {
       "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
-      "bytes": 3677,
-      "sha256": "838c5c38d7b23474e5f8c4c8fa5866f5e4d926465850b76d47ad3bddc03d2011"
+      "bytes": 3766,
+      "sha256": "d7b524f61bb7ccea1cfc42e31afe013982bfb20e9f04a3dc2558ceeabecc57f5"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
@@ -153,8 +153,8 @@
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-comments-only.scss",
-      "bytes": 840,
-      "sha256": "1a2e54a91f2077f0f01d6212530638c3906b1280be8801d982891c390fa4d91f"
+      "bytes": 849,
+      "sha256": "babf88bdb2b6127453af22f77f4a9b736b863e89f7c08fee0bc082889d36ca9a"
     },
     {
       "path": "config/locales/client.en.yml",
@@ -378,8 +378,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 20000,
-      "sha256": "d75c31eaf706063753f2fce8e15c956cd87a1abca9070c98f9a050215a02017c"
+      "bytes": 22318,
+      "sha256": "2a499f6f0bf46ebb71c8529f51ec0530623c10db9ef9bbea1d3fdabba5f6988a"
     }
   ],
   "predecessorRelease": {
