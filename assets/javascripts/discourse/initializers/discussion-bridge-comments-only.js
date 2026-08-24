@@ -38,18 +38,33 @@ function currentEmbedRoute() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
-function serverAttestedCompletedMapping() {
-  const topicMatch = window.location.pathname.match(
+function topicIdFromPath(pathname = window.location.pathname) {
+  return pathname.match(
     /^\/t\/(?:[^/]+\/)?([1-9]\d*)(?:\/[1-9]\d*)?\/?$/,
-  );
+  )?.[1];
+}
+
+function serverAttestedCompletedMapping() {
+  const topicId = topicIdFromPath();
   const attestedTopicId = document.querySelector(
     COMPLETED_MAPPING_META,
   )?.content;
 
-  return Boolean(topicMatch && attestedTopicId === topicMatch[1]);
+  return topicId && attestedTopicId === topicId ? topicId : null;
 }
 
-function interceptLogoutRefresh(event, qualifiedEmbedRoute) {
+function matchesQualifiedMapping(qualification) {
+  const url = new URL(window.location.href);
+
+  return (
+    serverAttestedCompletedMapping() === qualification.topicId &&
+    url.searchParams.get("discussion_bridge_embed_token") ===
+      qualification.token &&
+    commentsOnlyRequested(url)
+  );
+}
+
+function interceptLogoutRefresh(event, qualification) {
   if (!(event.target instanceof Element)) {
     return;
   }
@@ -58,8 +73,7 @@ function interceptLogoutRefresh(event, qualifiedEmbedRoute) {
   if (
     !button ||
     window.self === window.top ||
-    currentEmbedRoute() !== qualifiedEmbedRoute ||
-    !serverAttestedCompletedMapping() ||
+    !matchesQualifiedMapping(qualification) ||
     !document.documentElement.classList.contains(CSS_CLASS) ||
     !document.body.classList.contains("embed-mode")
   ) {
@@ -75,12 +89,16 @@ export default {
   name: "discussion-bridge-comments-only",
 
   initialize() {
-    if (!commentsOnlyRequested() || !serverAttestedCompletedMapping()) {
+    const topicId = serverAttestedCompletedMapping();
+    const token = new URL(window.location.href).searchParams.get(
+      "discussion_bridge_embed_token",
+    );
+    if (!commentsOnlyRequested() || !topicId || !token) {
       return;
     }
 
     withPluginApi((api) => {
-      const qualifiedEmbedRoute = currentEmbedRoute();
+      const qualification = { topicId, token };
       const syncClass = () => {
         window.requestAnimationFrame(() => {
           document.documentElement.classList.toggle(
@@ -95,7 +113,7 @@ export default {
       observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener(
         "click",
-        (event) => interceptLogoutRefresh(event, qualifiedEmbedRoute),
+        (event) => interceptLogoutRefresh(event, qualification),
         true,
       );
       api.onPageChange(syncClass);
