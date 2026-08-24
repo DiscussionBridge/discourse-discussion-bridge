@@ -17,10 +17,22 @@ function commentsOnlyRequested(url = new URL(window.location.href)) {
   return params.get("embed_mode") === "true" && classes.includes(CSS_CLASS);
 }
 
-function labelSubmitControls() {
+function labelSubmitControls(qualified) {
   document
     .querySelectorAll(".embed-mode-composer .docked-composer__submit-btn")
     .forEach((button) => {
+      if (!qualified) {
+        const pluginLabel = button.getAttribute(SUBMIT_LABEL_ATTRIBUTE);
+        if (pluginLabel && button.getAttribute("aria-label") === pluginLabel) {
+          button.removeAttribute("aria-label");
+        }
+        if (pluginLabel && button.getAttribute("title") === pluginLabel) {
+          button.removeAttribute("title");
+        }
+        button.removeAttribute(SUBMIT_LABEL_ATTRIBUTE);
+        return;
+      }
+
       const editing = button
         .closest(".embed-mode-composer")
         ?.querySelector(".embed-mode-composer__editing");
@@ -100,25 +112,28 @@ export default {
 
     withPluginApi((api) => {
       const qualification = { topicId, token };
-      const syncClass = () => {
+      const syncPresentation = () => {
         window.requestAnimationFrame(() => {
+          const qualified =
+            document.body.classList.contains("embed-mode") &&
+            matchesQualifiedMapping(qualification);
           document.documentElement.toggleAttribute(
             ATTESTED_ATTRIBUTE,
-            document.body.classList.contains("embed-mode"),
+            qualified,
           );
-          labelSubmitControls();
+          labelSubmitControls(qualified);
         });
       };
 
-      const observer = new MutationObserver(labelSubmitControls);
+      const observer = new MutationObserver(syncPresentation);
       observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener(
         "click",
         (event) => interceptLogoutRefresh(event, qualification),
         true,
       );
-      api.onPageChange(syncClass);
-      syncClass();
+      api.onPageChange(syncPresentation);
+      syncPresentation();
     });
   },
 };

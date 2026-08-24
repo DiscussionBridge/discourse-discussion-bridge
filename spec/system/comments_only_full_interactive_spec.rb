@@ -275,6 +275,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
         document.body.appendChild(dialog);
       JS
 
+      expect(page).to have_css("html[data-discussion-bridge-comments-only-attested]")
       navigated_route = URI.parse(page.evaluate_script("window.location.href")).request_uri
       find(".dialog-container__logout-refresh button.btn-primary").click
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
@@ -282,6 +283,36 @@ describe "DiscussionBridge comments-only fullInteractive" do
         navigated_route,
       )
     end
+  end
+
+  it "removes attested presentation after in-document navigation to another topic" do
+    another_topic = Fabricate(:topic)
+    Fabricate(:post, topic: another_topic, raw: "Another topic source post")
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+
+    expect(page).to have_css("html[data-discussion-bridge-comments-only-attested]")
+    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).to eq(
+      "none",
+    )
+
+    page.execute_script(<<~JS)
+      const url = new URL(window.location.href);
+      url.pathname = "/t/#{another_topic.slug}/#{another_topic.id}";
+      window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      const composer = document.createElement("div");
+      composer.className = "embed-mode-composer";
+      composer.innerHTML = '<button class="docked-composer__submit-btn">Core action</button>';
+      document.body.appendChild(composer);
+    JS
+
+    expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
+    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
+      "none",
+    )
+    expect(page).to have_css(
+      ".embed-mode-composer .docked-composer__submit-btn:not([data-discussion-bridge-submit-label])",
+      text: "Core action",
+    )
   end
 
   it "does not intercept Core's logout refresh on a top-level embed-mode page" do
