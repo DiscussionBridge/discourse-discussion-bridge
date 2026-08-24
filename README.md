@@ -54,9 +54,10 @@ evidence and must not be installed. The unpublished Alpha.7 correction keeps
 same-topic post-number routes qualified while continuing to reject another
 topic, a missing or changed token, a top-level page, and a non-mapped route.
 The caller-controlled query class is only a bootstrap request: plugin-owned
-comments-only presentation activates under a separate class that the client
-adds only after finding the verified server-rendered mapping attestation. A
-forged, ordinary, expired, or invalidated route therefore keeps post 1 visible.
+comments-only presentation activates under an HTML data attribute that the
+client adds only after finding the verified server-rendered mapping attestation.
+Query parameters cannot synthesize that attribute. A forged, ordinary, expired,
+or invalidated route therefore keeps post 1 visible.
 DiscussionBridge then asks Core's own logout helper to reload the current mapped
 route instead of `/`.
 DiscussionBridge does not perform session cleanup. Discourse Core owns
@@ -135,9 +136,9 @@ signed token while failing closed for another topic, a missing or changed
 token, top-level use, and non-mapped navigation.
 Code review also found that Alpha.7's first evidence head still let the
 caller-controlled bootstrap class activate comments-only CSS without a valid
-server attestation. The superseding Alpha.7 correction makes the bootstrap
-class presentation-neutral and applies a distinct attested presentation class
-only after verified server meta. Browser regressions require valid completed
+server attestation. The superseding Alpha.7 correction makes every query class
+presentation-neutral and applies an HTML data attribute only after verified
+server meta. Browser regressions require valid completed
 mappings to hide post 1 while forged-token, ordinary-topic-with-another-token,
 and invalidated-mapping routes retain the first post.
 The remaining suite must continue to prove the completed-mapping 503 guard,
