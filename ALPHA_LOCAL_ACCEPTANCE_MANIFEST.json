@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "createdAt": "2026-08-24T14:19:20.370Z",
+  "createdAt": "2026-08-24T16:22:56.339Z",
   "status": "alpha7-runtime-qualified-unpublished-candidate",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
   "candidate": {
@@ -200,13 +200,13 @@
     }
   },
   "adapterBinding": {
-    "sourceCommit": "d6d158c491e8e4a7b99735eedcb2cb64c816a690",
-    "package": "astro-discussion-bridge@0.1.0-alpha.20260824.1",
-    "artifactSha256": "2aac43d6c945c3f67c4b5542271ed1cd99b534250fb14d62af559467fa1fe8a6",
-    "npmIntegrity": "sha512-Sg2AX0ii87JZ87nDwfPd+vweSWNFGsuHjZFJHLKCZ4Dfwe4kZx3ZuDrJXTQVXhzxNV8BGEceVVfMpBPlKgU8aw==",
+    "sourceCommit": "2efe24763272fdc747d15cb8ed6813065e60807c",
+    "package": "astro-discussion-bridge@0.1.0-alpha.20260824.2",
+    "artifactSha256": "7bb85f7658c5391b23ebf914cbe6fbac1bfa28c99bd7f64b5c7c51ad2e39940d",
+    "npmIntegrity": "sha512-rG0rNd9swhl/YsquWtzqBhWG5kiN+0DjwLmsNqUyAmy8DXsGNQgdhSKIzENFuUCG2v8/6qpUa2FGq4FjFFJ6ew==",
     "members": 67,
-    "packedBytes": 108594,
-    "unpackedBytes": 460374,
+    "packedBytes": 108671,
+    "unpackedBytes": 460795,
     "qualification": "Focused source/artifact/minimal-consumer and active-consumer migration gates passed; complete family acceptance remains open."
   },
   "authority": {
