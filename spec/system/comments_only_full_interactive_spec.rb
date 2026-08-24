@@ -34,6 +34,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_css("html.discussion-bridge-comments-only-attested body.embed-mode")
     expect(page).to have_css("#post_1", visible: :hidden)
     expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).to eq("none")
     expect(page).to have_css(".embed-topic-footer__first-reply")
@@ -63,6 +64,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
     visit("/embed/comments?topic_id=#{much_longer_topic.id}&full_app=true")
 
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_css("html.discussion-bridge-comments-only-attested body.embed-mode")
     expect(page).to have_css("#post_1", visible: :hidden)
     longer_source_height = page.evaluate_script("document.querySelector('#main').scrollHeight")
 
@@ -451,6 +453,55 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page).to have_no_css("html.discussion-bridge-comments-only")
     expect(page).to have_css("#post_1", text: "Long companion content.")
     expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq("none")
+  end
+
+  it "does not hide post 1 for a forged direct mapped-topic route" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    forged_url = URI.parse(page.current_url)
+    query = Rack::Utils.parse_nested_query(forged_url.query)
+    query["discussion_bridge_embed_token"] = "forged"
+    forged_url.query = query.to_query
+
+    visit(forged_url.to_s)
+
+    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_no_css("html.discussion-bridge-comments-only-attested")
+    expect(page).to have_css("#post_1", text: "Companion source post")
+    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
+      "none",
+    )
+  end
+
+  it "does not hide post 1 for an ordinary topic carrying another mapping's token" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    mapped_url = URI.parse(page.current_url)
+    ordinary_topic = Fabricate(:topic)
+    Fabricate(:post, topic: ordinary_topic, raw: "Ordinary topic first post")
+    mapped_url.path = URI.parse(ordinary_topic.url).path
+
+    visit(mapped_url.to_s)
+
+    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_no_css("html.discussion-bridge-comments-only-attested")
+    expect(page).to have_css("#post_1", text: "Ordinary topic first post")
+    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
+      "none",
+    )
+  end
+
+  it "does not hide post 1 after the attested mapping is invalidated" do
+    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+    mapped_url = page.current_url
+    DiscussionBridgeConnection.update_all(state: "failed")
+
+    visit(mapped_url)
+
+    expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
+    expect(page).to have_no_css("html.discussion-bridge-comments-only-attested")
+    expect(page).to have_css("#post_1", text: "Companion source post")
+    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
+      "none",
+    )
   end
 
   it "strips a caller-supplied reserved marker when the operator option is disabled" do
