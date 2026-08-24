@@ -1,35 +1,246 @@
 {
-  "schemaVersion": 2,
-  "createdDate": "2026-08-23",
-  "status": "alpha7-unpublished-release-candidate",
+  "schemaVersion": 3,
+  "createdAt": "2026-08-24T14:19:20.370Z",
+  "status": "alpha7-runtime-qualified-unpublished-candidate",
   "root": "C:/CodeProjects/Products/DiscussionBridge/plugins/discourse-discussion-bridge",
-  "membershipRule": "Exactly the listed active relative files. This manifest excludes itself and the three earlier boundary manifests.",
-  "verifiedDiscourseCommit": "36698aae084678151dffa875d49c8d59216d2733",
-  "candidateProductionCodeCommit": "de890c55e8dc64a0a64783aab9e52eac7df42db2",
-  "verification": {
-    "officialWorkflow": "Workflow 32683986091 passed for exact Alpha.7 production candidate de890c55e8dc64a0a64783aab9e52eac7df42db2 against the exact verified Discourse commit.",
-    "completeRSpec": "84 server/plugin examples, 0 failures.",
-    "browserRSpec": "19 browser/system examples, 0 failures.",
-    "fullInteractive": "Completed-mapping fail-closed guard, complete readiness blockers, native reply/Like/Quote/edit persistence, visible reply/edit submit labels, actual absence of an embedded logout control, signed current-mapping final-route attestation, Core logout-refresh containment after same-topic post-number navigation, changed-token/other-topic/non-mapped/top-level/generic-Refresh negatives, mapped/ordinary iframe isolation, and ordinary-topic isolation covered. Plugin-owned comments-only presentation requires an HTML data attribute added only after verified server meta; caller-controlled query classes cannot hide post 1. Every page-change/mutation pass revalidates the current topic/token, removes the attribute and plugin labels after an in-document transition leaves the mapping, and retains same-topic post-number qualification. Browser negatives prove forged-token with both reserved class names, ordinary-topic-with-another-token, invalidated-mapping, and in-document other-topic routes retain post 1/no plugin labeling. Alpha.6's immutable rejected exact-whole-route behavior and the unreachable Alpha.5 logout return machinery remain superseded.",
-    "lintAndStructure": "Migrations, schema annotations, i18n, RuboCop, Syntax Tree, and applicable frontend checks pass in the official workflow.",
-    "clientQUnit": "No plugin QUnit files exist.",
-    "remainingHumanGate": "After exact workflow and independent review pass, publish Alpha.7 without rewriting rejected Alpha.6. Upgrade dev web_only first and repeat the actual same-topic-post-navigation logout-dialog Refresh path that failed Alpha.6; the mapped signed-out discussion must return without embedding the forum homepage. Retain the already passed Like/Reply/Quote/Save-edit evidence where executable paths are unchanged, then complete the separate sandbox app Alpha.7 record and rollback evidence matched to each host's exact container arrangement. Both records must retain corrected adapter commit 476c581d8003e8286121133d8fcb2f4883ecc701 and its 96,291-byte package artifact SHA-256 4ca56bdc1da672285a34ab9b24c64e178bf21bb09a39f7f42a3af03af5a20661."
+  "candidate": {
+    "productionSourceCommit": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "tree": "d769feec1ce3b7321a8262121af799f24f427797",
+    "parent": "eeddc3b8b7a5892e69bce4657577d797f3d6dcb2",
+    "branch": "main",
+    "originMain": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "remoteMain": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "subject": "Refresh deleted-post fixture association",
+    "worktreeCleanAtQualification": true,
+    "acceptanceInheritance": "Source ancestry is recorded as provenance. No prior PASS is inherited."
   },
-  "rowCommitment": {
-    "algorithm": "SHA-256",
-    "format": "ordinal relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
-    "files": 71,
-    "bytes": 223750,
-    "sha256": "00c3a86820f48a53254d9965881e8536ee61a7c81ec3dcd3edec30dfbe61dcbd"
+  "runtimeEvidence": {
+    "runId": 32736908182,
+    "runUrl": "https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/32736908182",
+    "event": "push",
+    "attempt": 1,
+    "conclusion": "success",
+    "headSha": "47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "reusableWorkflowSha": "05b8c4ee75d2408ffd23a2fbfb948dd82037fc57",
+    "discourseCoreSha": "36698aae084678151dffa875d49c8d59216d2733",
+    "jobs": [
+      {
+        "id": 97461801316,
+        "name": "ci / check_for_tests",
+        "conclusion": "success",
+        "applicableSteps": [
+          {
+            "name": "Check For Test Types",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 97461800951,
+        "name": "ci / linting",
+        "conclusion": "success",
+        "applicableSteps": [
+          {
+            "name": "Rubocop",
+            "conclusion": "success"
+          },
+          {
+            "name": "Syntax Tree",
+            "conclusion": "success"
+          },
+          {
+            "name": "ESLint",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Stylelint",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Prettier",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Ember template lint",
+            "conclusion": "skipped"
+          },
+          {
+            "name": "Types",
+            "conclusion": "skipped"
+          }
+        ]
+      },
+      {
+        "id": 97461840999,
+        "name": "ci / annotations_tests",
+        "conclusion": "success",
+        "applicableSteps": [
+          {
+            "name": "Check Annotations",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 97461840143,
+        "name": "ci / backend_tests",
+        "conclusion": "success",
+        "applicableSteps": [
+          {
+            "name": "Lint English locale",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check Zeitwerk eager_load",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check Zeitwerk reloading",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check SKIP_DB_AND_REDIS bootability",
+            "conclusion": "success"
+          },
+          {
+            "name": "Plugin RSpec",
+            "conclusion": "success",
+            "examples": 136,
+            "failures": 0
+          },
+          {
+            "name": "Plugin QUnit",
+            "conclusion": "skipped",
+            "reason": "No plugin QUnit files exist."
+          }
+        ]
+      },
+      {
+        "id": 97461840020,
+        "name": "ci / system_tests",
+        "conclusion": "success",
+        "applicableSteps": [
+          {
+            "name": "Ember Build",
+            "conclusion": "success"
+          },
+          {
+            "name": "Plugin System Tests",
+            "conclusion": "success",
+            "examples": 28,
+            "failures": 0
+          },
+          {
+            "name": "Plugin QUnit",
+            "conclusion": "skipped",
+            "reason": "No plugin QUnit files exist."
+          },
+          {
+            "name": "Upload failed system test artifacts",
+            "conclusion": "skipped",
+            "reason": "System tests passed."
+          }
+        ]
+      }
+    ],
+    "artifacts": {
+      "totalCount": 0,
+      "failedSystemArtifactPresent": false
+    },
+    "interpretation": "Skipped workflow steps are recorded as skipped, not PASS. This exact run qualifies only the exact production source candidate named above."
   },
-  "publicationAuthorized": true,
+  "negativeProvenance": [
+    {
+      "runId": 32730388615,
+      "headSha": "4b6630731440947e71fa5bb6987050a6180a6356",
+      "conclusion": "failure",
+      "disposition": "Historical failed qualification run; superseded by corrections, not erased."
+    },
+    {
+      "runId": 32736139594,
+      "headSha": "eeddc3b8b7a5892e69bce4657577d797f3d6dcb2",
+      "conclusion": "failure",
+      "disposition": "Historical failed qualification run; superseded by the fixture correction, not erased."
+    }
+  ],
+  "membership": {
+    "source": "Immutable Git tree d769feec1ce3b7321a8262121af799f24f427797 at 47b21b023cd6c4b73aa9110d8d47c0bfd73db98f",
+    "rule": "All tracked files in the immutable candidate tree, in Git lexical path order, except the four explicitly listed evidence-manifest exclusions.",
+    "exclusions": [
+      {
+        "path": "ALPHA_LOCAL_ACCEPTANCE_MANIFEST.json",
+        "reason": "The evidence record excludes itself; its final bytes and SHA-256 are recorded externally."
+      },
+      {
+        "path": "COMMENTS_ONLY_FULLINTERACTIVE_MANIFEST.json",
+        "reason": "Historical boundary manifest; not active candidate source."
+      },
+      {
+        "path": "CONTROLLED_CREATION_MANIFEST.json",
+        "reason": "Historical boundary manifest; not active candidate source."
+      },
+      {
+        "path": "FIRST_BOUNDARY_MANIFEST.json",
+        "reason": "Historical boundary manifest; not active candidate source."
+      }
+    ],
+    "generator": {
+      "procedure": "git ls-tree -r --name-only <commit>; read each included blob with git show <commit>:<path>; hash blob bytes with SHA-256; serialize UTF-8 JSON with two-space indentation and LF line endings.",
+      "scriptIdentity": "generate-discussionbridge-plugin-manifest-20260824-v1",
+      "node": "v22.22.2",
+      "git": "git version 2.51.2.windows.1",
+      "platform": "win32-x64"
+    },
+    "rowCommitment": {
+      "algorithm": "SHA-256",
+      "format": "1-based decimal ordinal, TAB, relative path, TAB, decimal bytes, TAB, lowercase sha256; UTF-8 rows joined with LF and no trailing LF",
+      "files": 76,
+      "bytes": 297441,
+      "sha256": "f30349d2aa139052823dcaaf8d887e8c22332c2ae50b048dc2740f319451ad39"
+    }
+  },
+  "adapterBinding": {
+    "sourceCommit": "d6d158c491e8e4a7b99735eedcb2cb64c816a690",
+    "package": "astro-discussion-bridge@0.1.0-alpha.20260824.1",
+    "artifactSha256": "2aac43d6c945c3f67c4b5542271ed1cd99b534250fb14d62af559467fa1fe8a6",
+    "npmIntegrity": "sha512-Sg2AX0ii87JZ87nDwfPd+vweSWNFGsuHjZFJHLKCZ4Dfwe4kZx3ZuDrJXTQVXhzxNV8BGEceVVfMpBPlKgU8aw==",
+    "members": 67,
+    "packedBytes": 108594,
+    "unpackedBytes": 460374,
+    "qualification": "Focused source/artifact/minimal-consumer and active-consumer migration gates passed; complete family acceptance remains open."
+  },
+  "authority": {
+    "publicationAuthorized": false,
+    "installationAuthorized": false,
+    "deploymentAuthorized": false,
+    "releaseAuthorized": false,
+    "productAccepted": false,
+    "meaning": "Focused Code/runtime qualification removes only the focused plugin code/runtime blocker for the exact candidate."
+  },
+  "publicationAuthorized": false,
   "installationAuthorized": false,
   "deploymentAuthorized": false,
+  "releaseAuthorized": false,
+  "productAccepted": false,
+  "remainingGates": [
+    "Focused independent manifest identity/truth review of this regenerated record.",
+    "Manifest-only evidence commit identity and proportionate candidate evidence refresh.",
+    "Complete independent DiscussionBridge product-family review of all exact immutable repositories, artifacts, dependencies, consumers, contracts, registries, and runtime records.",
+    "Separately authorized real cross-origin human acceptance for the current adapter/plugin/site candidates, including authentication transitions, same-topic navigation, refresh, reply, Like, Quote, edit, proxy/live-refresh, accessibility, and failure containment.",
+    "Host/container-specific installation and rollback proof for every intended forum environment.",
+    "New Bridge Boss product acceptance and explicit release/publication/install/deployment decisions."
+  ],
+  "predecessorRelease": {
+    "tag": "v0.1.0-alpha.6",
+    "candidateCommit": "787e3c02cbf5706664b5fef1f63d2435b4338067",
+    "releaseUrl": "https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.6",
+    "disposition": "REJECTED — DO NOT INSTALL. The immutable historical tag remains unchanged."
+  },
   "members": [
     {
       "path": ".github/workflows/discourse-plugin.yml",
-      "bytes": 260,
-      "sha256": "05a7494da5eac676afd10f55dba559d5bba23f400f1b8357f00fc9fc889cfa50"
+      "bytes": 298,
+      "sha256": "fe139060158bdbe27f639f6b830b471dd1b34e07ea0bb4fcb6a19884b9945d9d"
     },
     {
       "path": ".rubocop.yml",
@@ -48,13 +259,13 @@
     },
     {
       "path": "PRODUCT_BOUNDARIES.md",
-      "bytes": 6824,
-      "sha256": "37b90c382865eebdaf9f3c6dce1d2119f3d1ee32ecdc59a225293f6e0496a433"
+      "bytes": 7509,
+      "sha256": "7e3f47fa698f06b9fe9587627bbbd926abb38c65c360fe37e4ee840500ffe72c"
     },
     {
       "path": "README.md",
-      "bytes": 34690,
-      "sha256": "df3f829603856391b4e6481caf9c3830dc60ef8a9bc09ceb366522bfa71dddfc"
+      "bytes": 38035,
+      "sha256": "c65df8442850677ae2c8b72ea668f767e3596b33e21da214985d1794cb80a247"
     },
     {
       "path": "admin/assets/javascripts/discourse/routes/admin-plugins/show/discussion-bridge-health.js",
@@ -88,8 +299,8 @@
     },
     {
       "path": "app/controllers/discussion_bridge/connections_controller.rb",
-      "bytes": 4467,
-      "sha256": "8eaa822ede8745d2c9c86e54b3340c80200aaab1e1d9c98cd692570d547bc939"
+      "bytes": 4313,
+      "sha256": "61f6a6d5ad2286c89e0fe3a36ef0d7b245783398a612927e12d1baca223a43da"
     },
     {
       "path": "app/controllers/discussion_bridge/health_controller.rb",
@@ -103,18 +314,18 @@
     },
     {
       "path": "app/controllers/discussion_bridge/reconciliation_controller.rb",
-      "bytes": 1100,
-      "sha256": "b4718e13c6c5f1c85d201a3965aed413ec431c52880e58273fe0cc96a4d9671b"
+      "bytes": 1217,
+      "sha256": "660cbe3f0373f438f572ab29d60de8c3d3780c392f9b0e89a56b0f521187303b"
     },
     {
       "path": "app/models/discussion_bridge_audit_event.rb",
-      "bytes": 1877,
-      "sha256": "d174f4048f46e973b66109e4c7160151e6c12576dbd21459581dd9af80b41da2"
+      "bytes": 2316,
+      "sha256": "a536a34d72997a3a61ae02bb391b511b5ab41e626a7f163585cb6956b80845d3"
     },
     {
       "path": "app/models/discussion_bridge_connection.rb",
-      "bytes": 2844,
-      "sha256": "2eee5be85cb350367ed7cda68ef29de9cd660e234f4064262ebda32d48b7c446"
+      "bytes": 3144,
+      "sha256": "46c8610f1e8cde5c641f22b76dd0f43970c7f224ea4d6034549eb5da19999a20"
     },
     {
       "path": "assets/javascripts/discourse/admin-discussion-bridge-plugin-route-map.js",
@@ -143,8 +354,8 @@
     },
     {
       "path": "assets/javascripts/discourse/initializers/discussion-bridge-comments-only.js",
-      "bytes": 4349,
-      "sha256": "07cdeebb533963975c4c5628c22919db3f7afb2c8c81142797765d242ae0aa4d"
+      "bytes": 8833,
+      "sha256": "1b8692432b8a47fff44e46f3f183b32f8efbdcef9b562a5acf69f7706bd9fd33"
     },
     {
       "path": "assets/stylesheets/common/discussion-bridge-admin-health.scss",
@@ -163,8 +374,8 @@
     },
     {
       "path": "config/locales/server.en.yml",
-      "bytes": 3409,
-      "sha256": "3bd95b0b565db7e05f04440114c489801b36a71e8d2f0a646c4faa66cab3e9ad"
+      "bytes": 3798,
+      "sha256": "77f1b495f58938d467a949d64f578b7e54da3a72f1fa76631b635655faad966a"
     },
     {
       "path": "config/settings.yml",
@@ -188,8 +399,8 @@
     },
     {
       "path": "lib/discussion_bridge/audit_state.rb",
-      "bytes": 1531,
-      "sha256": "6c6223517daf6eac2eb14b541272beadd57fd03ae47d5ebcadee49c7a7ad8908"
+      "bytes": 2039,
+      "sha256": "4084f7a495ac0bb03b5cfa90e6b5ea0b2870bacacc81e84c00bb4caa682b6c52"
     },
     {
       "path": "lib/discussion_bridge/audit_writer.rb",
@@ -198,28 +409,38 @@
     },
     {
       "path": "lib/discussion_bridge/canonical_source.rb",
-      "bytes": 1461,
-      "sha256": "7475e884ccee015848dcc2f11800d7d62d7f5305bbd3fcf88ae8e9c685c2f5a2"
+      "bytes": 4301,
+      "sha256": "b83dab869bf00a2ddf0886af1cb4ad12789b84eaa552238d909034d6dce12504"
     },
     {
       "path": "lib/discussion_bridge/comments_only_presenter.rb",
-      "bytes": 1170,
-      "sha256": "dc63933a43c5685c558f3c27e8794df55ed9612d14119dd5f635859a8f1f85ab"
+      "bytes": 1831,
+      "sha256": "9879460fa637eb9824c721c915c46b33fdbe1b4a8eafe074f8c4a9a913d1e447"
     },
     {
       "path": "lib/discussion_bridge/connection_repository.rb",
-      "bytes": 4094,
-      "sha256": "34883a22f7a469741a7b019de439c97084d949b4ca8406ebd512e4131cf6ad7b"
+      "bytes": 4764,
+      "sha256": "82e1f237757f02a7fe856cf67447ca2e1daf7f03bde3b7de6e65dbc13c6bfc89"
+    },
+    {
+      "path": "lib/discussion_bridge/connection_request.rb",
+      "bytes": 3951,
+      "sha256": "ddf81b2bb729d09369cc4bec0090ece620dfc402274c82d6be7a9f52435644ac"
     },
     {
       "path": "lib/discussion_bridge/create_or_resolve.rb",
-      "bytes": 2440,
-      "sha256": "8be5bcc4896db494f3036ec146a7badf03d59a3f883a908804db7a9ae1509102"
+      "bytes": 2551,
+      "sha256": "9ba7914ec552de21aedfb98889a9885f1e90d706245cd98aafcd448c22dbb07c"
     },
     {
       "path": "lib/discussion_bridge/embed_route_attestation.rb",
-      "bytes": 1424,
-      "sha256": "32cd3239a69d6ad726f9494d837a8f810db67e914af2b23bd069f3e01d58ed78"
+      "bytes": 1999,
+      "sha256": "d12919e3c8591f361d583fe587efbd9bff2473345670f03e46ab5f3f6d787e86"
+    },
+    {
+      "path": "lib/discussion_bridge/existing_mapping_integrity.rb",
+      "bytes": 5255,
+      "sha256": "c1bb7d2014619109e728de476e8a7ccaea02072a78e903949fb931a95743e39f"
     },
     {
       "path": "lib/discussion_bridge/forum_authority.rb",
@@ -227,14 +448,19 @@
       "sha256": "a884eed3040e273671f0cf1baae56950f374c6617c706684e151bd7fe4833cfd"
     },
     {
+      "path": "lib/discussion_bridge/full_interactive_readiness.rb",
+      "bytes": 650,
+      "sha256": "6fc524759f44d9d5e97e4eb215cbc21445b2c1c8d0dba92ca105969243fc8445"
+    },
+    {
       "path": "lib/discussion_bridge/health_status.rb",
-      "bytes": 5613,
-      "sha256": "6029eed7d5990dfbb835407f0576c57b81863bb59d4afa3e120ddf7e127d67a7"
+      "bytes": 6400,
+      "sha256": "06c1f5e10a10fb575430ba40fd7571a6374e32aa5e1d9b305de6f683641e3249"
     },
     {
       "path": "lib/discussion_bridge/lane_policies.rb",
-      "bytes": 2396,
-      "sha256": "ba83b6bcd61268a8162c37858917c17b3ed582ff4295c0c29149b3afb700b4d8"
+      "bytes": 3535,
+      "sha256": "ebda0cee4d9a5ba08454fb532967b45a4103f849e6494e9c1f628fdad44cb993"
     },
     {
       "path": "lib/discussion_bridge/operations_index.rb",
@@ -248,8 +474,8 @@
     },
     {
       "path": "lib/discussion_bridge/reconciliation_index.rb",
-      "bytes": 5791,
-      "sha256": "1c234b71aa489d0a3f97f62ed773f990913f130fe1245ad60cd824838c00e550"
+      "bytes": 11451,
+      "sha256": "61e952567cd5bb906ee2db760f848cc13262ee358d3289ca1d4e4ad5768b53b4"
     },
     {
       "path": "lib/discussion_bridge/retry_authorization.rb",
@@ -273,28 +499,38 @@
     },
     {
       "path": "plugin.rb",
-      "bytes": 6498,
-      "sha256": "e828948040e4bc7ed44d389cea49388a3f404526a4dda796fab0317f76a33c67"
+      "bytes": 11264,
+      "sha256": "65e0fe66100de6a5d26d0f4b02a458dfc2d9d1f84923d24a57f9abffb88b7648"
     },
     {
       "path": "spec/lib/canonical_source_spec.rb",
-      "bytes": 1434,
-      "sha256": "fb0740868c8672a7476f437432f6e2136e09872d64d5764e5af2a6230a849f42"
+      "bytes": 6350,
+      "sha256": "dc61fe8d1f3dfb5ef172a3eff17b72c12f52dcb0927815b22e0988167c38286a"
     },
     {
       "path": "spec/lib/comments_only_presenter_spec.rb",
-      "bytes": 2676,
-      "sha256": "5eeb330901e056686608f98e3ec3e6373306382051fc3620e3058323e9a15ec8"
+      "bytes": 2726,
+      "sha256": "b44493258447fe9b3caa93e651e01764e52a71a8d1d6a08c22c09b48bd0a36af"
     },
     {
       "path": "spec/lib/connection_repository_spec.rb",
-      "bytes": 3899,
-      "sha256": "35aae3f46a3269e843e4ba3f5267254fcf96598ca30ff0fc1f046a65099b764a"
+      "bytes": 5614,
+      "sha256": "abc776eeb166a832be446988c46eaffbd40861d775c7c276fb2d25fc7b187bb4"
+    },
+    {
+      "path": "spec/lib/connection_request_spec.rb",
+      "bytes": 1523,
+      "sha256": "df0e8436372af7e430cbf08dac9ac343b81fe13878639e289d529d0c1c878633"
     },
     {
       "path": "spec/lib/create_or_resolve_spec.rb",
       "bytes": 5413,
       "sha256": "abb392be72ef5aeb5fe07a6cfa923aeaba8a727845b61e6ae353656079898da5"
+    },
+    {
+      "path": "spec/lib/embed_route_attestation_spec.rb",
+      "bytes": 2447,
+      "sha256": "79b68bcba4334c1ebb7c27fb793d31f8d9b71b94819f05cd2e7762c64d9c5a1c"
     },
     {
       "path": "spec/lib/forum_authority_spec.rb",
@@ -303,13 +539,13 @@
     },
     {
       "path": "spec/lib/health_status_spec.rb",
-      "bytes": 3414,
-      "sha256": "b7ce27964993b6defa90e97c7308a3ab844b7c82fd5a188b03c82ed28ad03ac6"
+      "bytes": 4846,
+      "sha256": "0fa40fcc21d6b30db48492cf8ef5f88543cc597a014ac003c3773e0012f242fa"
     },
     {
       "path": "spec/lib/lane_policies_spec.rb",
-      "bytes": 1567,
-      "sha256": "64e188a09a78f51ff56efae88c933b1c87243cf96c1871930d84cb4a0de54935"
+      "bytes": 3082,
+      "sha256": "062c2f9ba35ce2e7e98110f37a815adc594ee9f857aa62b8c5eda34fa6def004"
     },
     {
       "path": "spec/lib/operations_index_spec.rb",
@@ -323,8 +559,8 @@
     },
     {
       "path": "spec/lib/reconciliation_index_spec.rb",
-      "bytes": 3061,
-      "sha256": "231bc040d0182196fb8e5a8c849dda4a10261458ffcf6b78e2dbf1d90bbe19d0"
+      "bytes": 6533,
+      "sha256": "88abd30fdc440cdb27372f0af4b544633cc02f0bdba343767d67331b1382412f"
     },
     {
       "path": "spec/lib/retry_authorization_spec.rb",
@@ -343,8 +579,8 @@
     },
     {
       "path": "spec/models/discussion_bridge_audit_event_spec.rb",
-      "bytes": 843,
-      "sha256": "2297e62a90e8959c8f4d8199752625acccebfb4da5aabf14d2d80e67ec9692db"
+      "bytes": 1399,
+      "sha256": "569ca53cc284f243cff3c0ae26926eb725286e68a3918063d571a02aad7de91e"
     },
     {
       "path": "spec/plugin_spec.rb",
@@ -353,13 +589,13 @@
     },
     {
       "path": "spec/requests/comments_only_full_interactive_spec.rb",
-      "bytes": 5224,
-      "sha256": "671036c1ca13d3433f16eda7c8aa2dfd23b4af713ff7b6f76108465c3933a3be"
+      "bytes": 13788,
+      "sha256": "d30b7cd5415a2626643726b44b1151e82740ee09af33e4010c349f85a21789c4"
     },
     {
       "path": "spec/requests/connections_controller_spec.rb",
-      "bytes": 7133,
-      "sha256": "b1dc1c97ff61c07048ddc7370e1fcb4ce1787aa05c3db5cf6d60d73f3367f5c5"
+      "bytes": 9505,
+      "sha256": "a5ddbb48f50d67c2361e5ba463569e6ca362ef705bec9bf823956b1da2cceed2"
     },
     {
       "path": "spec/requests/health_controller_spec.rb",
@@ -378,14 +614,8 @@
     },
     {
       "path": "spec/system/comments_only_full_interactive_spec.rb",
-      "bytes": 23872,
-      "sha256": "30fbda6699bff87326267189c978ca40aff37e63273bf89169fc7b1118e32257"
+      "bytes": 31785,
+      "sha256": "b5f85b0021b70c1f3ad397b5bf9eece3c3eca8f1e04fac6c43ab7737b34f4d1b"
     }
-  ],
-  "predecessorRelease": {
-    "tag": "v0.1.0-alpha.6",
-    "candidateCommit": "787e3c02cbf5706664b5fef1f63d2435b4338067",
-    "releaseUrl": "https://github.com/DiscussionBridge/discourse-discussion-bridge/releases/tag/v0.1.0-alpha.6",
-    "disposition": "REJECTED — DO NOT INSTALL after the dev-forum gate proved same-topic post-number navigation disabled logout-Refresh containment and embedded the forum homepage; tag retained immutable."
-  }
+  ]
 }
