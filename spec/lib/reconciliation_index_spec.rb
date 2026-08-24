@@ -75,7 +75,7 @@ describe DiscussionBridge::ReconciliationIndex do
     create_mapping(topic: deleted_topic)
 
     deleted_post_topic = compliant_topic
-    deleted_post = deleted_post_topic.first_post
+    deleted_post = deleted_post_topic.reload.first_post
     create_mapping(topic: deleted_post_topic)
     deleted_post.update_column(:deleted_at, Time.zone.now)
 
