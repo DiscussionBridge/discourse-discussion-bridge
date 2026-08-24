@@ -3,7 +3,7 @@ import logout from "discourse/lib/logout";
 import { i18n } from "discourse-i18n";
 
 const CSS_CLASS = "discussion-bridge-comments-only";
-const ATTESTED_CSS_CLASS = "discussion-bridge-comments-only-attested";
+const ATTESTED_ATTRIBUTE = "data-discussion-bridge-comments-only-attested";
 const SUBMIT_LABEL_ATTRIBUTE = "data-discussion-bridge-submit-label";
 const LOGOUT_REFRESH_SELECTOR =
   ".dialog-container__logout-refresh .dialog-footer button.btn-primary";
@@ -75,7 +75,7 @@ function interceptLogoutRefresh(event, qualification) {
     !button ||
     window.self === window.top ||
     !matchesQualifiedMapping(qualification) ||
-    !document.documentElement.classList.contains(ATTESTED_CSS_CLASS) ||
+    !document.documentElement.hasAttribute(ATTESTED_ATTRIBUTE) ||
     !document.body.classList.contains("embed-mode")
   ) {
     return;
@@ -102,8 +102,8 @@ export default {
       const qualification = { topicId, token };
       const syncClass = () => {
         window.requestAnimationFrame(() => {
-          document.documentElement.classList.toggle(
-            ATTESTED_CSS_CLASS,
+          document.documentElement.toggleAttribute(
+            ATTESTED_ATTRIBUTE,
             document.body.classList.contains("embed-mode"),
           );
           labelSubmitControls();
