@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 # name: discourse-discussion-bridge
-# about: Forum-governed control plane for DiscussionBridge connections.
+# about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.1.0.alpha.7
+# version: 0.1.0.alpha.8
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0

@@ -3,49 +3,122 @@ import { i18n } from "discourse-i18n";
 
 export default <template>
   <section class="discussion-bridge-health">
+    <header class="discussion-bridge-health__hero">
+      <div class="discussion-bridge-health__identity">
+        <span class="discussion-bridge-health__mark" aria-hidden="true">DB</span>
+        <div>
+          <h2>{{i18n "discussion_bridge.admin.title"}}</h2>
+          <p>{{i18n "discussion_bridge.admin.overview_description"}}</p>
+        </div>
+      </div>
+
+    </header>
+
     <DPageSubheader
-      @titleLabel={{i18n "discussion_bridge.admin.health_title"}}
+      @titleLabel={{i18n "discussion_bridge.admin.overview_title"}}
       @descriptionLabel={{i18n "discussion_bridge.admin.health_description"}}
     />
 
-    <div class="discussion-bridge-health__readiness">
-      <strong>
-        {{if
-          @status.readiness.controlled_creation_ready
-          (i18n "discussion_bridge.admin.ready")
-          (i18n "discussion_bridge.admin.needs_attention")
-        }}
-      </strong>
-      {{#if @status.readiness.blockers.length}}
-        <ul>
-          {{#each @status.readiness.blockers as |blocker|}}
-            <li><code>{{blocker}}</code></li>
-          {{/each}}
-        </ul>
-      {{else}}
-        <p>{{i18n "discussion_bridge.admin.no_blockers"}}</p>
-      {{/if}}
+    <div class="discussion-bridge-health__summary">
+      <section class="discussion-bridge-health__metric">
+        <span>{{i18n "discussion_bridge.admin.plugin_status"}}</span>
+        <strong class="discussion-bridge-health__metric-value">
+          {{if
+            @status.features.plugin_enabled
+            (i18n "discussion_bridge.admin.enabled")
+            (i18n "discussion_bridge.admin.disabled")
+          }}
+        </strong>
+      </section>
+      <section class="discussion-bridge-health__metric">
+        <span>{{i18n "discussion_bridge.admin.companion_mappings"}}</span>
+        <strong class="discussion-bridge-health__metric-value">
+          {{@status.mappings.total}}
+        </strong>
+      </section>
+      <section class="discussion-bridge-health__metric">
+        <span>{{i18n "discussion_bridge.admin.completed_mappings"}}</span>
+        <strong class="discussion-bridge-health__metric-value">
+          {{@status.mappings.complete}}
+        </strong>
+      </section>
+      <section class="discussion-bridge-health__metric">
+        <span>{{i18n "discussion_bridge.admin.failed_mappings"}}</span>
+        <strong class="discussion-bridge-health__metric-value">
+          {{@status.mappings.failed}}
+        </strong>
+      </section>
+      <section class="discussion-bridge-health__metric">
+        <span>{{i18n "discussion_bridge.admin.audit_events"}}</span>
+        <strong class="discussion-bridge-health__metric-value">
+          {{@status.audits.total}}
+        </strong>
+      </section>
     </div>
 
-    <div class="discussion-bridge-health__readiness">
-      <strong>{{i18n "discussion_bridge.admin.full_interactive_readiness"}}:</strong>
-      <strong>
-        {{if
-          @status.readiness.full_interactive_ready
-          (i18n "discussion_bridge.admin.ready")
-          (i18n "discussion_bridge.admin.needs_attention")
+    <div class="discussion-bridge-health__readiness-grid">
+      <section
+        class="discussion-bridge-health__readiness"
+        data-state={{if
+          @status.readiness.controlled_creation_ready
+          "ready"
+          "attention"
         }}
-      </strong>
-      {{#if @status.readiness.full_interactive_blockers.length}}
-        <ul>
-          {{#each @status.readiness.full_interactive_blockers as |blocker|}}
-            <li><code>{{blocker}}</code></li>
-          {{/each}}
-        </ul>
-      {{else}}
-        <p>{{i18n "discussion_bridge.admin.full_interactive_ready"}}</p>
-      {{/if}}
+      >
+        <div class="discussion-bridge-health__readiness-heading">
+          <strong>{{i18n "discussion_bridge.admin.controlled_creation"}}</strong>
+          <span>
+            {{if
+              @status.readiness.controlled_creation_ready
+              (i18n "discussion_bridge.admin.ready")
+              (i18n "discussion_bridge.admin.needs_attention")
+            }}
+          </span>
+        </div>
+        {{#if @status.readiness.blockers.length}}
+          <ul>
+            {{#each @status.readiness.blockers as |blocker|}}
+              <li><code>{{blocker}}</code></li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p>{{i18n "discussion_bridge.admin.no_blockers"}}</p>
+        {{/if}}
+      </section>
+
+      <section
+        class="discussion-bridge-health__readiness"
+        data-state={{if
+          @status.readiness.full_interactive_ready
+          "ready"
+          "attention"
+        }}
+      >
+        <div class="discussion-bridge-health__readiness-heading">
+          <strong>{{i18n "discussion_bridge.admin.full_interactive_readiness"}}</strong>
+          <span>
+            {{if
+              @status.readiness.full_interactive_ready
+              (i18n "discussion_bridge.admin.ready")
+              (i18n "discussion_bridge.admin.needs_attention")
+            }}
+          </span>
+        </div>
+        {{#if @status.readiness.full_interactive_blockers.length}}
+          <ul>
+            {{#each @status.readiness.full_interactive_blockers as |blocker|}}
+              <li><code>{{blocker}}</code></li>
+            {{/each}}
+          </ul>
+        {{else}}
+          <p>{{i18n "discussion_bridge.admin.full_interactive_ready"}}</p>
+        {{/if}}
+      </section>
     </div>
+
+    <h3 class="discussion-bridge-health__details-heading">
+      {{i18n "discussion_bridge.admin.configuration_details"}}
+    </h3>
 
     <div class="discussion-bridge-health__grid">
       <section>
@@ -158,12 +231,6 @@ export default <template>
           <dt>{{i18n "discussion_bridge.admin.system_authored"}}</dt><dd
           >{{@status.mappings.system_authored}}</dd>
         </dl>
-      </section>
-
-      <section>
-        <h3>{{i18n "discussion_bridge.admin.audits"}}</h3>
-        <p><strong>{{@status.audits.total}}</strong>
-          {{i18n "discussion_bridge.admin.total"}}</p>
       </section>
     </div>
   </section>

@@ -266,7 +266,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
       page.execute_script(<<~JS)
         const url = new URL(window.location.href);
-        url.pathname = `/t/#{topic.id}/2`;
+        url.pathname = `${url.pathname}/2`;
         window.history.pushState({}, "", `${url.pathname}${url.search}`);
         const dialog = document.createElement("div");
         dialog.className = "dialog-container__logout-refresh";

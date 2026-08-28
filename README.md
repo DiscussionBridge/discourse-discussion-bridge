@@ -1,9 +1,9 @@
 # DiscussionBridge for Discourse
 
-This is the default-disabled v0.1 Alpha implementation for the forum-governed
-DiscussionBridge control plane. It is a Ruby Discourse plugin, not a theme
-component. Repository source state and installed forum state are accepted and
-tracked separately.
+This is the default-disabled v0.1 Alpha implementation for forum-governed
+companion discussions on published pages. It is a Ruby Discourse plugin, not a
+theme component. Repository source state and installed forum state are accepted
+and tracked separately.
 
 ## Current boundary
 
@@ -32,9 +32,10 @@ not reimplement those security-sensitive actions. If the plugin capability is
 enabled for a completed mapping while the plugin capability, Discourse
 `embed_full_app`, or `embed_full_app_signin_flow` prerequisite is off, the
 request fails closed instead of silently serving the legacy
-Start/Continue Discussion handoff embed. A native, administrator-only Health page reports
-feature switches, connection readiness, operating identity, forum authority,
-mapping state, and audit counts without exposing the connection credential.
+Start/Continue Discussion handoff embed. A native, administrator-only Overview
+reports feature switches, separate controlled-creation and in-page-interaction
+readiness, operating identity, forum authority, live mapping counts, and audit
+counts without exposing the connection credential.
 The native Discourse Settings tab is the sole editable operator surface. Its
 secret control remains write-only, and save-time validators reject malformed
 origins, unavailable operating identities, nonexistent categories, and
@@ -213,10 +214,11 @@ Forum-controlled local creation also passes under a dedicated non-system service
 identity: the first request created one unlisted topic, retry resolved the same
 mapping, an underprivileged identity now fails closed as `unlisted_denied`, and
 the endpoint was disabled with its sandbox credential cleared after acceptance.
-A focused five-example contract verifies the read-only Health endpoint, nested
-administrator page routing, administrator authorization, explicit readiness
-blockers, and secret containment. Discourse ESLint, Prettier, and Stylelint accept the native admin
-route, navigation entry, Glimmer page, and scoped stylesheet.
+A focused contract verifies the read-only Health endpoint, nested administrator
+page routing, administrator authorization, explicit readiness blockers, and
+secret containment. The native Overview, Mappings & audits, and Reconciliation
+pages render persisted plugin state without reviving Content Connections,
+Bridge Records, migration controls, or connection-management actions.
 A reviewed predecessor nonproduction installation remains present on stable
 `dev-forum.discussionbridge.dev` at plugin SHA
 `50c4a92359f672a00b2242e99819a70813ebea19`. Installation, migrations, reviewed
@@ -551,7 +553,7 @@ the Embedding settings and confirm both of these Core settings:
   cookie requirements before enabling this setting.
 
 Then enable `discussion_bridge_comments_only_full_interactive` only under the
-reviewed host policy. The DiscussionBridge Health page must report **In-page
+reviewed host policy. The DiscussionBridge Overview must report **In-page
 interaction readiness: Ready** with no `embed_full_app_disabled` or
 `embed_full_app_signin_flow_disabled` blocker. A legacy Start/Continue
 Discussion button is a failed preflight, not `fullInteractive` acceptance.
@@ -560,7 +562,7 @@ Confirm ordinary topics, admin access, HTTPS, PostgreSQL, and Redis remain
 healthy. Only then apply any separately reviewed settings change and exercise
 the approved create/resolve and presentation checks. Disable the endpoint at
 rest unless a bounded creation request is actively running. At rest, the plugin
-health view can label `endpoint_disabled` as **Needs attention**. In this
+Overview can label `endpoint_disabled` as **Needs attention**. In this
 specific state that label confirms the creation endpoint is safely closed; it
 is not an install or migration failure.
 

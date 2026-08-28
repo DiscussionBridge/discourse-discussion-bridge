@@ -36,6 +36,10 @@ export default class DiscussionBridgeReconciliation extends Component {
     return this.args.model.pagination.page >= this.args.model.pagination.pages;
   }
 
+  displayToken(value) {
+    return value?.replaceAll("_", " ") || "—";
+  }
+
   @action
   updateQuery(event) {
     this.query = event.target.value;
@@ -111,14 +115,17 @@ export default class DiscussionBridgeReconciliation extends Component {
       />
 
       <div class="discussion-bridge-reconciliation__summary">
-        <strong>{{@model.summary.total}}</strong>
-        {{i18n "discussion_bridge.admin.issues"}}
-        <span>{{@model.summary.critical}}
-          {{i18n "discussion_bridge.admin.critical"}}</span>
-        <span>{{@model.summary.high}}
-          {{i18n "discussion_bridge.admin.high"}}</span>
-        <span>{{@model.summary.medium}}
-          {{i18n "discussion_bridge.admin.medium"}}</span>
+        <section><span>{{i18n "discussion_bridge.admin.issues"}}</span><strong
+          >{{@model.summary.total}}</strong></section>
+        <section data-severity="critical"><span>{{i18n
+              "discussion_bridge.admin.critical"
+            }}</span><strong>{{@model.summary.critical}}</strong></section>
+        <section data-severity="high"><span>{{i18n
+              "discussion_bridge.admin.high"
+            }}</span><strong>{{@model.summary.high}}</strong></section>
+        <section data-severity="medium"><span>{{i18n
+              "discussion_bridge.admin.medium"
+            }}</span><strong>{{@model.summary.medium}}</strong></section>
       </div>
 
       <form
@@ -167,27 +174,29 @@ export default class DiscussionBridgeReconciliation extends Component {
           <tbody>
             {{#each @model.items as |item|}}
               <tr>
-                <td><code>{{item.severity}}</code></td>
-                <td><code>{{item.code}}</code></td>
-                <td><a
+                <td data-label={{i18n "discussion_bridge.admin.severity"}}><span
+                    class="discussion-bridge-reconciliation__severity"
+                    data-severity={{item.severity}}
+                  >{{this.displayToken item.severity}}</span></td>
+                <td data-label={{i18n "discussion_bridge.admin.issue"}}>{{this.displayToken item.code}}</td>
+                <td data-label={{i18n "discussion_bridge.admin.source"}}><a
                     href={{item.source_url}}
                     rel="noopener noreferrer"
                   >{{item.source_url}}</a></td>
-                <td>
+                <td data-label={{i18n "discussion_bridge.admin.topic"}}>
                   {{#if item.topic_id}}
                     <a href="/t/{{item.topic_id}}">{{item.topic_id}}</a>
                   {{else}}
                     —
                   {{/if}}
                 </td>
-                <td><code>{{item.recommendation}}</code></td>
-                <td>
+                <td data-label={{i18n "discussion_bridge.admin.recommendation"}}>{{this.displayToken item.recommendation}}</td>
+                <td data-label={{i18n "discussion_bridge.admin.action"}}>
                   {{#if item.action}}
                     <DButton
                       @label={{item.action_label}}
                       @action={{this.performAction}}
                       @actionParam={{item}}
-                      class="btn-danger"
                     />
                   {{else}}
                     —
