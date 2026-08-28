@@ -14,6 +14,8 @@ describe DiscussionBridge::TrustedOriginsValidator do
     expect(validator.valid_value?("https://astro.example.com/articles")).to eq(false)
     expect(validator.valid_value?("https://user@example.com")).to eq(false)
     expect(validator.valid_value?("https://*.example.com")).to eq(false)
+    expect(validator.valid_value?("https://astro.example.com.")).to eq(false)
+    expect(validator.valid_value?("https://127.0.0.1")).to eq(false)
   end
 
   it "accepts only an available non-system operating identity" do

@@ -11,6 +11,7 @@ module DiscussionBridge
     SEVERITIES = %w[critical high medium].freeze
     RECOMMENDATIONS = {
       "duplicate_source" => "review_duplicate_identity", "duplicate_topic" => "review_duplicate_topic",
+      "duplicate_canonical_route" => "review_duplicate_identity",
       "retry_authorized" => "await_adapter_retry", "failed_mapping" => "authorize_retry",
       "stale_reservation" => "authorize_retry", "topic_missing" => "restore_or_retire_mapping",
       "topic_deleted" => "restore_or_retire_mapping", "first_post_missing" => "restore_or_retire_mapping",
@@ -109,6 +110,10 @@ module DiscussionBridge
             policies.category_id AS expected_category_id, policies.tags AS expected_tags,
             #{policy_missing_sql} AS policy_missing,
             COUNT(*) OVER (PARTITION BY mappings.source_identity_digest) AS source_count,
+            COUNT(*) OVER (
+              PARTITION BY mappings.connection_id,
+                REGEXP_REPLACE(mappings.canonical_source_url, '/index/?$', '/', 'i')
+            ) AS canonical_route_count,
             COUNT(*) FILTER (WHERE mappings.topic_id IS NOT NULL)
               OVER (PARTITION BY mappings.topic_id) AS topic_count
           FROM discussion_bridge_connections mappings
@@ -154,6 +159,7 @@ module DiscussionBridge
     def issue_union_sql
       unions = []
       unions << issue_select("source_count > 1", "duplicate_source", "critical")
+      unions << issue_select("canonical_route_count > 1", "duplicate_canonical_route", "critical")
       unions << issue_select("topic_id IS NOT NULL AND topic_count > 1", "duplicate_topic", "critical")
       unions << issue_select("retry_authorized_at IS NOT NULL", "retry_authorized", "medium")
       unions << issue_select("state = 'failed' AND retry_authorized_at IS NULL", "failed_mapping", "medium")

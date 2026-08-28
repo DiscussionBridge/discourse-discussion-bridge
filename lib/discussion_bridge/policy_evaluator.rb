@@ -66,13 +66,12 @@ module DiscussionBridge
     private_class_method :valid_actor?
 
     def self.trusted_origin?(source_url, trusted_origins)
-      source = URI.parse(source_url)
-      return false unless source.is_a?(URI::HTTP) && source.host && source.userinfo.nil? && source.query.nil? && source.fragment.nil?
-
-      origin = "#{source.scheme.downcase}://#{source.host.downcase}"
-      origin += ":#{source.port}" unless source.default_port == source.port
+      source = CanonicalSource.call(connection_id: "origin-validation", source_url: source_url)
+      uri = URI.parse(source.source_url)
+      origin = "#{uri.scheme}://#{uri.host}"
+      origin += ":#{uri.port}" unless uri.port == uri.default_port
       origin_candidates(trusted_origins).include?(origin)
-    rescue URI::InvalidURIError
+    rescue ArgumentError, URI::InvalidURIError
       false
     end
     private_class_method :trusted_origin?
@@ -80,16 +79,12 @@ module DiscussionBridge
     def self.origin_candidates(value)
       raw = value.is_a?(String) ? value.split("|") : Array(value)
       raw.filter_map do |candidate|
-        uri = URI.parse(candidate.to_s.strip)
-        next unless uri.is_a?(URI::HTTP) && uri.host && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
-        next unless uri.path.empty? || uri.path == "/"
-        normalized = "#{uri.scheme.downcase}://#{uri.host.downcase}"
-        normalized += ":#{uri.port}" unless uri.default_port == uri.port
-        normalized
-      rescue URI::InvalidURIError
+        CanonicalSource.origin(candidate.to_s.strip)
+      rescue ArgumentError
         nil
       end.uniq
     end
     private_class_method :origin_candidates
+
   end
 end

@@ -57,7 +57,7 @@ caller-supplied query markers do not qualify a route. Core may legitimately add
 a post-number segment while the reader remains in the same topic. Alpha.6
 incorrectly disqualified that route advance and allowed Core's Refresh default
 to embed the forum homepage on dev-forum. Alpha.6 is immutable rejected
-evidence and must not be installed. The unpublished Alpha.7 correction keeps
+evidence and must not be installed. Alpha.8 and the current Alpha.9 candidate keep
 same-topic post-number routes qualified while continuing to reject another
 topic, a missing or changed token, a top-level page, and a non-mapped route.
 The caller-controlled query class is only a bootstrap request: plugin-owned
@@ -72,7 +72,7 @@ The initializer revalidates the current topic/token on every Discourse page
 change and relevant DOM mutation. If an in-document transition leaves the
 attested mapping, it immediately removes the presentation attribute and its
 composer labels; a same-topic post-number transition remains qualified.
-The current local, uncommitted remediation replaces public DOM ownership with
+The Alpha.8 implementation replaces public DOM ownership with
 private per-element state, restores the latest exact Core accessibility state
 for attached or detached controls, and understands both slugged and slugless
 topic/post routes under root and subfolder Discourse installations. It also
@@ -180,11 +180,11 @@ normal interaction. Alpha.6's exact-route comparison then stood down and Core's
 logout-dialog Refresh embedded the forum homepage. The direct forum topic and
 its companion first post remained correct; the defect was confined to Refresh
 containment inside the Astro embed. Alpha.6 is therefore immutable rejected
-evidence and must not be installed. The unpublished Alpha.7 candidate qualifies
+evidence and must not be installed. Alpha.8 and the current Alpha.9 candidate qualify
 same-topic post-number navigation by the server-attested topic and original
 signed token while failing closed for another topic, a missing or changed
 token, top-level use, and non-mapped navigation.
-Code review also found that Alpha.7's first evidence head still let the
+Historical review also found that Alpha.7's first evidence head still let the
 caller-controlled bootstrap class activate comments-only CSS without a valid
 server attestation. The superseding Alpha.7 correction makes every query class
 presentation-neutral and applies an HTML data attribute only after verified
@@ -568,16 +568,20 @@ is not an install or migration failure.
 
 The human acceptance record must confirm:
 
-Each host record must identify the corrected adapter production commit
-`476c581d8003e8286121133d8fcb2f4883ecc701` and exact 96,291-byte package
-artifact (SHA-256
-`4ca56bdc1da672285a34ab9b24c64e178bf21bb09a39f7f42a3af03af5a20661`).
+Each host record must identify reduced adapter source commit
+`aff026b485f62c05b0c9c17564d239448f29cdc1`, tree
+`0dbc23ff2688768b80f3d3bcb87b673005b267ff`, and the exact 15,189-byte
+`astro-discussion-bridge@0.1.0-alpha.20260828.1` package artifact (SHA-256
+`219501409b108e6a00426b811bd29ebe426df62c20999c301c5191df4f81a135`,
+16 members, 56,863 unpacked bytes). The active Astro consumer must bind this
+artifact by filename and lockfile integrity; legacy CLI/import/replies surfaces
+and fixed iframe height ceilings are not accepted substitutes.
 On both the sandbox `app` and dev `web_only` gates, repeat topic-progress
 navigation, lower-frame scrolling, composer open/close and interaction, and the
 credit boundary at desktop plus iPhone portrait and landscape sizes. No Core
 content/control may be clipped or falsely overlapped by the host. Phil's prior
 sandbox desktop/mobile PASS closed the originally deployed `70vh` defect, but
-the exact Alpha.7 combined install record must retain this regression check and
+the exact current combined install record must retain this regression check and
 the separate dev record must prove it independently.
 
 1. backup/rollback identity before the change;

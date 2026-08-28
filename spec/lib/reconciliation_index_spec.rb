@@ -69,6 +69,17 @@ describe DiscussionBridge::ReconciliationIndex do
     expect(result[:items].pluck(:code)).to contain_exactly("topic_missing", "failed_mapping", "stale_reservation")
   end
 
+  it "detects file-index aliases that identify one canonical route" do
+    first = create_mapping(topic: compliant_topic)
+    first.update!(canonical_source_url: "https://example.com/comments/page/index/")
+    second = create_mapping(topic: compliant_topic)
+    second.update!(canonical_source_url: "https://example.com/comments/page/")
+
+    result = described_class.call
+
+    expect(result[:items].select { |item| item[:code] == "duplicate_canonical_route" }.pluck(:mapping_id)).to contain_exactly(first.id, second.id)
+  end
+
   it "detects deleted topics and missing or deleted companion first posts" do
     deleted_topic = compliant_topic
     deleted_topic.update_column(:deleted_at, Time.zone.now)

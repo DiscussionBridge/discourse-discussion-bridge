@@ -2,6 +2,7 @@
 
 require "uri"
 require_relative "lane_policies"
+require_relative "canonical_source"
 
 module DiscussionBridge
   class TrustedOriginsValidator
@@ -10,10 +11,8 @@ module DiscussionBridge
 
     def valid_value?(value)
       values(value).all? do |candidate|
-        uri = URI.parse(candidate)
-        !candidate.include?("*") && uri.is_a?(URI::HTTP) && uri.host.present? && uri.userinfo.nil? &&
-          uri.query.nil? && uri.fragment.nil? && (uri.path.empty? || uri.path == "/")
-      rescue URI::InvalidURIError
+        !candidate.include?("*") && CanonicalSource.origin(candidate).present?
+      rescue ArgumentError
         false
       end
     end

@@ -13,6 +13,16 @@ module DiscussionBridge
     MAX_DNS_LABEL_BYTES = 63
     Result = Data.define(:connection_id, :source_url, :identity_digest)
 
+    def self.origin(source_url)
+      result = call(connection_id: "origin-validation", source_url: source_url)
+      uri = URI.parse(result.source_url)
+      raise ArgumentError, "origin must not include a path" unless uri.path == "/"
+
+      normalized = "#{uri.scheme}://#{uri.host}"
+      normalized += ":#{uri.port}" unless uri.port == uri.default_port
+      normalized
+    end
+
     def self.call(connection_id:, source_url:)
       connection = connection_id.to_s.strip
       raise ArgumentError, "connection_id is required" if connection.empty?
@@ -92,10 +102,11 @@ module DiscussionBridge
     private_class_method :validate_host!
 
     def self.canonical_path(path)
-      path.gsub(/%([0-9a-f]{2})/i) do
+      normalized = path.gsub(/%([0-9a-f]{2})/i) do
         byte = Regexp.last_match(1).to_i(16)
         unreserved_byte?(byte) ? byte.chr(Encoding::UTF_8) : format("%%%02X", byte)
       end
+      normalized.sub(%r{/index/\z}i, "/")
     end
     private_class_method :canonical_path
 

@@ -61,4 +61,9 @@ describe DiscussionBridge::OperationsIndex do
     )
     expect(result.to_json).not_to include("requested_state", "effective_state", "secret")
   end
+
+  it "rejects invalid and unbounded page inputs" do
+    expect { described_class.call(kind: "mappings", page: "not-a-page") }.to raise_error(ArgumentError, "invalid page")
+    expect { described_class.call(kind: "mappings", page: described_class::MAX_PAGE + 1) }.to raise_error(ArgumentError, "invalid page")
+  end
 end

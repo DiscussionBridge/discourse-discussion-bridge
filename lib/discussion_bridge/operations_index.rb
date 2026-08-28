@@ -3,6 +3,7 @@
 module DiscussionBridge
   class OperationsIndex
     PER_PAGE = 25
+    MAX_PAGE = 10_000
     KINDS = %w[mappings audits].freeze
 
     def self.call(kind:, query: nil, filter: nil, page: 1)
@@ -13,7 +14,9 @@ module DiscussionBridge
       @kind = KINDS.include?(kind.to_s) ? kind.to_s : "mappings"
       @query = query.to_s.strip.first(200)
       @filter = filter.to_s.strip.first(100)
-      @page = [page.to_i, 1].max
+      parsed_page = Integer(page.presence || 1, exception: false)
+      raise ArgumentError, "invalid page" unless parsed_page&.between?(1, MAX_PAGE)
+      @page = parsed_page
     end
 
     def call

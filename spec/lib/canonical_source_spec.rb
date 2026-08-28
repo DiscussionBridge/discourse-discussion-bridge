@@ -3,6 +3,14 @@
 require "rails_helper"
 
 describe DiscussionBridge::CanonicalSource do
+  it "normalizes static-site index aliases to the canonical directory route" do
+    direct = described_class.call(connection_id: "astro", source_url: "https://example.com/comments/page/")
+    indexed = described_class.call(connection_id: "astro", source_url: "https://example.com/comments/page/index/")
+
+    expect(indexed.source_url).to eq(direct.source_url)
+    expect(indexed.identity_digest).to eq(direct.identity_digest)
+  end
+
   it "normalizes an absolute source URL within a connection identity" do
     result = described_class.call(connection_id: "astro-demo", source_url: "HTTPS://Example.COM/article")
     expect(result.source_url).to eq("https://example.com/article")
