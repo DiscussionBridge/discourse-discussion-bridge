@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "recordedAt": "2026-08-28",
-  "status": "alpha10-candidate-ready-for-sandbox-install",
+  "status": "alpha10-installed-and-live-consumer-exercised",
   "plugin": {
     "version": "0.1.0.alpha.10",
     "productionSourceCommit": "916337733b08564884bc2e08628a2d53f52a538c",
@@ -26,7 +26,7 @@
     "sourceTree": "f578fc6d0cbfa31ebf4f3a6e3635e97183f6f59a",
     "artifactBinding": "vendor/astro-discussion-bridge-0.1.0-alpha.20260828.2.tgz",
     "cloudflareDeploymentVersion": "9907115f-9234-4f83-879d-addb2bd983cc",
-    "qualification": "Local tests and build pass; Cloudflare deployment contains only the supported mapped fullInteractive comments mode and the exact reduced artifact. Final live exercise follows the Alpha.10 sandbox install."
+    "qualification": "Local tests and build pass; Cloudflare deployment contains only the supported mapped fullInteractive comments mode and the exact reduced artifact. Post-install live exercise passes with topic 10, fullApp dynamic height, no fixed ceiling, and no exposed connection secret."
   },
   "sandbox": {
     "hostname": "sandbox-forum.discussionbridge.dev",
@@ -34,21 +34,23 @@
     "initialSnapshot": "sandbox-forum.discussionbridge.dev-1787950710200",
     "preResizeSnapshot": "sandbox-forum.discussionbridge.dev-alpha9-pre-resize-20260828",
     "coreCommit": "cce14c1e4cb4f1cc8ab79b5ca31428562f790152",
-    "installedPluginCommit": "1893ce130a21b0ea76504753b4b2259c73cfcbc1",
-    "containerId": "5994fc0bf19b1b6523e5568cebd5023d90b74867481b429fa8352205fad885d9",
-    "containerImage": "sha256:ffbf266a9fd54ddac708d75b2d0a12cd8ba8bed34618be73db2110550d806f75",
+    "installedPluginCommit": "c99465fddf41e91c644bb5fe4c8bab4da78df512",
+    "containerId": "9f10a308bd1b257d032b01d5eb528b2df9fa69d09bf844ae2e55053fa1d2a0c2",
+    "containerImage": "sha256:c5fb1242e9b0c71bbc6794a9b0a42f21576010cad6fba6208f4aec89969e366c",
     "capacity": "2 shared vCPU, 4 GB RAM, 80 GB NVMe SSD, 2 GB swap",
     "runtimeTuning": "4 Pitchfork web workers; PostgreSQL shared_buffers 1GB; exact current setup-wizard calculation for 2 CPU and 4 GB RAM",
-    "configurationSha256": "45b957520caf7523eb5af363d96d3580ea4c80dd9669a1819e5657151c5d3559",
-    "reapplyStatus": "pending-alpha10-install",
-    "mappingStatus": "2 complete mappings, 8 audits, canonical plugin-sandbox topic 10, retired topic 9, zero reconciliation issues"
+    "configurationSha256": "63081fa403b7bd09010125ee980d53f3dbdcd5a060ef18d1bb9e042fbb822c1a",
+    "reapplyStatus": "pass",
+    "mappingStatus": "2 complete mappings, 8 audits, canonical plugin-sandbox topic 10, retired topic 9, zero reconciliation issues",
+    "legacyIndexUpgradeExercise": "pass; migrated the topic-10 mapping inside a transaction, resolved without topic creation or mapping-count change, then rolled back with zero residue",
+    "postInstallSnapshot": "sandbox-forum.discussionbridge.dev-alpha10-post-install-20260828 (requested; provider completion pending Phil)"
   },
   "requiredEvidence": [
     "Complete plugin suite against the exact Alpha.10 source candidate: 142 backend and 31 system examples pass.",
-    "Exact Alpha.10 single-container sandbox install, rollback, reapply, and live exercise: pending.",
+    "Exact Alpha.10 single-container sandbox install, reapply, service health, and live exercise: pass; pre-install configuration backup is the rollback boundary.",
     "One authoritative mapping for the canonical plugin-sandbox source and no reconciliation issue: pass.",
-    "Live Astro consumer bound to the exact reduced artifact with no unsupported mode claims or iframe height ceiling: pending final live exercise.",
-    "Focused paired correction-closure review with Original Bridge Boss."
+    "Live Astro consumer bound to the exact reduced artifact with no unsupported mode claims or iframe height ceiling: pass.",
+    "Focused paired correction-closure review with Original Bridge Boss: pending replacement freeze."
   ],
   "authority": {
     "publicationAuthorized": false,
