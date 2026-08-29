@@ -37,6 +37,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
         external_id: "post-482",
         canonical_url: "https://example.com/articles/community-guide/",
         title: "A controlled companion discussion topic",
+        content_html: "<h2>Community guide</h2><p>A complete source article.</p>",
         published: true,
         visibility: "unlisted",
         lane: "articles",
@@ -64,7 +65,30 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(DiscussionBridgeBridgeRecord.count).to eq(1)
     expect(DiscussionBridgeContentBinding.count).to eq(1)
     expect(DiscussionBridgeBridgeRecord.last.topic).to have_attributes(user_id: service_actor.id, visible: false)
+    expect(DiscussionBridgeBridgeRecord.last.topic.first_post.cooked).to include(
+      "Community guide",
+      "A complete source article.",
+      "https://example.com/articles/community-guide/",
+    )
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
+  end
+
+  it "rejects missing, blank, malformed, and oversized source content before mutation" do
+    invalid_content = [nil, "", "   ", "<p>bad\u0000content</p>", "x" * (48 * 1024 + 1)]
+    invalid_content.each do |content_html|
+      body = payload
+      if content_html.nil?
+        body[:bridge_record].delete(:content_html)
+      else
+        body[:bridge_record][:content_html] = content_html
+      end
+      post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+    expect(DiscussionBridgeContentBinding.count).to eq(0)
+    expect(Topic.count).to eq(0)
   end
 
   it "rejects drafts, malformed lifecycle values, bad credentials, and out-of-scope origins before mutation" do

@@ -120,6 +120,7 @@ module DiscussionBridge
         connection_id: @connection.public_id,
         source_url: canonical.source_url,
         title: @request.fetch(:title),
+        content_html: @request.fetch(:content_html),
         lane: @request[:lane],
         visibility: @request.fetch(:visibility, "unlisted"),
         adapter_id: @request[:adapter_id],

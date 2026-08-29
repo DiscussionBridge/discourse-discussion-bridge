@@ -29,6 +29,8 @@
   published;
 - platform-specific credentials, hooks, installation, and UI;
 - canonical external identity and URL supplied to the connection;
+- a bounded published-content HTML snapshot suitable for Discourse's ordinary
+  post cooking and sanitization pipeline;
 - server-side storage of the one-time DiscussionBridge connection secret;
 - rendering, linking, or embedding the returned discussion through the
   platform's supported mechanisms;

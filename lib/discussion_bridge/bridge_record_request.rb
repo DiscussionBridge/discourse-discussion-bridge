@@ -5,9 +5,10 @@ require "json"
 module DiscussionBridge
   module BridgeRecordRequest
     MAX_JSON_BYTES = 64 * 1024
+    MAX_CONTENT_HTML_BYTES = 48 * 1024
     MAX_EXTERNAL_ID_BYTES = 255
     MAX_CORRELATION_ID_BYTES = 200
-    REQUIRED_KEYS = %w[direction external_id canonical_url title published].freeze
+    REQUIRED_KEYS = %w[direction external_id canonical_url title content_html published].freeze
     ALLOWED_KEYS = (REQUIRED_KEYS + %w[lane adapter_id adapter_version correlation_id visibility]).freeze
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
@@ -28,6 +29,7 @@ module DiscussionBridge
       unless raw["title"].length.between?(SiteSetting.min_topic_title_length, SiteSetting.max_topic_title_length)
         raise ArgumentError, "invalid title"
       end
+      validate_content_html!(raw["content_html"])
 
       %w[lane adapter_id adapter_version correlation_id visibility].each do |key|
         next unless raw.key?(key)
@@ -54,5 +56,13 @@ module DiscussionBridge
       raise ArgumentError, "invalid #{name}" unless valid
     end
     private_class_method :validate_string!
+
+    def self.validate_content_html!(value)
+      invalid_controls = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
+      valid = value.is_a?(String) && value.valid_encoding? && value.strip.present? &&
+        value.bytesize <= MAX_CONTENT_HTML_BYTES && !invalid_controls.match?(value)
+      raise ArgumentError, "invalid content_html" unless valid
+    end
+    private_class_method :validate_content_html!
   end
 end

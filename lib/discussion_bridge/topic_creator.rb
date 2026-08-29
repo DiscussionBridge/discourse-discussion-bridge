@@ -13,7 +13,7 @@ module DiscussionBridge
       creator = PostCreator.new(
         actor,
         title: request.fetch(:title),
-        raw: companion_post(source_url),
+        raw: companion_post(source_url, request.fetch(:content_html)),
         category: policy.effective_category_id,
         tags: policy.effective_tags,
         visible: false,
@@ -30,8 +30,8 @@ module DiscussionBridge
 
     private
 
-    def companion_post(source_url)
-      "This is a companion discussion topic for the original entry at [#{source_url}](#{source_url})"
+    def companion_post(source_url, content_html)
+      "Originally published at [#{source_url}](#{source_url})\n\n---\n\n#{content_html}"
     end
   end
 end

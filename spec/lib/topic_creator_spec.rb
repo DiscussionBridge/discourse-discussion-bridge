@@ -13,10 +13,11 @@ describe DiscussionBridge::TopicCreator do
       connection_id: "astro",
       source_url: "https://example.com/articles/source",
       title: "A controlled DiscussionBridge companion topic",
+      content_html: "<h2>Community guide</h2><p>Source-owned article content.</p>",
     }
   end
 
-  it "creates an unlisted topic under the configured service actor with a controlled companion body" do
+  it "creates an unlisted topic with source content and canonical attribution" do
     creation = described_class.new.call(request: request, policy: policy)
     post = creation.topic.first_post
 
@@ -24,8 +25,10 @@ describe DiscussionBridge::TopicCreator do
     expect(creation.topic.visible).to eq(false)
     expect(post.user_id).to eq(actor.id)
     expect(post.raw).to eq(
-      "This is a companion discussion topic for the original entry at " \
-        "[https://example.com/articles/source](https://example.com/articles/source)",
+      "Originally published at " \
+        "[https://example.com/articles/source](https://example.com/articles/source)\n\n" \
+        "---\n\n<h2>Community guide</h2><p>Source-owned article content.</p>",
     )
+    expect(post.cooked).to include("Community guide", "Source-owned article content")
   end
 end
