@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "recordedAt": "2026-08-28",
-  "status": "alpha9-correction-candidate-awaiting-sandbox-reapply",
+  "status": "alpha9-installed-reapplied-and-live-consumer-exercised",
   "plugin": {
     "version": "0.1.0.alpha.9",
     "productionSourceCommit": "de764e74aef3891df558c82b2a6b8002592e8f03",
@@ -25,21 +25,29 @@
     "sourceCommit": "cffde15b63399901d8961ddd5ceaba41ec53b6de",
     "sourceTree": "5c9c225a5868a0a268a652f22b481cb80e0b773d",
     "artifactBinding": "vendor/astro-discussion-bridge-0.1.0-alpha.20260828.1.tgz",
-    "qualification": "Local tests, build, and Cloudflare deploy dry-run pass against the exact reduced artifact. Live publication remains pending."
+    "cloudflareDeploymentVersion": "a8748247-d9d2-4778-b0e3-ed0dc4301412",
+    "qualification": "Local tests, build, Cloudflare deployment, and live consumer exercise pass against the exact reduced artifact. The live page uses mapped topic 10 with no fixed iframe-height ceiling."
   },
   "sandbox": {
     "hostname": "sandbox-forum.discussionbridge.dev",
     "topology": "single-container app",
-    "snapshot": "sandbox-forum.discussionbridge.dev-1787950710200",
-    "coreCommitBeforeReapply": "cce14c1e4cb4f1cc8ab79b5ca31428562f790152",
-    "installedPluginCommitBeforeReapply": "ba9b204be1547019b0498fed1ca28af6e2703300",
-    "reapplyStatus": "pending"
+    "initialSnapshot": "sandbox-forum.discussionbridge.dev-1787950710200",
+    "preResizeSnapshot": "sandbox-forum.discussionbridge.dev-alpha9-pre-resize-20260828",
+    "coreCommit": "cce14c1e4cb4f1cc8ab79b5ca31428562f790152",
+    "installedPluginCommit": "1893ce130a21b0ea76504753b4b2259c73cfcbc1",
+    "containerId": "5994fc0bf19b1b6523e5568cebd5023d90b74867481b429fa8352205fad885d9",
+    "containerImage": "sha256:ffbf266a9fd54ddac708d75b2d0a12cd8ba8bed34618be73db2110550d806f75",
+    "capacity": "2 shared vCPU, 4 GB RAM, 80 GB NVMe SSD, 2 GB swap",
+    "runtimeTuning": "4 Pitchfork web workers; PostgreSQL shared_buffers 1GB; exact current setup-wizard calculation for 2 CPU and 4 GB RAM",
+    "configurationSha256": "45b957520caf7523eb5af363d96d3580ea4c80dd9669a1819e5657151c5d3559",
+    "reapplyStatus": "pass",
+    "mappingStatus": "2 complete mappings, 8 audits, canonical plugin-sandbox topic 10, retired topic 9, zero reconciliation issues"
   },
   "requiredEvidence": [
-    "Complete plugin suite against the exact source candidate.",
-    "Exact single-container sandbox install or reapply and rollback proof.",
-    "One authoritative mapping for the canonical plugin-sandbox source and no reconciliation issue.",
-    "Live Astro consumer bound to the exact reduced artifact with no iframe height ceiling.",
+    "Complete plugin suite against the exact source candidate: pass.",
+    "Exact single-container sandbox install, rollback, reapply, resize, and unchanged-candidate rebuild proof: pass.",
+    "One authoritative mapping for the canonical plugin-sandbox source and no reconciliation issue: pass.",
+    "Live Astro consumer bound to the exact reduced artifact with no iframe height ceiling: pass.",
     "Focused paired correction-closure review with Original Bridge Boss."
   ],
   "authority": {
