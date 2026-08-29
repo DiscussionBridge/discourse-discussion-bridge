@@ -120,10 +120,12 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     resource_id = response.parsed_body.dig("bridge_record", "resource_id")
 
     sign_out
+    expect(@connection.reload.last_seen_at).to be_nil
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "direction")).to eq("from_discourse")
     expect(response.parsed_body.dig("bridge_record", "content_html")).to be_present
+    expect(@connection.reload.last_seen_at).to be_present
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
