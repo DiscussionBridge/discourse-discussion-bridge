@@ -1,32 +1,32 @@
 {
   "schemaVersion": 2,
   "recordedAt": "2026-08-28",
-  "status": "alpha9-installed-reapplied-and-live-consumer-exercised",
+  "status": "alpha10-candidate-ready-for-sandbox-install",
   "plugin": {
-    "version": "0.1.0.alpha.9",
-    "productionSourceCommit": "de764e74aef3891df558c82b2a6b8002592e8f03",
-    "productionSourceTree": "21db4f1efa2c211beca5b190450b31bc4e1f9cb8",
-    "installRef": "v0.1.0-alpha.9",
-    "supersedesInstalledCommit": "ba9b204be1547019b0498fed1ca28af6e2703300"
+    "version": "0.1.0.alpha.10",
+    "productionSourceCommit": "916337733b08564884bc2e08628a2d53f52a538c",
+    "productionSourceTree": "9c9ab8680bcce2f9e109d2262e7231995fbf435f",
+    "installRef": "v0.1.0-alpha.10",
+    "supersedesInstalledCommit": "1893ce130a21b0ea76504753b4b2259c73cfcbc1"
   },
   "adapter": {
-    "package": "astro-discussion-bridge@0.1.0-alpha.20260828.1",
-    "sourceCommit": "aff026b485f62c05b0c9c17564d239448f29cdc1",
-    "sourceTree": "0dbc23ff2688768b80f3d3bcb87b673005b267ff",
-    "artifact": "astro-discussion-bridge-0.1.0-alpha.20260828.1.tgz",
-    "artifactBytes": 15189,
-    "artifactSha256": "219501409b108e6a00426b811bd29ebe426df62c20999c301c5191df4f81a135",
-    "npmIntegrity": "sha512-mPVjgiGOV9krykNgK5AywAIYJlbvXy0/vJzSkenbB+eGney0SFUmnqmoytVowoGijIs6SGJdCbR9osM2aeEoZQ==",
+    "package": "astro-discussion-bridge@0.1.0-alpha.20260828.2",
+    "sourceCommit": "68b060bc3e6b4741be2f7b7e3c90cab7f36db4a2",
+    "sourceTree": "0407fd6a4b20ee2ea91303f5616fed4aa63ab231",
+    "artifact": "astro-discussion-bridge-0.1.0-alpha.20260828.2.tgz",
+    "artifactBytes": 15187,
+    "artifactSha256": "9b13f4a70fac4712201f820788de44c828c6db0bbe5a2d566db83e233dbccb51",
+    "npmIntegrity": "sha512-H2wUNvBEJH7wVgkkVcFFCFQBtOZ/ZwIBJVhb0SZ9E/xonVX4YA2mma7vSn549NmjbtqMv5RusKLK/8V4CQfHNw==",
     "members": 16,
-    "unpackedBytes": 56863
+    "unpackedBytes": 56892
   },
   "consumer": {
     "repository": "https://github.com/DiscussionBridge/astrostarlight-demo-discussionbridge-dev.git",
-    "sourceCommit": "cffde15b63399901d8961ddd5ceaba41ec53b6de",
-    "sourceTree": "5c9c225a5868a0a268a652f22b481cb80e0b773d",
-    "artifactBinding": "vendor/astro-discussion-bridge-0.1.0-alpha.20260828.1.tgz",
-    "cloudflareDeploymentVersion": "a8748247-d9d2-4778-b0e3-ed0dc4301412",
-    "qualification": "Local tests, build, Cloudflare deployment, and live consumer exercise pass against the exact reduced artifact. The live page uses mapped topic 10 with no fixed iframe-height ceiling."
+    "sourceCommit": "845b0ebb2a71087567cba0b313b574040db5219e",
+    "sourceTree": "f578fc6d0cbfa31ebf4f3a6e3635e97183f6f59a",
+    "artifactBinding": "vendor/astro-discussion-bridge-0.1.0-alpha.20260828.2.tgz",
+    "cloudflareDeploymentVersion": "9907115f-9234-4f83-879d-addb2bd983cc",
+    "qualification": "Local tests and build pass; Cloudflare deployment contains only the supported mapped fullInteractive comments mode and the exact reduced artifact. Final live exercise follows the Alpha.10 sandbox install."
   },
   "sandbox": {
     "hostname": "sandbox-forum.discussionbridge.dev",
@@ -40,14 +40,14 @@
     "capacity": "2 shared vCPU, 4 GB RAM, 80 GB NVMe SSD, 2 GB swap",
     "runtimeTuning": "4 Pitchfork web workers; PostgreSQL shared_buffers 1GB; exact current setup-wizard calculation for 2 CPU and 4 GB RAM",
     "configurationSha256": "45b957520caf7523eb5af363d96d3580ea4c80dd9669a1819e5657151c5d3559",
-    "reapplyStatus": "pass",
+    "reapplyStatus": "pending-alpha10-install",
     "mappingStatus": "2 complete mappings, 8 audits, canonical plugin-sandbox topic 10, retired topic 9, zero reconciliation issues"
   },
   "requiredEvidence": [
-    "Complete plugin suite against the exact source candidate: pass.",
-    "Exact single-container sandbox install, rollback, reapply, resize, and unchanged-candidate rebuild proof: pass.",
+    "Complete plugin suite against the exact Alpha.10 source candidate: 142 backend and 31 system examples pass.",
+    "Exact Alpha.10 single-container sandbox install, rollback, reapply, and live exercise: pending.",
     "One authoritative mapping for the canonical plugin-sandbox source and no reconciliation issue: pass.",
-    "Live Astro consumer bound to the exact reduced artifact with no iframe height ceiling: pass.",
+    "Live Astro consumer bound to the exact reduced artifact with no unsupported mode claims or iframe height ceiling: pending final live exercise.",
     "Focused paired correction-closure review with Original Bridge Boss."
   ],
   "authority": {
