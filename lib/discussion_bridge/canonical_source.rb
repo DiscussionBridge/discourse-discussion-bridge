@@ -51,6 +51,19 @@ module DiscussionBridge
       raise ArgumentError, "source_url must be an absolute HTTP(S) URL"
     end
 
+    def self.legacy_index_alias(canonical)
+      uri = URI.parse(canonical.source_url)
+      return nil unless uri.path.end_with?("/")
+
+      uri.path = "#{uri.path}index/"
+      source_url = uri.to_s
+      Result.new(
+        connection_id: canonical.connection_id,
+        source_url: source_url,
+        identity_digest: Digest::SHA256.hexdigest("#{canonical.connection_id}\n#{source_url}"),
+      )
+    end
+
     def self.validate_path!(path)
       candidate = path
       (MAX_PATH_DECODE_PASSES + 1).times do |pass|

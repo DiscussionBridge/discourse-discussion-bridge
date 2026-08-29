@@ -57,7 +57,7 @@ caller-supplied query markers do not qualify a route. Core may legitimately add
 a post-number segment while the reader remains in the same topic. Alpha.6
 incorrectly disqualified that route advance and allowed Core's Refresh default
 to embed the forum homepage on dev-forum. Alpha.6 is immutable rejected
-evidence and must not be installed. Alpha.8 and the current Alpha.9 candidate keep
+evidence and must not be installed. Alpha.8, Alpha.9, and the current Alpha.10 candidate keep
 same-topic post-number routes qualified while continuing to reject another
 topic, a missing or changed token, a top-level page, and a non-mapped route.
 The caller-controlled query class is only a bootstrap request: plugin-owned
@@ -180,7 +180,7 @@ normal interaction. Alpha.6's exact-route comparison then stood down and Core's
 logout-dialog Refresh embedded the forum homepage. The direct forum topic and
 its companion first post remained correct; the defect was confined to Refresh
 containment inside the Astro embed. Alpha.6 is therefore immutable rejected
-evidence and must not be installed. Alpha.8 and the current Alpha.9 candidate qualify
+evidence and must not be installed. Alpha.8, Alpha.9, and the current Alpha.10 candidate qualify
 same-topic post-number navigation by the server-attested topic and original
 signed token while failing closed for another topic, a missing or changed
 token, top-level use, and non-mapped navigation.
@@ -569,11 +569,11 @@ is not an install or migration failure.
 The human acceptance record must confirm:
 
 Each host record must identify reduced adapter source commit
-`aff026b485f62c05b0c9c17564d239448f29cdc1`, tree
-`0dbc23ff2688768b80f3d3bcb87b673005b267ff`, and the exact 15,189-byte
-`astro-discussion-bridge@0.1.0-alpha.20260828.1` package artifact (SHA-256
-`219501409b108e6a00426b811bd29ebe426df62c20999c301c5191df4f81a135`,
-16 members, 56,863 unpacked bytes). The active Astro consumer must bind this
+`68b060bc3e6b4741be2f7b7e3c90cab7f36db4a2`, tree
+`0407fd6a4b20ee2ea91303f5616fed4aa63ab231`, and the exact 15,187-byte
+`astro-discussion-bridge@0.1.0-alpha.20260828.2` package artifact (SHA-256
+`9b13f4a70fac4712201f820788de44c828c6db0bbe5a2d566db83e233dbccb51`,
+16 members, 56,892 unpacked bytes). The active Astro consumer must bind this
 artifact by filename and lockfile integrity; legacy CLI/import/replies surfaces
 and fixed iframe height ceilings are not accepted substitutes.
 On both the sandbox `app` and dev `web_only` gates, repeat topic-progress

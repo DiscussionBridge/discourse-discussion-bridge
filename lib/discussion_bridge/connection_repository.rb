@@ -9,23 +9,34 @@ module DiscussionBridge
 
     def reserve!(canonical:, request:, policy:)
       token = SecureRandom.hex(32)
-      record =
-        DiscussionBridgeConnection.transaction(requires_new: true) do
-          DiscussionBridgeConnection.create!(
-            connection_id: canonical.connection_id,
-            canonical_source_url: canonical.source_url,
-            source_identity_digest: canonical.identity_digest,
-            state: "reserved",
-            reservation_token: token,
-            effective_actor_id: policy.effective_actor_id,
-            lane: request[:lane],
-            requested_visibility: request.fetch(:visibility, "unlisted"),
-            effective_visibility: policy.effective_visibility,
-            requested_state: AuditState.requested(request),
-            effective_state: AuditState.effective(policy),
-          )
-        end
-      Reservation.new(state: "reserved", topic_id: nil, record_id: record.id, token: token, reason: nil)
+      reservation = nil
+      DiscussionBridgeConnection.transaction(requires_new: true) do
+        matches = locked_identity_matches(canonical)
+        reservation =
+          if matches.length > 1
+            conflict_reservation(matches.first, "legacy_identity_collision")
+          elsif matches.one?
+            existing = matches.first
+            migrate_legacy_identity!(existing, canonical)
+            reservation_for_existing(existing, canonical, request, policy)
+          else
+            record = DiscussionBridgeConnection.create!(
+              connection_id: canonical.connection_id,
+              canonical_source_url: canonical.source_url,
+              source_identity_digest: canonical.identity_digest,
+              state: "reserved",
+              reservation_token: token,
+              effective_actor_id: policy.effective_actor_id,
+              lane: request[:lane],
+              requested_visibility: request.fetch(:visibility, "unlisted"),
+              effective_visibility: policy.effective_visibility,
+              requested_state: AuditState.requested(request),
+              effective_state: AuditState.effective(policy),
+            )
+            Reservation.new(state: "reserved", topic_id: nil, record_id: record.id, token: token, reason: nil)
+          end
+      end
+      reservation
     rescue ActiveRecord::RecordNotUnique
       existing_reservation(canonical, request, policy)
     rescue ActiveRecord::RecordInvalid => error
@@ -37,55 +48,14 @@ module DiscussionBridge
     def existing_reservation(canonical, request, policy)
       reservation = nil
       DiscussionBridgeConnection.transaction(requires_new: true) do
-        existing = DiscussionBridgeConnection.lock.find_by!(source_identity_digest: canonical.identity_digest)
-        if existing.state == "complete" && existing.canonical_source_url == canonical.source_url
-          integrity = ExistingMappingIntegrity.call(mapping: existing, policy: policy, request: request)
-          reservation = if integrity.usable?
-            Reservation.new(
-              state: "complete",
-              topic_id: existing.topic_id,
-              record_id: existing.id,
-              token: nil,
-              reason: nil,
-            )
-          else
-            Reservation.new(
-              state: "conflict",
-              topic_id: nil,
-              record_id: existing.id,
-              token: nil,
-              reason: integrity.reason,
-            )
-          end
-        elsif existing.retry_authorized_at.present? && existing.canonical_source_url == canonical.source_url
-          token = SecureRandom.hex(32)
-          existing.update!(
-            state: "reserved",
-            reservation_token: token,
-            effective_actor_id: policy.effective_actor_id,
-            lane: request[:lane],
-            requested_visibility: request.fetch(:visibility, "unlisted"),
-            effective_visibility: policy.effective_visibility,
-            requested_state: AuditState.requested(request),
-            effective_state: AuditState.effective(policy),
-            retry_authorized_at: nil,
-            retry_authorized_by_id: nil,
-          )
-          reservation = Reservation.new(
-            state: "reserved",
-            topic_id: nil,
-            record_id: existing.id,
-            token: token,
-            reason: nil,
-          )
+        matches = locked_identity_matches(canonical)
+        if matches.length > 1
+          reservation = conflict_reservation(matches.first, "legacy_identity_collision")
         else
-          reservation = Reservation.new(
-            state: "conflict",
-            topic_id: nil,
-            record_id: existing.id,
-            token: nil,
-            reason: "identity_conflict",
-          )
+          existing = matches.first
+          raise DiscussionBridgeConnection::IdentityConflict unless existing
+          migrate_legacy_identity!(existing, canonical)
+          reservation = reservation_for_existing(existing, canonical, request, policy)
         end
       end
       reservation
@@ -118,6 +88,76 @@ module DiscussionBridge
     private
 
     private :existing_reservation
+
+    def locked_identity_matches(canonical)
+      legacy = CanonicalSource.legacy_index_alias(canonical)
+      digests = [canonical.identity_digest, legacy&.identity_digest].compact
+      DiscussionBridgeConnection.lock.where(source_identity_digest: digests).order(:id).to_a
+    end
+
+    def migrate_legacy_identity!(existing, canonical)
+      return if existing.source_identity_digest == canonical.identity_digest
+
+      legacy = CanonicalSource.legacy_index_alias(canonical)
+      unless legacy && existing.connection_id == legacy.connection_id &&
+          existing.canonical_source_url == legacy.source_url &&
+          existing.source_identity_digest == legacy.identity_digest
+        raise DiscussionBridgeConnection::IdentityConflict
+      end
+
+      existing.update!(
+        canonical_source_url: canonical.source_url,
+        source_identity_digest: canonical.identity_digest,
+      )
+    end
+
+    def reservation_for_existing(existing, canonical, request, policy)
+      if existing.state == "complete" && existing.canonical_source_url == canonical.source_url
+        integrity = ExistingMappingIntegrity.call(mapping: existing, policy: policy, request: request)
+        return Reservation.new(
+          state: integrity.usable? ? "complete" : "conflict",
+          topic_id: integrity.usable? ? existing.topic_id : nil,
+          record_id: existing.id,
+          token: nil,
+          reason: integrity.usable? ? nil : integrity.reason,
+        )
+      end
+
+      if existing.retry_authorized_at.present?
+        token = SecureRandom.hex(32)
+        existing.update!(
+          state: "reserved",
+          reservation_token: token,
+          effective_actor_id: policy.effective_actor_id,
+          lane: request[:lane],
+          requested_visibility: request.fetch(:visibility, "unlisted"),
+          effective_visibility: policy.effective_visibility,
+          requested_state: AuditState.requested(request),
+          effective_state: AuditState.effective(policy),
+          retry_authorized_at: nil,
+          retry_authorized_by_id: nil,
+        )
+        return Reservation.new(
+          state: "reserved",
+          topic_id: nil,
+          record_id: existing.id,
+          token: token,
+          reason: nil,
+        )
+      end
+
+      conflict_reservation(existing, "identity_conflict")
+    end
+
+    def conflict_reservation(existing, reason)
+      Reservation.new(
+        state: "conflict",
+        topic_id: nil,
+        record_id: existing.id,
+        token: nil,
+        reason: reason,
+      )
+    end
 
     def verify_reservation!(mapping, reservation)
       return if mapping.state == "reserved" && mapping.reservation_token == reservation.token
