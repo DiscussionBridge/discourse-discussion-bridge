@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.1.0.alpha.10
+# version: 0.2.0.alpha.1
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -31,6 +31,7 @@ register_html_builder("server:before-head-close") do |controller|
     mapping_id: attestation[:mapping].id,
     expected_topic_id: topic.id,
     expected_updated_at: attestation[:mapping].updated_at,
+    record_type: attestation[:mapping].is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
   )
   next unless integrity.usable?
 
@@ -48,6 +49,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
+    VERSION = "0.2.0.alpha.1"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -57,28 +59,30 @@ after_initialize do
 
   require_relative "lib/discussion_bridge/canonical_source"
   require_relative "lib/discussion_bridge/connection_request"
+  require_relative "lib/discussion_bridge/bridge_record_request"
   require_relative "lib/discussion_bridge/site_setting_label_formatter_extension"
   require_relative "lib/discussion_bridge/lane_policies"
   require_relative "lib/discussion_bridge/policy_evaluator"
   require_relative "lib/discussion_bridge/forum_authority"
-  require_relative "lib/discussion_bridge/health_status"
-  require_relative "lib/discussion_bridge/operations_index"
-  require_relative "lib/discussion_bridge/reconciliation_index"
-  require_relative "lib/discussion_bridge/retry_authorization"
+  require_relative "lib/discussion_bridge/bridge_reconciliation_index"
   require_relative "lib/discussion_bridge/audit_state"
   require_relative "lib/discussion_bridge/existing_mapping_integrity"
-  require_relative "lib/discussion_bridge/connection_repository"
   require_relative "lib/discussion_bridge/topic_creator"
-  require_relative "lib/discussion_bridge/audit_writer"
-  require_relative "lib/discussion_bridge/create_or_resolve"
   require_relative "lib/discussion_bridge/full_interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
+  require_relative "lib/discussion_bridge/content_connection_authenticator"
+  require_relative "lib/discussion_bridge/bridge_record_resolver"
+  require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
-  require_relative "app/controllers/discussion_bridge/connections_controller"
+  require_relative "app/models/discussion_bridge_content_connection"
+  require_relative "app/models/discussion_bridge_bridge_record"
+  require_relative "app/models/discussion_bridge_content_binding"
+  require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
+  require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
+  require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
-  require_relative "app/controllers/discussion_bridge/operations_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
@@ -133,7 +137,8 @@ after_initialize do
             return
           end
 
-          mapping = DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
+          mapping = DiscussionBridgeBridgeRecord.find_by(topic_id: topic_id, state: "healthy") ||
+            DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
           unless mapping
             render plain: I18n.t(
                      "discussion_bridge.full_interactive_unavailable",
@@ -146,6 +151,7 @@ after_initialize do
             mapping_id: mapping.id,
             expected_topic_id: topic_id.to_i,
             expected_updated_at: mapping.updated_at,
+            record_type: mapping.is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
           )
           unless integrity.usable? && guardian.can_see?(integrity.topic)
             render plain: I18n.t(
@@ -244,6 +250,7 @@ after_initialize do
           mapping_id: attestation[:mapping].id,
           expected_topic_id: requested_topic_id,
           expected_updated_at: attestation[:mapping].updated_at,
+          record_type: attestation[:mapping].is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
         )
         valid = FullInteractiveReadiness.ready? &&
           params[:embed_mode].to_s == "true" &&
@@ -267,12 +274,22 @@ after_initialize do
     TopicsController < DiscussionBridge::TopicControllerFullInteractiveGuard
 
   DiscussionBridge::Engine.routes.draw do
-    post "/connections/resolve" => "connections#create"
+    post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
+    get "/v1/bridge-records" => "adapter_bridge_records#index"
+    get "/v1/bridge-records/:resource_id" => "adapter_bridge_records#show"
     get "/admin/health" => "health#show"
-    get "/admin/operations" => "operations#index"
+    get "/admin/support-bundle" => "health#support_bundle"
+    get "/admin/content-connections" => "admin_content_connections#index"
+    post "/admin/content-connections" => "admin_content_connections#create"
+    put "/admin/content-connections/:id" => "admin_content_connections#update"
+    post "/admin/content-connections/:id/rotate-secret" => "admin_content_connections#rotate_secret"
+    get "/admin/bridge-records" => "admin_bridge_records#index"
+    post "/admin/bridge-records" => "admin_bridge_records#create"
+    get "/admin/bridge-records/:id" => "admin_bridge_records#show"
+    post "/admin/bridge-records/:id/migrations" => "admin_bridge_records#prepare_migration"
+    post "/admin/bridge-records/:id/migrations/:binding_id/apply" => "admin_bridge_records#apply_migration"
     get "/admin/reconciliation" => "reconciliation#index"
-    post "/admin/reconciliation/:mapping_id/authorize-retry" => "reconciliation#authorize_retry"
-    post "/admin/reconciliation/:mapping_id/revoke-retry" => "reconciliation#revoke_retry"
+    get "/admin/reconciliation/report" => "reconciliation#report"
   end
 
   Discourse::Application.routes.append do

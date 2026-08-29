@@ -2,231 +2,237 @@
 
 require "rails_helper"
 
-describe DiscussionBridge::ConnectionsController do
-  it "does not expose creation while the plugin is disabled" do
-    SiteSetting.discussion_bridge_enabled = false
-    post "/discussion-bridge/connections/resolve.json", params: {}
-    expect(response.status).to eq(404)
-    expect(response.parsed_body).to include("error_type" => "not_found")
-  end
-
+describe DiscussionBridge::AdapterBridgeRecordsController do
   fab!(:service_actor, :admin)
+  fab!(:admin)
   fab!(:category)
 
   before do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_endpoint_enabled = true
-    SiteSetting.discussion_bridge_connection_id = "astro"
-    SiteSetting.discussion_bridge_connection_secret = "test-secret"
-    SiteSetting.discussion_bridge_trusted_origins = "https://example.com"
     SiteSetting.discussion_bridge_service_username = service_actor.username
     SiteSetting.discussion_bridge_effective_category_id = category.id
     SiteSetting.discussion_bridge_effective_tags = ""
     SiteSetting.discussion_bridge_lane_policies = "[]"
+    @connection, @secret = DiscussionBridgeContentConnection.issue!(
+      name: "Main WordPress",
+      platform: "wordpress",
+      allowed_origins: ["https://example.com"],
+      allowed_directions: %w[to_discourse from_discourse],
+      allowed_lanes: ["articles"],
+    )
   end
 
-  def request_headers(secret: "test-secret")
+  def headers(secret: @secret)
     {
-      "X-DiscussionBridge-Connection" => "astro",
+      "X-DiscussionBridge-Connection" => @connection.public_id,
       "X-DiscussionBridge-Secret" => secret,
     }
   end
 
-  def connection_payload(overrides = {})
+  def payload(overrides = {})
     {
-      connection: {
-        connection_id: "astro",
-        adapter_id: "astro",
-        source_url: "https://example.com/articles/controlled",
+      bridge_record: {
+        direction: "to_discourse",
+        external_id: "post-482",
+        canonical_url: "https://example.com/articles/community-guide/",
         title: "A controlled companion discussion topic",
-        visibility: "listed",
+        published: true,
+        visibility: "unlisted",
         lane: "articles",
-        correlation_id: "request-1",
+        adapter_id: "wordpress-official",
+        adapter_version: "1.0.0",
+        correlation_id: "delivery-1",
       }.merge(overrides),
     }
   end
 
-  it "rejects malformed connection containers without persistence or exception leakage" do
-    [nil, false, true, "connection", 1, [], ["nested"]].each do |container|
-      post "/discussion-bridge/connections/resolve.json",
-           headers: request_headers,
-           params: { connection: container },
-           as: :json
+  it "creates one stable Bridge Record and resolves an idempotent retry" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created)
+    created = response.parsed_body
 
-      expect(response).to have_http_status(:unprocessable_entity)
-      expect(response.parsed_body).to include("reason" => "invalid_request")
-      expect(DiscussionBridgeConnection.count).to eq(0)
-      expect(DiscussionBridgeAuditEvent.count).to eq(0)
-    end
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: {},
-         as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body).to include("reason" => "invalid_request")
-  end
-
-  it "rejects a bad connection credential before creating or auditing anything" do
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers(secret: "wrong"),
-         params: connection_payload
-
-    expect(response.status).to eq(401)
-    expect(response.parsed_body).to include("reason" => "unauthorized", "core_fallback" => false)
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.count).to eq(0)
-  end
-
-  it "creates once as the service actor, forces unlisted, audits, and resolves an idempotent retry" do
-    2.times do
-      post "/discussion-bridge/connections/resolve.json",
-           headers: request_headers,
-           params: connection_payload
-    end
-
-    expect(response.status).to eq(200)
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to include(
       "outcome" => "resolved",
-      "reason" => "existing_mapping",
+      "resource_id" => created.fetch("resource_id"),
+      "topic_id" => created.fetch("topic_id"),
+      "direction" => "to_discourse",
       "core_fallback" => false,
     )
-    expect(response.parsed_body.dig("requested", "visibility")).to eq("listed")
-    expect(response.parsed_body.dig("effective", "visibility")).to eq("unlisted")
-
-    mapping = DiscussionBridgeConnection.find_by!(connection_id: "astro")
-    expect(mapping).to have_attributes(state: "complete", effective_actor_id: service_actor.id)
-    expect(mapping.topic).to have_attributes(user_id: service_actor.id, visible: false)
-    expect(mapping.topic.first_post.raw).to include("https://example.com/articles/controlled")
-    expect(DiscussionBridgeConnection.count).to eq(1)
-    expect(DiscussionBridgeAuditEvent.pluck(:outcome)).to eq(%w[created resolved])
+    expect(DiscussionBridgeBridgeRecord.count).to eq(1)
+    expect(DiscussionBridgeContentBinding.count).to eq(1)
+    expect(DiscussionBridgeBridgeRecord.last.topic).to have_attributes(user_id: service_actor.id, visible: false)
+    expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
   end
 
-  it "accepts the authenticated server request with production forgery protection enabled" do
-    previous = ActionController::Base.allow_forgery_protection
-    ActionController::Base.allow_forgery_protection = true
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload
-
-    expect(response.status).to eq(201)
-    expect(response.parsed_body).to include("outcome" => "created", "core_fallback" => false)
-  ensure
-    ActionController::Base.allow_forgery_protection = previous
-  end
-
-  it "uses the forum-owned category and tags for an explicitly configured lane" do
-    lane_category = Fabricate(:category)
-    lane_tag = Fabricate(:tag, name: "bridge-docs")
-    SiteSetting.discussion_bridge_lane_policies = [
-      {
-        lane: "articles",
-        category_id: lane_category.id,
-        tags: [lane_tag.name],
-        visibility: "unlisted",
-      },
-    ].to_json
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload(category_id: category.id, tags: ["adapter-request"])
-
-    expect(response.status).to eq(201)
-    expect(response.parsed_body.dig("effective", "category_id")).to eq(lane_category.id)
-    expect(response.parsed_body.dig("effective", "tags")).to eq([lane_tag.name])
-    expect(DiscussionBridgeConnection.last.topic).to have_attributes(category_id: lane_category.id)
-    expect(DiscussionBridgeConnection.last.topic.tags.pluck(:name)).to eq([lane_tag.name])
-  end
-
-  it "rejects and audits an unknown lane when forum lane policies are configured" do
-    SiteSetting.discussion_bridge_lane_policies = [
-      { lane: "docs", category_id: category.id, tags: [], visibility: "unlisted" },
-    ].to_json
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload(lane: "unknown")
-
-    expect(response.status).to eq(422)
-    expect(response.parsed_body).to include("outcome" => "rejected", "reason" => "lane_denied")
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.last).to have_attributes(outcome: "rejected", reason: "lane_denied")
-  end
-
-  it "fails closed when forum authority rejects the effective category" do
-    category.destroy!
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload
-
-    expect(response.status).to eq(422)
-    expect(response.parsed_body).to include("outcome" => "rejected", "reason" => "category_unavailable")
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.last).to have_attributes(outcome: "rejected", reason: "category_unavailable")
-  end
-
-  it "rejects an operating identity that cannot create the enforced unlisted topic" do
-    ordinary_actor = Fabricate(:user, trust_level: TrustLevel[1])
-    SiteSetting.discussion_bridge_service_username = ordinary_actor.username
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload
-
-    expect(response.status).to eq(422)
-    expect(response.parsed_body).to include("outcome" => "rejected", "reason" => "unlisted_denied")
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.last).to have_attributes(outcome: "rejected", reason: "unlisted_denied")
-  end
-
-  it "rejects an incomplete nested request without persistence" do
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: { connection: { connection_id: "astro", source_url: "https://example.com/articles/incomplete" } }
-
-    expect(response.status).to eq(422)
-    expect(response.parsed_body).to include("outcome" => "rejected", "reason" => "invalid_request")
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.count).to eq(0)
-  end
-
-  it "rejects unknown, wrongly typed, and oversized request fields before persistence" do
-    invalid_payloads = [
-      connection_payload(unknown: "field"),
-      connection_payload(adapter_id: { nested: true }),
-      connection_payload(correlation_id: "x" * 201),
-      connection_payload(tags: Array.new(21, "tag")),
-    ]
-
-    invalid_payloads.each do |payload|
-      post "/discussion-bridge/connections/resolve.json",
-           headers: request_headers,
-           params: payload
-      expect(response).to have_http_status(:unprocessable_entity)
-      expect(response.parsed_body).to include("reason" => "invalid_request")
+  it "rejects drafts, malformed lifecycle values, bad credentials, and out-of-scope origins before mutation" do
+    [
+      payload(published: false),
+      payload(published: "true"),
+      payload(canonical_url: "https://other.example/article"),
+      payload(direction: "from_discourse"),
+    ].each do |body|
+      post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
+      expect(response).not_to have_http_status(:created)
     end
-    expect(DiscussionBridgeConnection.count).to eq(0)
-    expect(DiscussionBridgeAuditEvent.count).to eq(0)
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers(secret: "wrong-secret-that-is-long-enough-to-test"),
+         params: payload,
+         as: :json
+    expect(response).to have_http_status(:unauthorized)
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+    expect(DiscussionBridgeContentBinding.count).to eq(0)
   end
 
-  it "returns reconciliation_required instead of a successful binding for a deleted mapped topic" do
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload
-    mapping = DiscussionBridgeConnection.last
-    mapping.topic.update!(deleted_at: Time.zone.now)
-
-    post "/discussion-bridge/connections/resolve.json",
-         headers: request_headers,
-         params: connection_payload
+  it "fails closed when the same external identity and canonical URL disagree" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(canonical_url: "https://example.com/articles/changed/"),
+         as: :json
 
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body).to include(
       "outcome" => "reconciliation_required",
-      "reason" => "mapping_topic_deleted",
-      "topic_id" => nil,
+      "reason" => "binding_identity_conflict",
     )
-    expect(mapping.reload).to have_attributes(state: "complete")
+    expect(DiscussionBridgeBridgeRecord.count).to eq(1)
+  end
+
+  it "lets an administrator create a From Discourse record and exposes it only to its connection" do
+    topic = Fabricate(:topic, user: service_actor, category: category)
+    Fabricate(:post, topic: topic, user: service_actor, post_number: 1)
+    sign_in(admin)
+    post "/discussion-bridge/admin/bridge-records.json",
+         params: {
+           bridge_record: {
+             content_connection_id: @connection.id,
+             topic_id: topic.id,
+             external_id: "presentation-44",
+             canonical_url: "https://example.com/forum-digest/",
+           },
+         },
+         as: :json
+    expect(response).to have_http_status(:created)
+    resource_id = response.parsed_body.dig("bridge_record", "resource_id")
+
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("bridge_record", "direction")).to eq("from_discourse")
+    expect(response.parsed_body.dig("bridge_record", "content_html")).to be_present
+  end
+
+  it "prepares and applies a source migration without changing the resource or topic" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    target, = DiscussionBridgeContentConnection.issue!(
+      name: "Documentation Astro",
+      platform: "astro",
+      allowed_origins: ["https://docs.example.com"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["articles"],
+    )
+    resource_id = record.resource_id
+    topic_id = record.topic_id
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: {
+           migration: {
+             content_connection_id: target.id,
+             external_id: "guide-community",
+             canonical_url: "https://docs.example.com/community-guide/",
+           },
+         },
+         as: :json
+    expect(response).to have_http_status(:ok)
+    prepared_id = response.parsed_body.fetch("prepared_binding_id")
+
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    expect(response).to have_http_status(:ok)
+    expect(record.reload).to have_attributes(resource_id: resource_id, topic_id: topic_id, state: "healthy")
+    expect(record.content_bindings.pluck(:state)).to contain_exactly("historical", "active")
+    expect(record.content_bindings.find_by(state: "active").content_connection).to eq(target)
+  end
+
+  it "stops the former connection from reading a record after migration" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    target, target_secret = DiscussionBridgeContentConnection.issue!(
+      name: "Replacement Statamic",
+      platform: "statamic",
+      allowed_origins: ["https://statamic.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["articles"],
+    )
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: {
+           migration: {
+             content_connection_id: target.id,
+             external_id: "entry-482",
+             canonical_url: "https://statamic.example/community-guide/",
+           },
+         },
+         as: :json
+    prepared_id = response.parsed_body.fetch("prepared_binding_id")
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    sign_out
+
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json", headers: headers
+    expect(response).to have_http_status(:not_found)
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: {
+          "X-DiscussionBridge-Connection" => target.public_id,
+          "X-DiscussionBridge-Secret" => target_secret,
+        }
+    expect(response).to have_http_status(:ok)
+  end
+
+  it "paginates a connection's record inventory and rejects invalid pages" do
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("pagination")).to include(
+      "page" => 1,
+      "per_page" => 100,
+      "total" => 0,
+      "pages" => 1,
+    )
+
+    get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
+    expect(response).to have_http_status(:bad_request)
+  end
+
+  it "creates, updates, and rotates a connection only through native administration" do
+    sign_in(admin)
+    post "/discussion-bridge/admin/content-connections.json",
+         params: {
+           content_connection: {
+             name: "Publishing Discourse",
+             platform: "discourse",
+             allowed_origins: ["https://publishing.example"],
+             allowed_directions: ["from_discourse"],
+             allowed_lanes: [],
+           },
+         },
+         as: :json
+    expect(response).to have_http_status(:created)
+    created = response.parsed_body.fetch("content_connection")
+    issued_secret = response.parsed_body.fetch("secret")
+
+    get "/discussion-bridge/admin/content-connections.json"
+    expect(response.parsed_body.to_json).not_to include(issued_secret)
+    put "/discussion-bridge/admin/content-connections/#{created.fetch("id")}.json",
+        params: { content_connection: { enabled: false } },
+        as: :json
+    expect(response.parsed_body.dig("content_connection", "enabled")).to eq(false)
+    post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)
   end
 end

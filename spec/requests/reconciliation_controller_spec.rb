@@ -6,86 +6,49 @@ describe DiscussionBridge::ReconciliationController do
   fab!(:admin)
   fab!(:user)
 
-  let!(:failed_mapping) do
-    DiscussionBridgeConnection.create!(
-      connection_id: "astro",
-      canonical_source_url: "https://example.com/failed",
-      source_identity_digest: SecureRandom.hex(32),
-      state: "failed",
+  let!(:record) do
+    DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "to_discourse",
+      state: "attention",
+      title: "Missing discussion",
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
     )
   end
 
   before { SiteSetting.discussion_bridge_enabled = true }
 
-  it "returns the read-only reconciliation contract to an administrator" do
+  it "returns the grouped Bridge Record issue census to an administrator" do
     sign_in(admin)
 
-    get "/discussion-bridge/admin/reconciliation.json", params: { severity: "high", query: "astro" }
+    get "/discussion-bridge/admin/reconciliation.json", params: { severity: "critical", query: record.resource_id }
 
-    expect(response.status).to eq(200)
-    expect(response.parsed_body).to include(
-      "severity" => "high",
-      "query" => "astro",
-      "items" => [],
-      "summary" => { "critical" => 0, "high" => 0, "medium" => 0, "total" => 0 },
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("severity" => "critical", "query" => record.resource_id)
+    expect(response.parsed_body.dig("summary", "critical")).to eq(2)
+    expect(response.parsed_body.fetch("items").map { |item| item.fetch("code") }).to contain_exactly(
+      "topic_missing",
+      "active_binding_missing",
     )
   end
 
-  it "does not expose reconciliation evidence to a non-administrator" do
-    sign_in(user)
+  it "exports the current reconciliation report" do
+    sign_in(admin)
 
+    get "/discussion-bridge/admin/reconciliation/report.json"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("summary", "total")).to eq(2)
+  end
+
+  it "rejects invalid filters and non-administrator access" do
+    sign_in(admin)
+    get "/discussion-bridge/admin/reconciliation.json", params: { page: 10_001 }
+    expect(response).to have_http_status(:unprocessable_entity)
+
+    sign_in(user)
     get "/discussion-bridge/admin/reconciliation.json"
-
-    expect(response.status).not_to eq(200)
-  end
-
-  it "serves the nested administrator reconciliation page through the Discourse app" do
-    sign_in(admin)
-
-    get "/admin/plugins/discourse-discussion-bridge/reconciliation"
-
-    expect(response.status).to eq(200)
-  end
-
-  it "allows only an administrator to authorize an eligible retry" do
-    sign_in(admin)
-
-    post "/discussion-bridge/admin/reconciliation/#{failed_mapping.id}/authorize-retry.json"
-
-    expect(response.status).to eq(200)
-    expect(response.parsed_body).to include(
-      "authorized" => true,
-      "reason" => "retry_authorized",
-      "mapping_id" => failed_mapping.id,
-    )
-    expect(failed_mapping.reload.retry_authorized_by_id).to eq(admin.id)
-  end
-
-  it "denies retry authorization to a non-administrator" do
-    sign_in(user)
-
-    post "/discussion-bridge/admin/reconciliation/#{failed_mapping.id}/authorize-retry.json"
-
-    expect(response.status).not_to eq(200)
-    expect(failed_mapping.reload.retry_authorized_at).to be_nil
-    expect(DiscussionBridgeAuditEvent.count).to eq(0)
-  end
-
-  it "lets an administrator revoke an unused retry authorization" do
-    sign_in(admin)
-    DiscussionBridge::RetryAuthorization.call(mapping_id: failed_mapping.id, administrator: admin)
-
-    post "/discussion-bridge/admin/reconciliation/#{failed_mapping.id}/revoke-retry.json"
-
-    expect(response.status).to eq(200)
-    expect(response.parsed_body).to include(
-      "authorized" => false,
-      "reason" => "retry_authorization_revoked",
-    )
-    expect(failed_mapping.reload.retry_authorized_at).to be_nil
+    expect(response).not_to have_http_status(:ok)
   end
 end

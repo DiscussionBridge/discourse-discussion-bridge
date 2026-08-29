@@ -1,156 +1,70 @@
-# Why DiscussionBridge Has a Discourse Plugin
+# DiscussionBridge product boundaries
 
-This document explains the plugin in product terms: why it exists, what it
-adds to Discourse, what it deliberately leaves to Discourse Core and the Astro
-adapter, and which attractive ideas were intentionally not implemented.
+## This plugin owns
 
-## The problem that motivated the plugin
+- generic Content Connection identity, independent credentials, scope, and
+  enabled state;
+- plugin-issued Bridge Record identity and one-topic continuity;
+- active, prepared, and historical external bindings;
+- authenticated create-or-resolve for authoritatively published content;
+- forum-owned actor, category, tag, visibility, and lane policy;
+- idempotency, collision rejection, persistence, audit, and reconciliation;
+- native Discourse administration for Overview, Connections, Bridge Records,
+  migration, and Reconciliation;
+- authorized retrieval of From Discourse content by the relevant connection;
+- exact mapped-topic attestation for optional comments-only full-app
+  presentation.
 
-DiscussionBridge began with the useful parts of Discourse's supported embed
-system. A website could associate a page with a forum topic and display the
-discussion. That was enough for read-oriented `simple` and `full` modes, and
-those modes still work without this plugin.
+## Discourse Core owns
 
-The standard embed path was not enough for the intended `fullInteractive`
-experience. In important states it displayed a **Start Discussion** or
-**Continue Discussion** handoff instead of letting a signed-in reader reply,
-Like, Quote, or edit inside the Astro page. It also did not provide the
-forum-governed create-or-resolve control plane DiscussionBridge needed. Leaving
-topic creation and policy entirely to each website would have exposed broad
-forum credentials, duplicated topics under retries or races, and let a caller
-choose forum-owned actors, categories, tags, or visibility.
+- users, authentication, sessions, logout, account creation, and authorization;
+- topics, posts, moderation, composer, reply, quote, edit, Like, and deletion;
+- ordinary topic presentation and full-app embed behavior;
+- dynamic iframe sizing and Core accessibility behavior;
+- category, tag, visibility, mail, backup, restore, and server operation.
 
-The plugin was approved because the missing authority belongs inside Discourse.
-It gives the forum a narrow control plane and a qualified comments-only
-presentation while continuing to use Discourse Core for security-sensitive
-forum behavior. It is not an attempt to fork or replace Discourse.
+## Publishing adapters own
 
-## What the plugin does
+- platform publish lifecycle and the proof that content is authoritatively
+  published;
+- platform-specific credentials, hooks, installation, and UI;
+- canonical external identity and URL supplied to the connection;
+- server-side storage of the one-time DiscussionBridge connection secret;
+- rendering, linking, or embedding the returned discussion through the
+  platform's supported mechanisms;
+- durable storage of the plugin-issued resource and topic identities where
+  required by that platform.
 
-### Forum-governed create or resolve
+This plugin is designed to receive compatible adapters for WordPress, Ghost,
+Statamic, Astro, publishing Discourse, and future platforms. It does not claim
+that those adapters exist merely because their platform type is available when
+an administrator creates a connection.
 
-For an authenticated, trusted request, the plugin can create or resolve the one
-companion topic for a canonical source page. It:
+## Product invariants
 
-- validates the trusted origin and dedicated connection credential;
-- uses a configured non-`system` operating identity;
-- applies forum-owned category, tag, lane, and visibility policy;
-- defaults new Alpha topics to unlisted;
-- reserves and stores the canonical mapping durably;
-- resolves a retry to the existing mapping only while a locked snapshot proves
-  that its topic and forum-owned policy remain usable, otherwise requiring
-  reconciliation instead of returning a broken binding;
-- fails closed when policy, identity, lane, or configuration is invalid; and
-- records durable audit evidence without exposing the credential.
+- One forum supports zero or more connections.
+- One platform type may have many independent connections.
+- One connection may have many Bridge Records.
+- Direction belongs to a Bridge Record, not a connection.
+- A To Discourse record has one active source binding.
+- A From Discourse record has one active presentation binding.
+- A Bridge Record preserves its resource and topic identity during migration.
+- A connection can read only records bound to that connection.
+- Draft, malformed, unauthenticated, out-of-origin, out-of-lane, and conflicting
+  requests fail before topic creation.
+- Secrets never appear in read APIs, health output, support bundles, logs, or
+  client configuration.
+- Loading an ordinary publishing page does not itself authorize topic creation;
+  only its server-side adapter may call the authenticated endpoint after the
+  platform has established publication.
 
-The request and lane-policy documents use exact bounded schemas. Unknown or
-mistyped fields do not disappear silently, and ambiguous repeated-slash or
-encoded-separator source paths are rejected rather than normalized into another
-page's identity.
+## Explicitly excluded
 
-The creation endpoint is disabled at rest. It is enabled only for a bounded
-creation window and is not a general posting API.
-
-### Comments-only `fullInteractive` presentation
-
-For a completed DiscussionBridge mapping, the plugin qualifies Discourse
-Core's full-application embed and applies a narrowly scoped comments-only
-presentation. The companion first post remains intact on the ordinary forum
-topic but is hidden inside the comments iframe, avoiding duplication of the
-Astro article.
-
-Discourse Core supplies the actual composer, Reply, Quote, edit, Like,
-authentication, sign-up, authorization, moderation, and post persistence. The
-plugin adds only the integration needed to make that supported Core surface
-honest and usable for the mapped discussion. It fails closed instead of
-silently presenting the legacy handoff when Core full-app embedding and its
-sign-in flow are not ready. A mapped request that supplies `full_app` must use
-the exact `true` contract; an absent value remains Core's ordinary embed path.
-The same readiness evaluator drives issuance, final-route qualification, and
-operator Health so a disabled prerequisite cannot produce a false-ready or
-degraded 200 state.
-
-The plugin also makes the compact composer action explicit as **Post reply** or
-**Save edit**, and narrowly contains Core's post-logout **Refresh** action so an
-attested mapped child iframe reloads its mapped discussion instead of rendering
-the forum homepage inside the website. It does not perform logout or session
-cleanup.
-
-### Operator evidence and bounded recovery
-
-The plugin provides native administrator-only surfaces for:
-
-- readiness and Health;
-- searchable connection and audit evidence;
-- reconciliation findings; and
-- one bounded, auditable retry authorization for an eligible failed or stale
-  reservation.
-
-These surfaces favor diagnosis and explicit operator decisions. They do not
-silently repair, delete, relist, retag, remap, or reassign authorship.
-
-## What the plugin does not do
-
-The plugin does not:
-
-- install itself with the Astro package or rebuild a Discourse server;
-- replace the Astro adapter, render Astro/Starlight pages, or own their table of
-  contents;
-- replace Discourse Core's composer, actions, authentication, accounts,
-  sessions, authorization, moderation, or email behavior;
-- provide or invent an embedded **Log Out** control that Core does not expose;
-- give a website unrestricted forum API access;
-- let adapter-supplied category, tag, actor, lane, or visibility values
-  override forum policy;
-- rewrite an ordinary topic or hide its first post outside the qualified mapped
-  comments iframe;
-- translate arbitrary MDX, Mermaid, math, or other component-heavy Astro
-  content into Discourse;
-- provision DNS, TLS, containers, databases, backups, snapshots, mail, or
-  provider infrastructure;
-- mutate production merely because a prerelease passed on sandbox or stable
-  preproduction; or
-- make `simple` and `full` modes depend on the plugin.
-
-## Ideas deliberately declined for Alpha
-
-Some ideas would make a demo look simpler while making the product less safe or
-less honest. Alpha therefore does not implement:
-
-- a plugin-owned composer or custom Reply, Like, Quote, edit, sign-in, sign-up,
-  or logout system;
-- synthetic logout UI or broad interception of generic **Refresh** controls;
-- an always-open topic-creation endpoint;
-- use of the privileged `system` user as the routine operating identity;
-- caller-controlled forum policy;
-- automatic reconciliation mutations;
-- duplicate clone hooks, moving-branch installation, or in-container `git
-  pull` upgrades;
-- silent fallback from requested `fullInteractive` behavior to an external
-  forum handoff; or
-- rewriting a failed prerelease tag to make history look clean.
-
-These are settled safety and authority boundaries, not missing checkboxes.
-
-## Possible later work, not current promises
-
-Later product work may consider richer reconciliation actions, broader trusted
-or delegated posting, additional adapter families, configurable title
-templates, and better summarization of component-heavy Astro/MDX content. The
-plugin may also eventually justify a product identity broader than the
-DiscussionBridge family.
-
-None of those possibilities is an Alpha commitment. Each would require an
-explicit product decision, an authority and security review, tests against the
-exact supported Discourse revision, operator documentation, rollback evidence,
-and a new immutable release candidate.
-
-## The practical boundary
-
-The Astro adapter knows the source page and asks for DiscussionBridge behavior.
-The Discourse plugin knows forum policy and the durable page-to-topic mapping.
-Discourse Core owns forum interaction and security. The administrator owns
-installation, configuration, recovery, and promotion decisions.
-
-That division is the reason the plugin exists—and the reason it remains
-intentionally smaller than a replacement forum application.
+- the rejected v1 control plane, Bridge Spaces, deployment brokers, signed plan
+  estates, receipt chains, or platform-wide orchestration;
+- embedding Astro-specific build, routing, frontmatter, CLI, import, or
+  navigation code in the Discourse plugin;
+- implementing WordPress, Ghost, Statamic, Astro, or publishing-Discourse
+  adapters inside this repository;
+- product, release, deployment, publication, provider, or risk acceptance;
+- replacing Discourse Core security-sensitive interaction behavior.

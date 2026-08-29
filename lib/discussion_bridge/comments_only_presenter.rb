@@ -24,7 +24,10 @@ module DiscussionBridge
 
     def self.mapped_topic?(topic_id:)
       id = Integer(topic_id, exception: false)
-      id&.positive? && DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
+      id&.positive? && (
+        DiscussionBridgeBridgeRecord.exists?(topic_id: id, state: "healthy") ||
+          DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
+      )
     end
 
     def self.requested_for?(topic_id:)

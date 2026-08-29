@@ -27,10 +27,13 @@ module DiscussionBridge
       :effective_tags,
     )
 
-    def self.current(mapping_id:, expected_topic_id: nil, expected_updated_at: nil)
+    def self.current(mapping_id:, expected_topic_id: nil, expected_updated_at: nil, record_type: nil)
       result = nil
-      DiscussionBridgeConnection.transaction(requires_new: true) do
-        mapping = DiscussionBridgeConnection.lock.find_by(id: mapping_id, state: "complete")
+      ActiveRecord::Base.transaction(requires_new: true) do
+        mapping = if record_type != "legacy_mapping" && defined?(DiscussionBridgeBridgeRecord)
+          DiscussionBridgeBridgeRecord.lock.find_by(id: mapping_id, state: "healthy")
+        end
+        mapping ||= DiscussionBridgeConnection.lock.find_by(id: mapping_id, state: "complete") if record_type != "bridge_record"
         if !mapping
           result = denied("mapping_incomplete")
           next
@@ -70,7 +73,8 @@ module DiscussionBridge
         return denied("mapping_effective_visibility_drift")
       end
       return denied("mapping_category_drift") unless topic.category_id == policy.effective_category_id
-      return denied("mapping_topic_visibility_drift") if topic.visible
+      expected_visible = policy.effective_visibility == "listed"
+      return denied("mapping_topic_visibility_drift") unless topic.visible == expected_visible
 
       expected_tags = Array(policy.effective_tags).map(&:to_s).sort
       locked_tag_ids = TopicTag.lock.where(topic_id: topic.id).pluck(:tag_id)
@@ -88,6 +92,22 @@ module DiscussionBridge
     end
 
     def self.current_policy(mapping)
+      if defined?(DiscussionBridgeBridgeRecord) && mapping.is_a?(DiscussionBridgeBridgeRecord) &&
+          mapping.direction == "from_discourse"
+        topic = Topic.unscoped.find_by(id: mapping.topic_id)
+        actor = User.find_by(id: mapping.effective_actor_id)
+        return denied("mapping_topic_missing") unless topic
+        return denied("mapping_actor_invalid") unless actor&.active? && !actor.staged? &&
+          !actor.suspended? && !actor.silenced?
+
+        return CurrentPolicy.new(
+          effective_actor_id: actor.id,
+          effective_visibility: mapping.effective_visibility,
+          effective_category_id: topic.category_id,
+          effective_tags: topic.tags.pluck(:name),
+        )
+      end
+
       actor = User.find_by(
         username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase,
       )

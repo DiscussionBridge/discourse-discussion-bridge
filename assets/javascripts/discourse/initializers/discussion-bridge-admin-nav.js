@@ -17,9 +17,14 @@ export default {
           description: "discussion_bridge.admin.health_nav_description",
         },
         {
-          label: "discussion_bridge.admin.operations_nav",
+          label: "discussion_bridge.admin.connections_nav",
+          route: "adminPlugins.show.discussion-bridge-connections",
+          description: "discussion_bridge.admin.connections_nav_description",
+        },
+        {
+          label: "discussion_bridge.admin.bridge_records_nav",
           route: "adminPlugins.show.discussion-bridge-operations",
-          description: "discussion_bridge.admin.operations_nav_description",
+          description: "discussion_bridge.admin.bridge_records_nav_description",
         },
         {
           label: "discussion_bridge.admin.reconciliation_nav",

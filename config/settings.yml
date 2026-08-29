@@ -5,19 +5,6 @@ plugins:
   discussion_bridge_endpoint_enabled:
     default: false
     client: false
-  discussion_bridge_connection_id:
-    default: ""
-    client: false
-  discussion_bridge_connection_secret:
-    default: ""
-    client: false
-    secret: true
-  discussion_bridge_trusted_origins:
-    type: list
-    list_type: simple
-    default: ""
-    client: false
-    validator: "DiscussionBridge::TrustedOriginsValidator"
   discussion_bridge_service_username:
     default: ""
     client: false
@@ -43,9 +30,6 @@ plugins:
     default: "unlisted"
     choices:
       - unlisted
-    client: false
-  discussion_bridge_core_zero_touch_compatibility:
-    default: false
     client: false
   discussion_bridge_comments_only_full_interactive:
     default: false
