@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.5
+# version: 0.2.0.alpha.6
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,17 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.5"
-
-    module Publisher
-      PUBLISH_STATE_FIELD = "discussion_bridge_publisher_state"
-      RESOURCE_ID_FIELD = "discussion_bridge_publisher_resource_id"
-      REMOTE_TOPIC_ID_FIELD = "discussion_bridge_publisher_remote_topic_id"
-      REMOTE_TOPIC_URL_FIELD = "discussion_bridge_publisher_remote_topic_url"
-      ATTEMPTS_FIELD = "discussion_bridge_publisher_attempts"
-      CORRELATION_ID_FIELD = "discussion_bridge_publisher_correlation_id"
-      SOURCE_RESOURCE_ID_FIELD = "discussion_bridge_publisher_source_resource_id"
-    end
+    VERSION = "0.2.0.alpha.6"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -84,11 +74,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
+  require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/product_overview"
-  require_relative "lib/discussion_bridge/publisher/client"
-  require_relative "lib/discussion_bridge/publisher/topic_identity"
-  require_relative "lib/discussion_bridge/publisher/importer"
-  require_relative "lib/jobs/regular/discussion_bridge_publisher_deliver"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/models/discussion_bridge_content_connection"
@@ -100,16 +87,6 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
-
-  [
-    DiscussionBridge::Publisher::PUBLISH_STATE_FIELD,
-    DiscussionBridge::Publisher::RESOURCE_ID_FIELD,
-    DiscussionBridge::Publisher::REMOTE_TOPIC_ID_FIELD,
-    DiscussionBridge::Publisher::REMOTE_TOPIC_URL_FIELD,
-    DiscussionBridge::Publisher::ATTEMPTS_FIELD,
-    DiscussionBridge::Publisher::CORRELATION_ID_FIELD,
-    DiscussionBridge::Publisher::SOURCE_RESOURCE_ID_FIELD,
-  ].each { |field| register_topic_custom_field_type(field, :string) }
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -163,7 +140,11 @@ after_initialize do
             return
           end
 
-          mapping = DiscussionBridgeBridgeRecord.find_by(topic_id: topic_id, state: "healthy") ||
+          mapping = DiscussionBridgeBridgeRecord.find_by(
+            topic_id: topic_id,
+            state: "healthy",
+            direction: "to_discourse",
+          ) ||
             DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
           unless mapping
             render plain: I18n.t(
@@ -319,7 +300,6 @@ after_initialize do
     get "/admin/publishing" => "publisher#overview"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
-    post "/v1/publisher/records/:resource_id/import" => "publisher#import_record"
   end
 
   Discourse::Application.routes.append do

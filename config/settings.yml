@@ -9,6 +9,10 @@ plugins:
     default: ""
     client: false
     validator: "DiscussionBridge::ServiceUsernameValidator"
+  discussion_bridge_default_author_username:
+    default: ""
+    client: false
+    validator: "DiscussionBridge::ServiceUsernameValidator"
   discussion_bridge_effective_category_id:
     type: integer
     default: 0
@@ -36,18 +40,4 @@ plugins:
     client: false
   discussion_bridge_publisher_enabled:
     default: false
-    client: false
-  discussion_bridge_publisher_receiver_url:
-    default: ""
-    client: false
-  discussion_bridge_publisher_connection_id:
-    default: ""
-    client: false
-  discussion_bridge_publisher_lane:
-    default: "discourse-publisher-alpha"
-    client: false
-  discussion_bridge_publisher_import_category_id:
-    type: integer
-    default: 0
-    min: 0
     client: false

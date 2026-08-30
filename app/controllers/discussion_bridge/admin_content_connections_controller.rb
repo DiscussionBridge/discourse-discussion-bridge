@@ -40,6 +40,7 @@ module DiscussionBridge
       raw = params.require(:content_connection).permit(
         :name,
         :platform,
+        :author_username,
         :adapter_id,
         :adapter_version,
         :enabled,
@@ -47,10 +48,23 @@ module DiscussionBridge
         allowed_directions: [],
         allowed_lanes: [],
       ).to_h.symbolize_keys
+      if raw.key?(:author_username)
+        username = raw.delete(:author_username).to_s.strip
+        raw[:author_user_id] = username.present? ? author_user!(username).id : nil
+      end
       raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
       raw[:allowed_lanes] = Array(raw[:allowed_lanes]).map(&:to_s) if raw.key?(:allowed_lanes)
       raw
+    end
+
+    def author_user!(username)
+      user = User.find_by(username_lower: username.downcase)
+      valid = user&.active? && !user.staged? && !user.suspended? && !user.silenced? &&
+        user.id != Discourse::SYSTEM_USER_ID
+      raise ArgumentError, "author username is unavailable" unless valid
+
+      user
     end
 
     def serialize(connection)
@@ -67,6 +81,8 @@ module DiscussionBridge
         public_id: connection.public_id,
         name: connection.name,
         platform: connection.platform,
+        author_username: connection.effective_author&.username,
+        author_override: connection.author_user_id.present?,
         enabled: connection.enabled,
         allowed_origins: connection.allowed_origins,
         allowed_directions: connection.allowed_directions,

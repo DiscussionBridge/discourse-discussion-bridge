@@ -7,34 +7,38 @@ module ::DiscussionBridge
     before_action :ensure_publisher_enabled
 
     def overview
+      connections = available_connections
       render json: {
         product: {
           name: "DiscussionBridge",
           version: DiscussionBridge::VERSION,
-          ready: readiness_blockers.empty?,
-          blockers: readiness_blockers,
+          ready: readiness_blockers(connections).empty?,
+          blockers: readiness_blockers(connections),
         },
-        connection: {
-          receiver_url: SiteSetting.discussion_bridge_publisher_receiver_url,
-          connection_id: SiteSetting.discussion_bridge_publisher_connection_id,
-          lane: SiteSetting.discussion_bridge_publisher_lane,
-          import_category_id: SiteSetting.discussion_bridge_publisher_import_category_id.to_i,
-          secret: readiness_blockers.exclude?("secret_file"),
-        },
+        connections: connections.map { |connection| connection_payload(connection) },
         metrics: {
-          published_topics: TopicCustomField.where(name: Publisher::RESOURCE_ID_FIELD).count,
-          imported_topics: TopicCustomField.where(name: Publisher::SOURCE_RESOURCE_ID_FIELD).count,
-          failed_topics: TopicCustomField.where(name: Publisher::PUBLISH_STATE_FIELD).where("value LIKE ?", "failed:%").count,
+          published_topics: from_discourse_records.distinct.count(:topic_id),
+          presentations: from_discourse_records.count,
+          connected_platforms: connections.map(&:platform).uniq.count,
         },
-        recent_topics: recent_topics,
+        recent_records: recent_records,
       }
     end
 
     def publish_topic
-      topic = Topic.find(params.require(:topic_id))
-      guardian.ensure_can_see!(topic)
-      Jobs.enqueue(:discussion_bridge_publisher_deliver, topic_id: topic.id)
-      render json: { queued: true, topic_id: topic.id }
+      input = params.require(:publication)
+      result = FromDiscourseRecordCreator.call(
+        user: current_user,
+        connection_id: input.fetch(:content_connection_id),
+        topic_id: params.require(:topic_id),
+        external_id: input.fetch(:external_id),
+        canonical_url: input.fetch(:canonical_url),
+      )
+      render json: publication_payload(result.record).merge(outcome: result.outcome),
+             status: result.outcome == "created" ? :created : :ok
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
     end
 
     def topic_status
@@ -44,60 +48,63 @@ module ::DiscussionBridge
         topic_id: topic.id,
         title: topic.title,
         topic_url: topic.url,
-        state: topic.custom_fields[Publisher::PUBLISH_STATE_FIELD],
-        resource_id: topic.custom_fields[Publisher::RESOURCE_ID_FIELD],
-        remote_topic_id: topic.custom_fields[Publisher::REMOTE_TOPIC_ID_FIELD]&.to_i,
-        remote_topic_url: topic.custom_fields[Publisher::REMOTE_TOPIC_URL_FIELD],
-        attempts: topic.custom_fields[Publisher::ATTEMPTS_FIELD].to_i,
-        correlation_id: topic.custom_fields[Publisher::CORRELATION_ID_FIELD],
-        source_resource_id: topic.custom_fields[Publisher::SOURCE_RESOURCE_ID_FIELD],
+        publications: from_discourse_records.where(topic_id: topic.id).order(:id).map do |record|
+          publication_payload(record)
+        end,
       }
-    end
-
-    def import_record
-      topic = Publisher::Importer.new(user: current_user, resource_id: params.require(:resource_id)).call
-      render json: { imported: true, topic_id: topic.id, topic_url: topic.url }
-    rescue Publisher::Importer::Error => error
-      render json: { errors: [error.message] }, status: :unprocessable_entity
     end
 
     private
 
-    def readiness_blockers
-      @readiness_blockers ||= begin
-        blockers = []
-        blockers << "receiver_url" if SiteSetting.discussion_bridge_publisher_receiver_url.blank?
-        blockers << "connection_id" unless Publisher::Client::CONNECTION_ID_PATTERN.match?(SiteSetting.discussion_bridge_publisher_connection_id.to_s)
-        blockers << "lane" if SiteSetting.discussion_bridge_publisher_lane.blank?
-        begin
-          Publisher::Client.new
-        rescue Publisher::Client::Error => error
-          blockers << (error.message.include?("secret") ? "secret_file" : error.message)
-        end
-        blockers.uniq
-      end
+    def available_connections
+      @available_connections ||= DiscussionBridgeContentConnection
+        .where(enabled: true)
+        .order(:platform, :name, :id)
+        .select { |connection| connection.allows_direction?("from_discourse") }
     end
 
-    def recent_topics
-      TopicCustomField
-        .where(name: Publisher::PUBLISH_STATE_FIELD)
-        .order(id: :desc)
-        .limit(20)
-        .filter_map do |field|
-          topic = field.topic
-          next if topic.blank? || topic.deleted_at.present?
+    def from_discourse_records
+      DiscussionBridgeBridgeRecord.where(direction: "from_discourse")
+    end
 
-          {
-            topic_id: topic.id,
-            title: topic.title,
-            topic_url: topic.url,
-            state: field.value,
-            resource_id: topic.custom_fields[Publisher::RESOURCE_ID_FIELD] || topic.custom_fields[Publisher::SOURCE_RESOURCE_ID_FIELD],
-            remote_topic_id: topic.custom_fields[Publisher::REMOTE_TOPIC_ID_FIELD]&.to_i,
-            remote_topic_url: topic.custom_fields[Publisher::REMOTE_TOPIC_URL_FIELD],
-            attempts: topic.custom_fields[Publisher::ATTEMPTS_FIELD].to_i,
-          }
-        end
+    def readiness_blockers(connections)
+      blockers = []
+      blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
+      blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
+      blockers << "from_discourse_connection" if connections.empty?
+      blockers
+    end
+
+    def connection_payload(connection)
+      {
+        id: connection.id,
+        public_id: connection.public_id,
+        name: connection.name,
+        platform: connection.platform,
+        allowed_origins: connection.allowed_origins,
+        author_username: connection.effective_author&.username,
+      }
+    end
+
+    def publication_payload(record)
+      binding = record.active_binding("presentation")
+      {
+        resource_id: record.resource_id,
+        state: record.state,
+        topic_id: record.topic_id,
+        title: record.title,
+        topic_url: record.topic&.url,
+        connection_id: binding&.content_connection_id,
+        connection_name: binding&.content_connection&.name,
+        platform: binding&.content_connection&.platform,
+        external_id: binding&.external_id,
+        canonical_url: binding&.canonical_url,
+      }
+    end
+
+    def recent_records
+      from_discourse_records.includes(:topic, content_bindings: :content_connection)
+        .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
     end
 
     def ensure_staff

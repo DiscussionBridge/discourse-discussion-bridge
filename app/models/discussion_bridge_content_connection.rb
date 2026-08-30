@@ -16,6 +16,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
   has_many :bridge_records, through: :content_bindings
+  belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true
   validates :public_id, format: { with: PUBLIC_ID_PATTERN }, uniqueness: true
@@ -24,6 +25,15 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validates :secret_digest, length: { is: 64 }
   validates :adapter_id, :adapter_version, length: { maximum: 100 }, allow_nil: true
   validate :scopes_are_valid
+  validate :author_user_is_usable
+
+  def effective_author
+    default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
+      SiteSetting.discussion_bridge_service_username.to_s
+    author_user || User.find_by(
+      username_lower: default_username.downcase,
+    )
+  end
 
   def self.issue!(attributes)
     secret = SecureRandom.urlsafe_base64(32, false)
@@ -71,6 +81,14 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   end
 
   private
+
+  def author_user_is_usable
+    return if author_user.nil?
+    return if author_user.active? && !author_user.staged? && !author_user.suspended? &&
+      !author_user.silenced? && author_user.id != Discourse::SYSTEM_USER_ID
+
+    errors.add(:author_user, "must be an active non-system Discourse user")
+  end
 
   def scopes_are_valid
     origins = Array(allowed_origins)

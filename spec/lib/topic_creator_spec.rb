@@ -3,11 +3,19 @@
 require "rails_helper"
 
 describe DiscussionBridge::TopicCreator do
-  TopicPolicy = Data.define(:effective_actor_id, :effective_category_id, :effective_tags)
+  TopicPolicy = Data.define(:operating_actor_id, :effective_actor_id, :effective_category_id, :effective_tags)
 
   fab!(:actor, :admin)
+  fab!(:author, :user)
   fab!(:category)
-  let(:policy) { TopicPolicy.new(effective_actor_id: actor.id, effective_category_id: category.id, effective_tags: []) }
+  let(:policy) do
+    TopicPolicy.new(
+      operating_actor_id: actor.id,
+      effective_actor_id: author.id,
+      effective_category_id: category.id,
+      effective_tags: [],
+    )
+  end
   let(:request) do
     {
       connection_id: "astro",
@@ -21,9 +29,9 @@ describe DiscussionBridge::TopicCreator do
     creation = described_class.new.call(request: request, policy: policy)
     post = creation.topic.first_post
 
-    expect(creation.topic.user_id).to eq(actor.id)
+    expect(creation.topic.user_id).to eq(author.id)
     expect(creation.topic.visible).to eq(false)
-    expect(post.user_id).to eq(actor.id)
+    expect(post.user_id).to eq(author.id)
     expect(post.raw).to eq(
       "<h2>Community guide</h2><p>Source-owned article content.</p>\n\n" \
         "---\n\nOriginally published at " \

@@ -50,7 +50,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
   it "creates one stable Bridge Record and resolves an idempotent retry" do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
-    expect(response).to have_http_status(:created)
+    expect(response).to have_http_status(:created), response.body
     created = response.parsed_body
 
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
@@ -71,6 +71,25 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "https://example.com/articles/community-guide/",
     )
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
+  end
+
+  it "uses a connection-selected visible author and preserves it across later policy changes" do
+    selected_author = Fabricate(:user, username: "wordpress_author", trust_level: 1)
+    replacement_author = Fabricate(:user, username: "replacement_author", trust_level: 1)
+    @connection.update!(author_user: selected_author)
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created), response.body
+    record = DiscussionBridgeBridgeRecord.last
+    expect(record).to have_attributes(effective_actor_id: selected_author.id)
+    expect(record.topic).to have_attributes(user_id: selected_author.id)
+
+    @connection.update!(author_user: replacement_author)
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("outcome")).to eq("resolved")
+    expect(record.reload.effective_actor_id).to eq(selected_author.id)
+    expect(record.topic.reload.user_id).to eq(selected_author.id)
   end
 
   it "rejects missing, blank, malformed, and oversized source content before mutation" do
@@ -235,12 +254,14 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "creates, updates, and rotates a connection only through native administration" do
+    selected_author = Fabricate(:user, username: "publishing_author")
     sign_in(admin)
     post "/discussion-bridge/admin/content-connections.json",
          params: {
            content_connection: {
              name: "Publishing Discourse",
              platform: "discourse",
+             author_username: selected_author.username,
              allowed_origins: ["https://publishing.example"],
              allowed_directions: ["from_discourse"],
              allowed_lanes: [],
@@ -250,13 +271,20 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response).to have_http_status(:created)
     created = response.parsed_body.fetch("content_connection")
     issued_secret = response.parsed_body.fetch("secret")
+    expect(created).to include(
+      "platform" => "discourse",
+      "author_username" => selected_author.username,
+      "author_override" => true,
+    )
 
     get "/discussion-bridge/admin/content-connections.json"
     expect(response.parsed_body.to_json).not_to include(issued_secret)
     put "/discussion-bridge/admin/content-connections/#{created.fetch("id")}.json",
-        params: { content_connection: { enabled: false } },
+        params: { content_connection: { enabled: false, author_username: "" } },
         as: :json
     expect(response.parsed_body.dig("content_connection", "enabled")).to eq(false)
+    expect(response.parsed_body.dig("content_connection", "author_override")).to eq(false)
+    expect(response.parsed_body.dig("content_connection", "author_username")).to eq(service_actor.username)
     post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)

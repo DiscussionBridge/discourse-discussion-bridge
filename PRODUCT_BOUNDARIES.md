@@ -7,11 +7,14 @@
 - plugin-issued Bridge Record identity and one-topic continuity;
 - active, prepared, and historical external bindings;
 - authenticated create-or-resolve for authoritatively published content;
-- forum-owned actor, category, tag, visibility, and lane policy;
+- forum-owned operating identity, forum-default author, per-connection visible
+  author, category, tag, visibility, and lane policy;
 - idempotency, collision rejection, persistence, audit, and reconciliation;
 - native Discourse administration for Overview, Connections, Bridge Records,
   migration, and Reconciliation;
 - authorized retrieval of From Discourse content by the relevant connection;
+- local publication of an existing Discourse topic as a From Discourse record
+  for one or more independently authorized platform connections;
 - exact mapped-topic attestation for optional comments-only full-app
   presentation.
 
@@ -38,7 +41,9 @@
   required by that platform.
 
 This plugin is designed to receive compatible adapters for WordPress, Ghost,
-Statamic, Astro, publishing Discourse, and future platforms. It does not claim
+Statamic, Astro, and future platforms. A publishing Discourse installation uses
+this same plugin to create local From Discourse records; it does not transmit
+ordinary publications to a second forum. It does not claim
 that those adapters exist merely because their platform type is available when
 an administrator creates a connection.
 
@@ -50,6 +55,8 @@ an administrator creates a connection.
 - Direction belongs to a Bridge Record, not a connection.
 - A To Discourse record has one active source binding.
 - A From Discourse record has one active presentation binding.
+- One Discourse topic may have independent From Discourse records for multiple
+  platform connections.
 - A Bridge Record preserves its resource and topic identity during migration.
 - A connection can read only records bound to that connection.
 - Draft, malformed, unauthenticated, out-of-origin, out-of-lane, and conflicting
@@ -66,7 +73,7 @@ an administrator creates a connection.
   estates, receipt chains, or platform-wide orchestration;
 - embedding Astro-specific build, routing, frontmatter, CLI, import, or
   navigation code in the Discourse plugin;
-- implementing WordPress, Ghost, Statamic, Astro, or publishing-Discourse
-  adapters inside this repository;
+- implementing WordPress, Ghost, Statamic, or Astro adapters inside this
+  repository;
 - product, release, deployment, publication, provider, or risk acceptance;
 - replacing Discourse Core security-sensitive interaction behavior.

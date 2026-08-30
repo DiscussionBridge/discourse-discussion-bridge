@@ -25,7 +25,11 @@ module DiscussionBridge
     def self.mapped_topic?(topic_id:)
       id = Integer(topic_id, exception: false)
       id&.positive? && (
-        DiscussionBridgeBridgeRecord.exists?(topic_id: id, state: "healthy") ||
+        DiscussionBridgeBridgeRecord.exists?(
+          topic_id: id,
+          state: "healthy",
+          direction: "to_discourse",
+        ) ||
           DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
       )
     end

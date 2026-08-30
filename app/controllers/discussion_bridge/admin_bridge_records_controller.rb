@@ -46,47 +46,18 @@ module DiscussionBridge
     end
 
     def create
-      connection_id = params.require(:bridge_record).fetch(:content_connection_id)
-      topic_id = params.require(:bridge_record).fetch(:topic_id)
-      external_id = params.require(:bridge_record).fetch(:external_id)
-      raise ArgumentError, "invalid external_id" unless DiscussionBridgeContentBinding.valid_external_id?(external_id)
-
-      record = nil
-      DiscussionBridgeBridgeRecord.transaction do
-        connection = DiscussionBridgeContentConnection.lock.find(connection_id)
-        raise ArgumentError, "connection does not permit From Discourse" unless connection.enabled &&
-          connection.allows_direction?("from_discourse")
-        topic = Topic.lock.find(topic_id)
-        raise Discourse::InvalidAccess unless guardian.can_see?(topic)
-        raise ArgumentError, "topic is unavailable" if topic.deleted_at || topic.first_post.nil? || topic.first_post.deleted_at
-        canonical = CanonicalSource.call(
-          connection_id: connection.public_id,
-          source_url: params.require(:bridge_record).fetch(:canonical_url),
-        )
-        raise ArgumentError, "origin is outside connection scope" unless connection.allows_origin?(canonical.source_url)
-        record = DiscussionBridgeBridgeRecord.create!(
-          resource_id: SecureRandom.uuid,
-          direction: "from_discourse",
-          state: "healthy",
-          title: topic.title,
-          topic_id: topic.id,
-          effective_actor_id: topic.user_id,
-          requested_visibility: topic.visible ? "listed" : "unlisted",
-          effective_visibility: topic.visible ? "listed" : "unlisted",
-        )
-        DiscussionBridgeContentBinding.create!(
-          bridge_record: record,
-          content_connection: connection,
-          role: "presentation",
-          state: "active",
-          external_id: external_id,
-          canonical_url: canonical.source_url,
-          identity_digest: Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}"),
-          canonical_url_digest: Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}"),
-          activated_at: Time.zone.now,
-        )
-      end
-      render json: { bridge_record: serialize(record, detailed: true) }, status: :created
+      input = params.require(:bridge_record)
+      result = FromDiscourseRecordCreator.call(
+        user: current_user,
+        connection_id: input.fetch(:content_connection_id),
+        topic_id: input.fetch(:topic_id),
+        external_id: input.fetch(:external_id),
+        canonical_url: input.fetch(:canonical_url),
+      )
+      render json: {
+        bridge_record: serialize(result.record, detailed: true),
+        outcome: result.outcome,
+      }, status: result.outcome == "created" ? :created : :ok
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ArgumentError => error
       errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
       render json: { errors: errors }, status: :unprocessable_entity

@@ -41,6 +41,22 @@ describe DiscussionBridge::CommentsOnlyPresenter do
     expect(described_class.class_name(topic_id: topic.id, embed_mode: true)).to be_nil
   end
 
+  it "does not hide the first post of a From Discourse publication" do
+    source_topic = Fabricate(:topic)
+    DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "from_discourse",
+      state: "healthy",
+      title: source_topic.title,
+      topic_id: source_topic.id,
+      effective_actor_id: source_topic.user_id,
+      requested_visibility: "listed",
+      effective_visibility: "listed",
+    )
+
+    expect(described_class.class_name(topic_id: source_topic.id, embed_mode: true)).to be_nil
+  end
+
   it "is independently operator-disabled" do
     SiteSetting.discussion_bridge_comments_only_full_interactive = false
 

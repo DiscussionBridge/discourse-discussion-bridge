@@ -14,22 +14,20 @@ describe DiscussionBridge do
       discussion_bridge_enabled
       discussion_bridge_endpoint_enabled
       discussion_bridge_service_username
+      discussion_bridge_default_author_username
       discussion_bridge_effective_category_id
       discussion_bridge_effective_tags
       discussion_bridge_lane_policies
       discussion_bridge_default_visibility
       discussion_bridge_comments_only_full_interactive
       discussion_bridge_publisher_enabled
-      discussion_bridge_publisher_receiver_url
-      discussion_bridge_publisher_connection_id
-      discussion_bridge_publisher_lane
-      discussion_bridge_publisher_import_category_id
     ]
 
     labels = settings.map { |setting| SiteSettings::LabelFormatter.humanized_name(setting) }
 
     expect(labels).to all(start_with("DiscussionBridge "))
     expect(labels).to include("DiscussionBridge service username")
+    expect(labels).to include("DiscussionBridge default author username")
     expect(labels).not_to include(a_string_starting_with("Discussion bridge "))
   end
 
@@ -43,9 +41,7 @@ describe DiscussionBridge do
   end
 
   it "keeps publishing in the same default-disabled product" do
-    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.4")
+    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.6")
     expect(SiteSetting.discussion_bridge_publisher_enabled).to eq(false)
-    expect(SiteSetting.discussion_bridge_publisher_receiver_url).to eq("")
-    expect(SiteSetting.discussion_bridge_publisher_connection_id).to eq("")
   end
 end

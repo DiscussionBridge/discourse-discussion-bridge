@@ -23,6 +23,7 @@ module DiscussionBridge
       end
 
       actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
+      author = @content_connection.effective_author
       lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: data[:lane])
       authority = ForumAuthority.call(
         actor: actor,
@@ -39,6 +40,7 @@ module DiscussionBridge
           service_username: SiteSetting.discussion_bridge_service_username,
         ),
         actor: actor,
+        author: author,
         authority: authority,
         lane_resolution: lane_resolution,
       )

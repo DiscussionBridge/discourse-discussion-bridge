@@ -87,7 +87,10 @@ nonblank published-content snapshot bounded to 48 KiB inside the 64 KiB request
 envelope. Discourse's ordinary post pipeline cooks and sanitizes it, and the
 plugin adds canonical source attribution after the content. The connection
 must authorize the direction, canonical origin, and lane. Forum policy selects
-the actor, category, tags, and visibility. A retry with the same external
+the visible author, category, tags, and visibility. Each Content Connection may
+select an active Discourse user as its visible author; otherwise the forum
+default is used. The privileged operating identity remains separate from a
+non-privileged visible author. A retry with the same external
 identity and URL returns the same resource and topic without rewriting its
 first-published snapshot; conflicting identity claims fail closed.
 
@@ -106,6 +109,7 @@ for the authorized connection. It never includes another connection's record.
 - `discussion_bridge_enabled`
 - `discussion_bridge_endpoint_enabled`
 - `discussion_bridge_service_username`
+- `discussion_bridge_default_author_username`
 - `discussion_bridge_effective_category_id`
 - `discussion_bridge_effective_tags`
 - `discussion_bridge_lane_policies`
@@ -113,9 +117,23 @@ for the authorized connection. It never includes another connection's record.
 - `discussion_bridge_comments_only_full_interactive`
 
 The endpoint and plugin switches are independently default-disabled. The
-service user must be an active, non-system Discourse user. Configured category
-and tags must already exist. Optional lane policy is forum-owned and fails
+operating identity and forum-default author must be active, non-system Discourse
+users. During upgrade, a blank default-author setting temporarily falls back to
+the operating identity. A Content
+Connection may select another active user without granting that author the
+operating identity's privileges. Configured category and tags must already
+exist. Optional lane policy is forum-owned and fails
 closed for missing or unknown lanes once configured.
+
+## Publish Discourse content to a connected platform
+
+The native Publishing page creates a local From Discourse Bridge Record for an
+existing topic and a selected Content Connection. The operator supplies the
+platform's stable content identity and exact presentation URL. Exact retries
+resolve the same record. One local topic may be published independently through
+more than one platform connection. The authorized platform adapter retrieves
+the record from this forum; no second receiving forum or outbound forum secret
+is part of ordinary publishing.
 
 ## Presentation boundary
 
@@ -126,8 +144,8 @@ behavior. The plugin only attests the exact Bridge Record/topic route and omits
 companion post 1 from the mapped embed layout. The ordinary topic remains
 unchanged.
 
-No publishing-platform adapter is implemented inside this repository. An
-adapter translates its platform lifecycle into the generic connection API and
+No external publishing-platform adapter is implemented inside this repository.
+An adapter translates its platform lifecycle into the generic connection API and
 renders or links the returned discussion using platform-native code and
 Discourse Core presentation.
 

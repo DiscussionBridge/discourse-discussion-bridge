@@ -20,7 +20,6 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
   validates :direction, inclusion: { in: DIRECTIONS }
   validates :state, inclusion: { in: STATES }
   validates :title, length: { maximum: DiscussionBridge::ConnectionRequest::MAX_TITLE_BYTES }
-  validates :topic_id, uniqueness: true, allow_nil: true
   validates :reservation_token, length: { is: 64 }, allow_nil: true
 
   def active_binding(role)

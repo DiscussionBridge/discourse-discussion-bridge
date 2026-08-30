@@ -1,24 +1,37 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { action } from "@ember/object";
 import { on } from "@ember/modifier";
+import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import { eq } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgePublishing extends Component {
   @service router;
+
   @tracked topicId = "";
-  @tracked resourceId = "";
+  @tracked connectionId = "";
+  @tracked externalId = "";
+  @tracked canonicalUrl = "";
   @tracked notice = "";
-  @tracked importedTopic = null;
+  @tracked createdRecord = null;
   @tracked working = false;
 
-  @action updateTopicId(event) { this.topicId = event.target.value; }
-  @action updateResourceId(event) { this.resourceId = event.target.value; }
+  @action
+  updateTopicId(event) { this.topicId = event.target.value; }
+
+  @action
+  updateConnectionId(event) { this.connectionId = event.target.value; }
+
+  @action
+  updateExternalId(event) { this.externalId = event.target.value; }
+
+  @action
+  updateCanonicalUrl(event) { this.canonicalUrl = event.target.value; }
 
   @action
   async publishTopic(event) {
@@ -26,8 +39,25 @@ export default class DiscussionBridgePublishing extends Component {
     this.working = true;
     this.notice = "";
     try {
-      await ajax(`/discussion-bridge/v1/publisher/topics/${this.topicId}/publish.json`, { type: "POST" });
-      this.notice = i18n("discussion_bridge.admin.publisher_queued");
+      const result = await ajax(
+        `/discussion-bridge/v1/publisher/topics/${this.topicId}/publish.json`,
+        {
+          type: "POST",
+          data: {
+            publication: {
+              content_connection_id: this.connectionId,
+              external_id: this.externalId,
+              canonical_url: this.canonicalUrl,
+            },
+          },
+        }
+      );
+      this.createdRecord = result;
+      this.notice = i18n(
+        result.outcome === "created"
+          ? "discussion_bridge.admin.publisher_created"
+          : "discussion_bridge.admin.publisher_resolved"
+      );
       this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
@@ -36,23 +66,7 @@ export default class DiscussionBridgePublishing extends Component {
     }
   }
 
-  @action
-  async importRecord(event) {
-    event.preventDefault();
-    this.working = true;
-    this.notice = "";
-    try {
-      const result = await ajax(`/discussion-bridge/v1/publisher/records/${this.resourceId}/import.json`, { type: "POST" });
-      this.notice = i18n("discussion_bridge.admin.publisher_imported");
-      this.resourceId = "";
-      this.importedTopic = result;
-      this.router.refresh();
-    } catch (error) {
-      popupAjaxError(error);
-    } finally {
-      this.working = false;
-    }
-  }
+  displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
 
   <template>
     <section class="discussion-bridge-publishing">
@@ -65,42 +79,40 @@ export default class DiscussionBridgePublishing extends Component {
 
       <div class="discussion-bridge-publishing__metrics">
         <article><span>{{i18n "discussion_bridge.admin.publisher_published_topics"}}</span><strong>{{@model.metrics.published_topics}}</strong></article>
-        <article><span>{{i18n "discussion_bridge.admin.publisher_imported_topics"}}</span><strong>{{@model.metrics.imported_topics}}</strong></article>
-        <article><span>{{i18n "discussion_bridge.admin.publisher_failed_topics"}}</span><strong>{{@model.metrics.failed_topics}}</strong></article>
+        <article><span>{{i18n "discussion_bridge.admin.publisher_presentations"}}</span><strong>{{@model.metrics.presentations}}</strong></article>
+        <article><span>{{i18n "discussion_bridge.admin.publisher_connected_platforms"}}</span><strong>{{@model.metrics.connected_platforms}}</strong></article>
       </div>
 
-      <section class="discussion-bridge-publishing__connection">
-        <h3>{{i18n "discussion_bridge.admin.publisher_connection"}}</h3>
-        <dl>
-          <div><dt>{{i18n "discussion_bridge.admin.publisher_receiver"}}</dt><dd><a href={{@model.connection.receiver_url}}>{{@model.connection.receiver_url}}</a></dd></div>
-          <div><dt>{{i18n "discussion_bridge.admin.publisher_connection"}}</dt><dd><code>{{@model.connection.connection_id}}</code></dd></div>
-          <div><dt>{{i18n "discussion_bridge.admin.publisher_lane"}}</dt><dd><code>{{@model.connection.lane}}</code></dd></div>
-          <div><dt>{{i18n "discussion_bridge.admin.publisher_secret_available"}}</dt><dd>{{if @model.connection.secret "Yes" "No"}}</dd></div>
-        </dl>
-        {{#if @model.product.blockers.length}}<h4>{{i18n "discussion_bridge.admin.publisher_configuration_blockers"}}</h4><ul>{{#each @model.product.blockers as |blocker|}}<li><code>{{blocker}}</code></li>{{/each}}</ul>{{/if}}
-      </section>
+      {{#if @model.product.blockers.length}}
+        <section class="discussion-bridge-publishing__connection">
+          <h3>{{i18n "discussion_bridge.admin.publisher_configuration_blockers"}}</h3>
+          <ul>{{#each @model.product.blockers as |blocker|}}<li><code>{{blocker}}</code></li>{{/each}}</ul>
+        </section>
+      {{/if}}
 
-      {{#if this.notice}}<p class="discussion-bridge-publishing__notice" role="status">{{this.notice}}{{#if this.importedTopic}} · <a href={{this.importedTopic.topic_url}}>Open topic {{this.importedTopic.topic_id}}</a>{{/if}}</p>{{/if}}
+      {{#if this.notice}}<p class="discussion-bridge-publishing__notice" role="status">{{this.notice}}{{#if this.createdRecord}} · <a href={{this.createdRecord.topic_url}}>Open topic {{this.createdRecord.topic_id}}</a>{{/if}}</p>{{/if}}
 
       <div class="discussion-bridge-publishing__actions">
         <form {{on "submit" this.publishTopic}}>
           <h3>{{i18n "discussion_bridge.admin.publisher_publish_title"}}</h3>
           <p>{{i18n "discussion_bridge.admin.publisher_publish_description"}}</p>
           <label>{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
+          <label>{{i18n "discussion_bridge.admin.publisher_connection"}}
+            <select required {{on "change" this.updateConnectionId}}>
+              <option value="">—</option>
+              {{#each @model.connections as |connection|}}<option value={{connection.id}} selected={{eq connection.id this.connectionId}}>{{connection.name}} · {{this.displayToken connection.platform}}</option>{{/each}}
+            </select>
+          </label>
+          <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
+          <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.canonicalUrl}} {{on "input" this.updateCanonicalUrl}} /></label>
           <DButton @type="submit" @label="discussion_bridge.admin.publisher_publish" @disabled={{this.working}} class="btn-primary" />
-        </form>
-        <form {{on "submit" this.importRecord}}>
-          <h3>{{i18n "discussion_bridge.admin.publisher_import_title"}}</h3>
-          <p>{{i18n "discussion_bridge.admin.publisher_import_description"}}</p>
-          <label>{{i18n "discussion_bridge.admin.publisher_resource_id"}}<input required pattern="[0-9a-fA-F-]{36}" value={{this.resourceId}} {{on "input" this.updateResourceId}} /></label>
-          <DButton @type="submit" @label="discussion_bridge.admin.publisher_import" @disabled={{this.working}} class="btn-primary" />
         </form>
       </div>
 
       <section class="discussion-bridge-publishing__recent">
         <h3>{{i18n "discussion_bridge.admin.publisher_recent_activity"}}</h3>
-        <table><thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n "discussion_bridge.admin.publisher_remote_topic"}}</th><th>{{i18n "discussion_bridge.admin.publisher_attempts"}}</th></tr></thead>
-          <tbody>{{#each @model.recent_topics as |topic|}}<tr><td><a href={{topic.topic_url}}>{{topic.title}}</a><small><code>{{topic.resource_id}}</code></small></td><td>{{topic.state}}</td><td>{{#if topic.remote_topic_url}}<a href={{topic.remote_topic_url}}>Topic {{topic.remote_topic_id}}</a>{{else}}—{{/if}}</td><td>{{topic.attempts}}</td></tr>{{else}}<tr><td colspan="4">{{i18n "discussion_bridge.admin.publisher_no_activity"}}</td></tr>{{/each}}</tbody>
+        <table><thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th>{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n "discussion_bridge.admin.state"}}</th></tr></thead>
+          <tbody>{{#each @model.recent_records as |record|}}<tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{record.canonical_url}}>{{record.connection_name}}</a></td><td>{{record.state}}</td></tr>{{else}}<tr><td colspan="4">{{i18n "discussion_bridge.admin.publisher_no_activity"}}</td></tr>{{/each}}</tbody>
         </table>
       </section>
     </section>

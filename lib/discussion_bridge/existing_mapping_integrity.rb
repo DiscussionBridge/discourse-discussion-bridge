@@ -108,11 +108,16 @@ module DiscussionBridge
         )
       end
 
-      actor = User.find_by(
+      author = User.find_by(id: mapping.effective_actor_id)
+      return denied("mapping_actor_invalid") unless author && author.active? && !author.staged? &&
+        !author.suspended? && !author.silenced? && author.id != Discourse::SYSTEM_USER_ID
+
+      operating_actor = User.find_by(
         username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase,
       )
-      return denied("mapping_actor_invalid") unless actor && actor.active? && !actor.staged? &&
-        !actor.suspended? && !actor.silenced? && actor.id != Discourse::SYSTEM_USER_ID
+      return denied("mapping_actor_invalid") unless operating_actor && operating_actor.active? &&
+        !operating_actor.staged? && !operating_actor.suspended? && !operating_actor.silenced? &&
+        operating_actor.id != Discourse::SYSTEM_USER_ID
 
       lane = LanePolicies.resolve(
         value: SiteSetting.discussion_bridge_lane_policies,
@@ -121,14 +126,14 @@ module DiscussionBridge
       return denied(lane.reason) unless lane.allowed
 
       authority = ForumAuthority.call(
-        actor: actor,
+        actor: operating_actor,
         category_id: lane.category_id || SiteSetting.discussion_bridge_effective_category_id,
         tags: lane.tags || SiteSetting.discussion_bridge_effective_tags,
       )
       return denied(authority.reason) unless authority.allowed?
 
       CurrentPolicy.new(
-        effective_actor_id: actor.id,
+        effective_actor_id: author.id,
         effective_visibility: "unlisted",
         effective_category_id: authority.category_id,
         effective_tags: authority.tags,
