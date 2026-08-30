@@ -128,6 +128,8 @@ module DiscussionBridge
         topic_url: record.topic&.url,
         reply_count: record.topic ? [record.topic.posts_count.to_i - 1, 0].max : 0,
         lane: record.lane,
+        source_authors: record.source_authors,
+        primary_source_author_id: record.primary_source_author_id,
         connection_names: active.map { |binding| binding.content_connection.name },
         active_binding: active.first && binding_payload(active.first),
         updated_at: record.updated_at,

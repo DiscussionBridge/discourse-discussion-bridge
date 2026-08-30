@@ -22,8 +22,20 @@ module DiscussionBridge
         return
       end
 
+      DiscussionBridgeContentConnection.transaction do
+        @content_connection.lock!
+        SourceAuthorship.observe!(
+          connection: @content_connection,
+          source_authors: data[:source_authors],
+        )
+      end
       actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
-      author = @content_connection.effective_author
+      authorship = SourceAuthorship.resolve(connection: @content_connection, request: data)
+      unless authorship.allowed?
+        render json: rejection(authorship.reason), status: :unprocessable_entity
+        return
+      end
+      author = authorship.author
       lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: data[:lane])
       authority = ForumAuthority.call(
         actor: actor,
@@ -46,7 +58,7 @@ module DiscussionBridge
       )
       result = BridgeRecordResolver.call(connection: @content_connection, request: data, policy: policy)
       render json: result.to_h.merge(core_fallback: false), status: status_for(result.outcome)
-    rescue ActionController::ParameterMissing, ArgumentError
+    rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid, ArgumentError
       render json: rejection("invalid_request"), status: :unprocessable_entity
     end
 
@@ -121,6 +133,8 @@ module DiscussionBridge
         title: record.title,
         topic_id: record.topic_id,
         topic_url: topic&.url,
+        source_authors: record.source_authors,
+        primary_source_author_id: record.primary_source_author_id,
         content_html: record.direction == "from_discourse" ? first_post&.cooked : nil,
         bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
           {

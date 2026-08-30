@@ -8,8 +8,21 @@ module DiscussionBridge
     MAX_CONTENT_HTML_BYTES = 48 * 1024
     MAX_EXTERNAL_ID_BYTES = 255
     MAX_CORRELATION_ID_BYTES = 200
+    MAX_SOURCE_AUTHORS = 20
+    MAX_SOURCE_AUTHOR_ID_BYTES = 255
+    MAX_SOURCE_AUTHOR_NAME_BYTES = 200
     REQUIRED_KEYS = %w[direction external_id canonical_url title content_html published].freeze
-    ALLOWED_KEYS = (REQUIRED_KEYS + %w[lane adapter_id adapter_version correlation_id visibility]).freeze
+    ALLOWED_KEYS = (
+      REQUIRED_KEYS + %w[
+        lane
+        adapter_id
+        adapter_version
+        correlation_id
+        visibility
+        source_authors
+        primary_source_author_id
+      ]
+    ).freeze
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
 
@@ -43,6 +56,7 @@ module DiscussionBridge
       end
       raise ArgumentError, "invalid lane" if raw.key?("lane") && !LanePolicies::LANE_PATTERN.match?(raw["lane"])
       raise ArgumentError, "invalid visibility" if raw.key?("visibility") && raw["visibility"] != "unlisted"
+      validate_source_authors!(raw)
 
       raw.symbolize_keys
     rescue JSON::GeneratorError
@@ -64,5 +78,49 @@ module DiscussionBridge
       raise ArgumentError, "invalid content_html" unless valid
     end
     private_class_method :validate_content_html!
+
+    def self.validate_source_authors!(raw)
+      authors = raw["source_authors"]
+      primary_id = raw["primary_source_author_id"]
+      if authors.nil?
+        raise ArgumentError, "primary source author requires source authors" if primary_id.present?
+        return
+      end
+
+      unless authors.is_a?(Array) && authors.length.between?(1, MAX_SOURCE_AUTHORS)
+        raise ArgumentError, "invalid source authors"
+      end
+
+      normalized = authors.map do |author|
+        raise ArgumentError, "invalid source author" unless author.is_a?(Hash)
+
+        author = author.stringify_keys
+        raise ArgumentError, "invalid source author schema" unless (author.keys - %w[id name profile_url]).empty?
+        raise ArgumentError, "invalid source author schema" unless %w[id name].all? { |key| author.key?(key) }
+        validate_string!(author["id"], "source author id", MAX_SOURCE_AUTHOR_ID_BYTES, identifier: false)
+        validate_string!(author["name"], "source author name", MAX_SOURCE_AUTHOR_NAME_BYTES, identifier: false)
+        if author.key?("profile_url")
+          validate_string!(
+            author["profile_url"],
+            "source author profile URL",
+            CanonicalSource::MAX_SOURCE_URL_LENGTH,
+            identifier: false,
+          )
+          author["profile_url"] = CanonicalSource.call(
+            connection_id: "author-profile-validation",
+            source_url: author["profile_url"],
+          ).source_url
+        end
+        author
+      end
+
+      ids = normalized.map { |author| author.fetch("id") }
+      raise ArgumentError, "duplicate source author identity" unless ids.uniq.length == ids.length
+      validate_string!(primary_id, "primary source author id", MAX_SOURCE_AUTHOR_ID_BYTES, identifier: false)
+      raise ArgumentError, "primary source author is not present" if ids.exclude?(primary_id)
+
+      raw["source_authors"] = normalized
+    end
+    private_class_method :validate_source_authors!
   end
 end

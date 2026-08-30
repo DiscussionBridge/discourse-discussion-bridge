@@ -10,18 +10,26 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   PUBLIC_ID_PATTERN = /\Adbc_[a-z0-9]{24}\z/
   MAX_ORIGINS = 50
   MAX_LANES = 50
+  AUTHORSHIP_MODES = %w[fixed mapped].freeze
+  UNMAPPED_AUTHOR_POLICIES = %w[fallback hold].freeze
 
   has_many :content_bindings,
            class_name: "DiscussionBridgeContentBinding",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
   has_many :bridge_records, through: :content_bindings
+  has_many :source_authors,
+           class_name: "DiscussionBridgeSourceAuthor",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true
   validates :public_id, format: { with: PUBLIC_ID_PATTERN }, uniqueness: true
   validates :name, length: { maximum: 120 }, uniqueness: true
   validates :platform, inclusion: { in: PLATFORMS }
+  validates :authorship_mode, inclusion: { in: AUTHORSHIP_MODES }
+  validates :unmapped_author_policy, inclusion: { in: UNMAPPED_AUTHOR_POLICIES }
   validates :secret_digest, length: { is: 64 }
   validates :adapter_id, :adapter_version, length: { maximum: 100 }, allow_nil: true
   validate :scopes_are_valid

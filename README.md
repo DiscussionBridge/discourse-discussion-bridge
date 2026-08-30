@@ -40,7 +40,8 @@ Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
 - **Overview** — product health, connection and Bridge Record totals, both
   directions, readiness blockers, and a redacted support bundle.
 - **Connections** — create, enable or disable independent connections and
-  rotate a secret. A new secret is shown once and is never returned by later
+  rotate a secret. The selected connection has a **General** tab and an
+  **Authors** tab. A new secret is shown once and is never returned by later
   reads.
 - **Bridge Records** — search and filter records, inspect bindings, create a
   From Discourse record, and perform a controlled migration.
@@ -82,15 +83,31 @@ Content-Type: application/json
 }
 ```
 
-Only exact boolean `published: true` is accepted. `content_html` is a required,
+Only exact boolean `published: true` is accepted. An adapter may also report a
+bounded `source_authors` array and one `primary_source_author_id`. Every source
+author has a stable platform identity, display name, and optional profile URL
+on the connection's allowed origin. `content_html` is a required,
 nonblank published-content snapshot bounded to 48 KiB inside the 64 KiB request
 envelope. Discourse's ordinary post pipeline cooks and sanitizes it, and the
 plugin adds canonical source attribution after the content. The connection
 must authorize the direction, canonical origin, and lane. Forum policy selects
-the visible author, category, tags, and visibility. Each Content Connection may
-select an active Discourse user as its visible author; otherwise the forum
-default is used. The privileged operating identity remains separate from a
-non-privileged visible author. A retry with the same external
+the visible author, category, tags, and visibility.
+
+Each Content Connection chooses one publication-authorship mode:
+
+- **Fixed Discourse author** uses the connection author, or the forum default
+  when no connection override is present.
+- **Mapped source author** maps the reported primary platform author to an
+  active Discourse user. An unmapped primary author either falls back to the
+  fixed author or holds publication before topic creation, according to that
+  connection's policy.
+
+The Authors tab shows identities actually observed from that connection and
+lets an administrator map each one to an existing Discourse user. One primary
+source author controls the topic owner; every reported source author is
+credited in the companion post. Mapping changes apply to future topics and do
+not silently reassign existing topics. The privileged operating identity
+remains separate from a non-privileged visible author. A retry with the same external
 identity and URL returns the same resource and topic without rewriting its
 first-published snapshot; conflicting identity claims fail closed.
 

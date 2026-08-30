@@ -7,8 +7,9 @@
 - plugin-issued Bridge Record identity and one-topic continuity;
 - active, prepared, and historical external bindings;
 - authenticated create-or-resolve for authoritatively published content;
-- forum-owned operating identity, forum-default author, per-connection visible
-  author, category, tag, visibility, and lane policy;
+- forum-owned operating identity, forum-default author, per-connection fixed or
+  mapped-source publication author, source-author mappings, category, tag,
+  visibility, and lane policy;
 - idempotency, collision rejection, persistence, audit, and reconciliation;
 - native Discourse administration for Overview, Connections, Bridge Records,
   migration, and Reconciliation;
@@ -32,6 +33,8 @@
   published;
 - platform-specific credentials, hooks, installation, and UI;
 - canonical external identity and URL supplied to the connection;
+- bounded source-author identities, display names, optional same-origin profile
+  URLs, and the single primary source author supplied to the connection;
 - a bounded published-content HTML snapshot suitable for Discourse's ordinary
   post cooking and sanitization pipeline;
 - server-side storage of the one-time DiscussionBridge connection secret;
@@ -59,6 +62,10 @@ an administrator creates a connection.
   platform connections.
 - A Bridge Record preserves its resource and topic identity during migration.
 - A connection can read only records bound to that connection.
+- One primary source author may select the topic owner through a
+  connection-scoped mapping; all supplied source authors remain credited.
+- Source-author mappings affect future topic creation and never silently
+  transfer ownership of an existing topic.
 - Draft, malformed, unauthenticated, out-of-origin, out-of-lane, and conflicting
   requests fail before topic creation.
 - Secrets never appear in read APIs, health output, support bundles, logs, or
@@ -77,3 +84,5 @@ an administrator creates a connection.
   repository;
 - product, release, deployment, publication, provider, or risk acceptance;
 - replacing Discourse Core security-sensitive interaction behavior.
+- user synchronization, login federation, account provisioning, or treating
+  source-author mapping as Discourse authorization.

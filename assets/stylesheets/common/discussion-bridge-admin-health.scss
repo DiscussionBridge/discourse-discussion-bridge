@@ -480,6 +480,54 @@
   }
 }
 
+.discussion-bridge-connection-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-block: 0.75rem 1rem;
+  border-bottom: 1px solid var(--primary-low);
+
+  button {
+    padding: 0.65rem 1rem;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: var(--primary);
+    cursor: pointer;
+
+    &.active {
+      border-bottom-color: var(--tertiary);
+      font-weight: 600;
+    }
+  }
+}
+
+.discussion-bridge-authors-panel {
+  display: grid;
+  gap: 1rem;
+
+  > label {
+    display: grid;
+    gap: 0.35rem;
+    max-width: 36rem;
+  }
+}
+
+.discussion-bridge-authors-table {
+  width: 100%;
+
+  th,
+  td {
+    padding: 0.65rem;
+    text-align: start;
+    vertical-align: top;
+  }
+
+  code,
+  a {
+    overflow-wrap: anywhere;
+  }
+}
+
 @media (width <= 50rem) {
   .discussion-bridge-health__grid dl {
     grid-template-columns: 1fr;

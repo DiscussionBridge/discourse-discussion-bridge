@@ -18,6 +18,13 @@ describe "DiscussionBridge native product administration" do
       allowed_directions: %w[to_discourse from_discourse],
       allowed_lanes: [],
     )
+    DiscussionBridgeSourceAuthor.create!(
+      content_connection: @connection,
+      source_author_id: "wordpress:author-7",
+      display_name: "Platform Author",
+      profile_url: "https://example.com/authors/platform-author/",
+      last_seen_at: Time.zone.now,
+    )
     topic = Fabricate(:topic, user: admin, category: category, title: "Community Guide")
     Fabricate(:post, topic: topic, user: admin, post_number: 1)
     record = DiscussionBridgeBridgeRecord.create!(
@@ -96,6 +103,29 @@ describe "DiscussionBridge native product administration" do
     click_button("Save connection")
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
+  end
+
+  it "manages observed platform authors inside the selected connection" do
+    sign_in(admin)
+    visit("/")
+    page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/connections')")
+
+    expect(page).to have_css(".discussion-bridge-connections", wait: 30)
+    within(".discussion-bridge-connection-card", text: "Main publication") do
+      click_button("Manage")
+    end
+    click_button("Authors")
+    expect(page).to have_content("Platform Author")
+    expect(page).to have_content("wordpress:author-7")
+    select("Map platform authors", from: "Authorship mode")
+    select("Hold for operator mapping", from: "Unmapped author policy")
+    fill_in("Unmapped", with: admin.username)
+    click_button("Save mapping")
+    click_button("Save connection")
+
+    expect(@connection.reload.authorship_mode).to eq("mapped")
+    expect(@connection.unmapped_author_policy).to eq("hold")
+    expect(@connection.source_authors.first.discourse_user).to eq(admin)
   end
 
   it "renders Bridge Records with unmistakable direction and stable detail" do

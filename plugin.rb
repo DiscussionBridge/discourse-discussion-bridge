@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.6
+# version: 0.2.0.alpha.7
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.6"
+    VERSION = "0.2.0.alpha.7"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -73,12 +73,14 @@ after_initialize do
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
+  require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/models/discussion_bridge_content_connection"
+  require_relative "app/models/discussion_bridge_source_author"
   require_relative "app/models/discussion_bridge_bridge_record"
   require_relative "app/models/discussion_bridge_content_binding"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
@@ -290,6 +292,7 @@ after_initialize do
     post "/admin/content-connections" => "admin_content_connections#create"
     put "/admin/content-connections/:id" => "admin_content_connections#update"
     post "/admin/content-connections/:id/rotate-secret" => "admin_content_connections#rotate_secret"
+    put "/admin/content-connections/:id/authors/:author_id" => "admin_content_connections#update_author"
     get "/admin/bridge-records" => "admin_bridge_records#index"
     post "/admin/bridge-records" => "admin_bridge_records#create"
     get "/admin/bridge-records/:id" => "admin_bridge_records#show"

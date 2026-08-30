@@ -18,6 +18,15 @@ module DiscussionBridge
       blockers << "forum_category_missing" unless Category.exists?(id: SiteSetting.discussion_bridge_effective_category_id)
       blockers << "content_connections_missing" unless connections.exists?
       blockers << "content_connections_unverified" if connections.where(enabled: true, last_seen_at: nil).exists?
+      unresolved_authors = DiscussionBridgeSourceAuthor.where(discourse_user_id: nil)
+      held_unmapped_authors = unresolved_authors.joins(:content_connection).where(
+        discussion_bridge_content_connections: {
+          enabled: true,
+          authorship_mode: "mapped",
+          unmapped_author_policy: "hold",
+        },
+      )
+      blockers << "source_authors_unmapped" if held_unmapped_authors.exists?
 
       {
         product: {
@@ -29,6 +38,8 @@ module DiscussionBridge
           content_connections: connections.count,
           bridge_records: records.count,
           needs_attention: issue_summary[:total],
+          source_authors: DiscussionBridgeSourceAuthor.count,
+          unmapped_source_authors: unresolved_authors.count,
         },
         directions: {
           to_discourse: records.where(direction: "to_discourse").count,
@@ -48,6 +59,9 @@ module DiscussionBridge
             public_id: connection.public_id,
             name: connection.name,
             platform: connection.platform,
+            authorship_mode: connection.authorship_mode,
+            source_author_count: connection.source_authors.count,
+            unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
             enabled: connection.enabled,
             bridge_record_count: connection.content_bindings.where(state: "active").distinct.count(:bridge_record_id),
             last_seen_at: connection.last_seen_at,

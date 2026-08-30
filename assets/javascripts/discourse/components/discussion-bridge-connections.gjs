@@ -1,5 +1,6 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
+import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -17,6 +18,10 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked name = "";
   @tracked platform = "wordpress";
   @tracked authorUsername = "";
+  @tracked authorshipMode = "fixed";
+  @tracked unmappedAuthorPolicy = "fallback";
+  @tracked editingTab = "general";
+  @tracked sourceMappings = {};
   @tracked origins = "";
   @tracked lanes = "";
   @tracked toDiscourse = true;
@@ -33,6 +38,26 @@ export default class DiscussionBridgeConnections extends Component {
 
   @action
   updateAuthorUsername(event) { this.authorUsername = event.target.value; }
+
+  @action
+  updateAuthorshipMode(event) { this.authorshipMode = event.target.value; }
+
+  @action
+  updateUnmappedAuthorPolicy(event) { this.unmappedAuthorPolicy = event.target.value; }
+
+  @action
+  showGeneralTab() { this.editingTab = "general"; }
+
+  @action
+  showAuthorsTab() { this.editingTab = "authors"; }
+
+  @action
+  updateSourceMapping(sourceAuthor, event) {
+    this.sourceMappings = {
+      ...this.sourceMappings,
+      [sourceAuthor.id]: event.target.value,
+    };
+  }
 
   @action
   updateOrigins(event) { this.origins = event.target.value; }
@@ -64,6 +89,8 @@ export default class DiscussionBridgeConnections extends Component {
             name: this.name,
             platform: this.platform,
             author_username: this.authorUsername,
+            authorship_mode: this.authorshipMode,
+            unmapped_author_policy: this.unmappedAuthorPolicy,
             allowed_origins: this.lines(this.origins),
             allowed_directions: directions,
             allowed_lanes: this.lines(this.lanes),
@@ -87,6 +114,12 @@ export default class DiscussionBridgeConnections extends Component {
     this.name = connection.name;
     this.platform = connection.platform;
     this.authorUsername = connection.author_override ? connection.author_username : "";
+    this.authorshipMode = connection.authorship_mode;
+    this.unmappedAuthorPolicy = connection.unmapped_author_policy;
+    this.editingTab = "general";
+    this.sourceMappings = Object.fromEntries(
+      connection.source_authors.map((author) => [author.id, author.discourse_username ?? ""])
+    );
     this.origins = connection.allowed_origins.join("\n");
     this.lanes = connection.allowed_lanes.join("\n");
     this.toDiscourse = connection.allowed_directions.includes("to_discourse");
@@ -127,6 +160,26 @@ export default class DiscussionBridgeConnections extends Component {
     }
   }
 
+  @action
+  async saveAuthorMapping(sourceAuthor) {
+    try {
+      await ajax(
+        `/discussion-bridge/admin/content-connections/${this.editingConnectionId}/authors/${sourceAuthor.id}.json`,
+        {
+          type: "PUT",
+          data: {
+            source_author: {
+              discourse_username: this.sourceMappings[sourceAuthor.id] ?? "",
+            },
+          },
+        }
+      );
+      this.router.refresh();
+    } catch (error) {
+      popupAjaxError(error);
+    }
+  }
+
   lines(value) {
     return value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
   }
@@ -136,6 +189,10 @@ export default class DiscussionBridgeConnections extends Component {
     this.name = "";
     this.platform = "wordpress";
     this.authorUsername = "";
+    this.authorshipMode = "fixed";
+    this.unmappedAuthorPolicy = "fallback";
+    this.editingTab = "general";
+    this.sourceMappings = {};
     this.origins = "";
     this.lanes = "";
     this.toDiscourse = true;
@@ -174,6 +231,7 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd><code>{{connection.public_id}}</code></dd>
               <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd>{{#each connection.allowed_directions as |direction|}}<span>{{this.displayToken direction}}</span>{{/each}}</dd>
               <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code>{{connection.author_username}}</code>{{#unless connection.author_override}} <small>{{i18n "discussion_bridge.admin.forum_default"}}</small>{{/unless}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd>{{this.displayToken connection.authorship_mode}} · {{connection.source_author_count}} {{i18n "discussion_bridge.admin.source_authors"}}{{#if connection.unmapped_source_author_count}} · {{connection.unmapped_source_author_count}} {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
               <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each connection.allowed_origins as |origin|}}<code>{{origin}}</code>{{/each}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
@@ -201,20 +259,66 @@ export default class DiscussionBridgeConnections extends Component {
 
       <form class="discussion-bridge-add-connection" {{on "submit" this.saveConnection}}>
         <h3>{{if this.editingConnectionId (i18n "discussion_bridge.admin.manage_connection") (i18n "discussion_bridge.admin.add_connection")}}</h3>
-        <label>{{i18n "discussion_bridge.admin.connection_name"}}<input required value={{this.name}} {{on "input" this.updateName}} /></label>
-        <label>{{i18n "discussion_bridge.admin.platform"}}
-          <select {{on "change" this.updatePlatform}}>
-            {{#each @model.platforms as |platform|}}<option value={{platform}} selected={{eq platform this.platform}}>{{this.displayToken platform}}</option>{{/each}}
-          </select>
-        </label>
-        <label>{{i18n "discussion_bridge.admin.topic_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
-        <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea required value={{this.origins}} {{on "input" this.updateOrigins}}></textarea></label>
-        <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
-        <fieldset>
-          <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
-          <label><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} />{{i18n "discussion_bridge.admin.to_discourse"}}</label>
-          <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>
-        </fieldset>
+        {{#if this.editingConnectionId}}
+          <nav class="discussion-bridge-connection-tabs" aria-label={{i18n "discussion_bridge.admin.connection_settings_tabs"}}>
+            <button type="button" class={{if (eq this.editingTab "general") "active"}} {{on "click" this.showGeneralTab}}>{{i18n "discussion_bridge.admin.general_tab"}}</button>
+            <button type="button" class={{if (eq this.editingTab "authors") "active"}} {{on "click" this.showAuthorsTab}}>{{i18n "discussion_bridge.admin.authors_tab"}}</button>
+          </nav>
+        {{/if}}
+
+        {{#if (eq this.editingTab "general")}}
+          <label>{{i18n "discussion_bridge.admin.connection_name"}}<input required value={{this.name}} {{on "input" this.updateName}} /></label>
+          <label>{{i18n "discussion_bridge.admin.platform"}}
+            <select {{on "change" this.updatePlatform}}>
+              {{#each @model.platforms as |platform|}}<option value={{platform}} selected={{eq platform this.platform}}>{{this.displayToken platform}}</option>{{/each}}
+            </select>
+          </label>
+          <label>{{i18n "discussion_bridge.admin.topic_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
+          <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea required value={{this.origins}} {{on "input" this.updateOrigins}}></textarea></label>
+          <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
+          <fieldset>
+            <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
+            <label><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} />{{i18n "discussion_bridge.admin.to_discourse"}}</label>
+            <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>
+          </fieldset>
+        {{else}}
+          <section class="discussion-bridge-authors-panel">
+            <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>
+            <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
+              <select {{on "change" this.updateAuthorshipMode}}>
+                <option value="fixed" selected={{eq this.authorshipMode "fixed"}}>{{i18n "discussion_bridge.admin.authorship_fixed"}}</option>
+                <option value="mapped" selected={{eq this.authorshipMode "mapped"}}>{{i18n "discussion_bridge.admin.authorship_mapped"}}</option>
+              </select>
+            </label>
+            <label>{{i18n "discussion_bridge.admin.fallback_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
+            <label>{{i18n "discussion_bridge.admin.unmapped_author_policy"}}
+              <select {{on "change" this.updateUnmappedAuthorPolicy}}>
+                <option value="fallback" selected={{eq this.unmappedAuthorPolicy "fallback"}}>{{i18n "discussion_bridge.admin.unmapped_fallback"}}</option>
+                <option value="hold" selected={{eq this.unmappedAuthorPolicy "hold"}}>{{i18n "discussion_bridge.admin.unmapped_hold"}}</option>
+              </select>
+            </label>
+
+            <table class="discussion-bridge-authors-table">
+              <thead><tr><th>{{i18n "discussion_bridge.admin.platform_author"}}</th><th>{{i18n "discussion_bridge.admin.profile"}}</th><th>{{i18n "discussion_bridge.admin.discourse_author"}}</th><th></th></tr></thead>
+              <tbody>
+                {{#each @model.content_connections as |candidate|}}
+                  {{#if (eq candidate.id this.editingConnectionId)}}
+                    {{#each candidate.source_authors as |sourceAuthor|}}
+                      <tr>
+                        <td><strong>{{sourceAuthor.display_name}}</strong><br /><code>{{sourceAuthor.source_author_id}}</code></td>
+                        <td>{{#if sourceAuthor.profile_url}}<a href={{sourceAuthor.profile_url}} target="_blank" rel="noopener noreferrer">{{sourceAuthor.profile_url}}</a>{{else}}—{{/if}}</td>
+                        <td><input value={{sourceAuthor.discourse_username}} {{on "input" (fn this.updateSourceMapping sourceAuthor)}} placeholder={{i18n "discussion_bridge.admin.unmapped"}} /></td>
+                        <td><DButton @label="discussion_bridge.admin.save_mapping" @action={{this.saveAuthorMapping}} @actionParam={{sourceAuthor}} /></td>
+                      </tr>
+                    {{else}}
+                      <tr><td colspan="4">{{i18n "discussion_bridge.admin.no_source_authors"}}</td></tr>
+                    {{/each}}
+                  {{/if}}
+                {{/each}}
+              </tbody>
+            </table>
+          </section>
+        {{/if}}
         <DButton
           @type="submit"
           @label={{if this.editingConnectionId "discussion_bridge.admin.save_connection" "discussion_bridge.admin.add_connection"}}

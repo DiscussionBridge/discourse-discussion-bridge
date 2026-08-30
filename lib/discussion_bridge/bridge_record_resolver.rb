@@ -53,6 +53,8 @@ module DiscussionBridge
           lane: @request[:lane],
           requested_visibility: @request.fetch(:visibility, "unlisted"),
           effective_visibility: @policy.effective_visibility,
+          source_authors: Array(@request[:source_authors]),
+          primary_source_author_id: @request[:primary_source_author_id],
           reservation_token: SecureRandom.hex(32),
         )
         DiscussionBridgeContentBinding.create!(
@@ -125,6 +127,8 @@ module DiscussionBridge
         visibility: @request.fetch(:visibility, "unlisted"),
         adapter_id: @request[:adapter_id],
         correlation_id: @request[:correlation_id],
+        source_authors: Array(@request[:source_authors]),
+        primary_source_author_id: @request[:primary_source_author_id],
       }.compact
     end
 

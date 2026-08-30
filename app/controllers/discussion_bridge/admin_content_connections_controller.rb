@@ -34,6 +34,18 @@ module DiscussionBridge
       render json: { content_connection: serialize(connection), secret: connection.rotate_secret! }
     end
 
+    def update_author
+      connection = DiscussionBridgeContentConnection.find(params[:id])
+      source_author = connection.source_authors.find(params[:author_id])
+      username = params.require(:source_author).permit(:discourse_username)[:discourse_username].to_s.strip
+      source_author.update!(
+        discourse_user: username.present? ? author_user!(username) : nil,
+      )
+      render json: { source_author: serialize_source_author(source_author) }
+    rescue ActiveRecord::RecordInvalid, ArgumentError => error
+      render json: { errors: errors_for(error) }, status: :unprocessable_entity
+    end
+
     private
 
     def connection_params
@@ -41,6 +53,8 @@ module DiscussionBridge
         :name,
         :platform,
         :author_username,
+        :authorship_mode,
+        :unmapped_author_policy,
         :adapter_id,
         :adapter_version,
         :enabled,
@@ -83,6 +97,13 @@ module DiscussionBridge
         platform: connection.platform,
         author_username: connection.effective_author&.username,
         author_override: connection.author_user_id.present?,
+        authorship_mode: connection.authorship_mode,
+        unmapped_author_policy: connection.unmapped_author_policy,
+        source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|
+          serialize_source_author(source_author)
+        end,
+        source_author_count: connection.source_authors.count,
+        unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
         enabled: connection.enabled,
         allowed_origins: connection.allowed_origins,
         allowed_directions: connection.allowed_directions,
@@ -99,6 +120,18 @@ module DiscussionBridge
                 else
                   "healthy"
                 end,
+      }
+    end
+
+    def serialize_source_author(source_author)
+      {
+        id: source_author.id,
+        source_author_id: source_author.source_author_id,
+        display_name: source_author.display_name,
+        profile_url: source_author.profile_url,
+        discourse_username: source_author.discourse_user&.username,
+        mapped: source_author.discourse_user_id.present?,
+        last_seen_at: source_author.last_seen_at,
       }
     end
 

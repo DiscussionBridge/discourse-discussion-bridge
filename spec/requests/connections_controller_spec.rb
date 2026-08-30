@@ -92,6 +92,101 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(record.topic.reload.user_id).to eq(selected_author.id)
   end
 
+  it "observes platform authors, holds an unmapped primary, and creates after an operator mapping" do
+    mapped_author = Fabricate(:user, username: "mapped_author", trust_level: 1)
+    @connection.update!(authorship_mode: "mapped", unmapped_author_policy: "hold")
+    authored_payload = payload(
+      source_authors: [
+        {
+          id: "astro:phil",
+          name: "Phil",
+          profile_url: "https://example.com/authors/phil/",
+        },
+        { id: "astro:editorial", name: "DiscussionBridge Editorial" },
+      ],
+      primary_source_author_id: "astro:phil",
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: authored_payload,
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include("reason" => "source_author_unmapped")
+    expect(Topic.count).to eq(0)
+    source_author = @connection.source_authors.find_by!(source_author_id: "astro:phil")
+    expect(source_author).to have_attributes(
+      display_name: "Phil",
+      profile_url: "https://example.com/authors/phil/",
+      discourse_user_id: nil,
+    )
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}/authors/#{source_author.id}.json",
+        params: { source_author: { discourse_username: mapped_author.username } },
+        as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("source_author", "discourse_username")).to eq(mapped_author.username)
+    sign_out
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: authored_payload,
+         as: :json
+    expect(response).to have_http_status(:created), response.body
+    record = DiscussionBridgeBridgeRecord.last
+    expect(record).to have_attributes(
+      effective_actor_id: mapped_author.id,
+      primary_source_author_id: "astro:phil",
+    )
+    expect(record.source_authors.map { |author| author.fetch("id") }).to eq(
+      %w[astro:phil astro:editorial],
+    )
+    expect(record.topic.first_post.cooked).to include(
+      "Source authors",
+      "Phil",
+      "DiscussionBridge Editorial",
+      "https://example.com/authors/phil/",
+    )
+  end
+
+  it "uses the configured fallback for an unmapped author and rejects a profile outside the connection" do
+    fallback = Fabricate(:user, username: "fallback_author", trust_level: 1)
+    @connection.update!(
+      authorship_mode: "mapped",
+      unmapped_author_policy: "fallback",
+      author_user: fallback,
+    )
+    authored = {
+      source_authors: [{ id: "astro:new", name: "New Astro Author" }],
+      primary_source_author_id: "astro:new",
+    }
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(authored),
+         as: :json
+    expect(response).to have_http_status(:created), response.body
+    expect(DiscussionBridgeBridgeRecord.last.topic.user_id).to eq(fallback.id)
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(
+           external_id: "post-483",
+           canonical_url: "https://example.com/articles/second/",
+           source_authors: [
+             {
+               id: "astro:outside",
+               name: "Outside",
+               profile_url: "https://attacker.invalid/author/",
+             },
+           ],
+           primary_source_author_id: "astro:outside",
+         ),
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeContentBinding.count).to eq(1)
+  end
+
   it "rejects missing, blank, malformed, and oversized source content before mutation" do
     invalid_content = [nil, "", "   ", "<p>bad\u0000content</p>", "x" * (48 * 1024 + 1)]
     invalid_content.each do |content_html|
@@ -275,6 +370,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "platform" => "discourse",
       "author_username" => selected_author.username,
       "author_override" => true,
+      "authorship_mode" => "fixed",
+      "unmapped_author_policy" => "fallback",
     )
 
     get "/discussion-bridge/admin/content-connections.json"

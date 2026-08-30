@@ -14,7 +14,11 @@ module DiscussionBridge
       creator = PostCreator.new(
         actor,
         title: request.fetch(:title),
-        raw: companion_post(source_url, request.fetch(:content_html)),
+        raw: companion_post(
+          source_url,
+          request.fetch(:content_html),
+          request[:source_authors],
+        ),
         category: policy.effective_category_id,
         tags: policy.effective_tags,
         visible: false,
@@ -40,8 +44,12 @@ module DiscussionBridge
 
     private
 
-    def companion_post(source_url, content_html)
-      "#{content_html}\n\n---\n\nOriginally published at [#{source_url}](#{source_url})"
+    def companion_post(source_url, content_html, source_authors)
+      credit = SourceAuthorship.credit_html(source_authors)
+      parts = [content_html]
+      parts << credit if credit.present?
+      parts << "---\n\nOriginally published at [#{source_url}](#{source_url})"
+      parts.join("\n\n")
     end
   end
 end

@@ -40,4 +40,30 @@ describe DiscussionBridge::TopicCreator do
     expect(post.raw.index("Community guide")).to be < post.raw.index("Originally published at")
     expect(post.cooked).to include("Community guide", "Source-owned article content")
   end
+
+
+  it "credits the primary source author and coauthors without granting forum authority" do
+    authored_request = request.merge(
+      source_authors: [
+        {
+          "id" => "astro:phil",
+          "name" => "Phil & Team",
+          "profile_url" => "https://example.com/authors/phil/",
+        },
+        { "id" => "astro:editor", "name" => "Editorial <Group>" },
+      ],
+      primary_source_author_id: "astro:phil",
+    )
+    creation = described_class.new.call(request: authored_request, policy: policy)
+    post = creation.topic.first_post
+
+    expect(post.user_id).to eq(author.id)
+    expect(post.raw).to include(
+      "Source authors",
+      "Phil &amp; Team",
+      "Editorial &lt;Group&gt;",
+      "https://example.com/authors/phil/",
+    )
+    expect(post.raw.index("Source authors")).to be < post.raw.index("Originally published at")
+  end
 end
