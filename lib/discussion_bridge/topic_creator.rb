@@ -31,7 +31,7 @@ module DiscussionBridge
     private
 
     def companion_post(source_url, content_html)
-      "Originally published at [#{source_url}](#{source_url})\n\n---\n\n#{content_html}"
+      "#{content_html}\n\n---\n\nOriginally published at [#{source_url}](#{source_url})"
     end
   end
 end

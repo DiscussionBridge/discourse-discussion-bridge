@@ -25,10 +25,11 @@ describe DiscussionBridge::TopicCreator do
     expect(creation.topic.visible).to eq(false)
     expect(post.user_id).to eq(actor.id)
     expect(post.raw).to eq(
-      "Originally published at " \
-        "[https://example.com/articles/source](https://example.com/articles/source)\n\n" \
-        "---\n\n<h2>Community guide</h2><p>Source-owned article content.</p>",
+      "<h2>Community guide</h2><p>Source-owned article content.</p>\n\n" \
+        "---\n\nOriginally published at " \
+        "[https://example.com/articles/source](https://example.com/articles/source)",
     )
+    expect(post.raw.index("Community guide")).to be < post.raw.index("Originally published at")
     expect(post.cooked).to include("Community guide", "Source-owned article content")
   end
 end

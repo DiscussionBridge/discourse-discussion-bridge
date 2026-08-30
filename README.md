@@ -85,7 +85,7 @@ Content-Type: application/json
 Only exact boolean `published: true` is accepted. `content_html` is a required,
 nonblank published-content snapshot bounded to 48 KiB inside the 64 KiB request
 envelope. Discourse's ordinary post pipeline cooks and sanitizes it, and the
-plugin adds canonical source attribution before the content. The connection
+plugin adds canonical source attribution after the content. The connection
 must authorize the direction, canonical origin, and lane. Forum policy selects
 the actor, category, tags, and visibility. A retry with the same external
 identity and URL returns the same resource and topic without rewriting its
