@@ -31,6 +31,16 @@ export default {
           route: "adminPlugins.show.discussion-bridge-reconciliation",
           description: "discussion_bridge.admin.reconciliation_nav_description",
         },
+        {
+          label: "discussion_bridge.admin.publishing_nav",
+          route: "adminPlugins.show.discussion-bridge-publishing",
+          description: "discussion_bridge.admin.publishing_nav_description",
+        },
+        {
+          label: "discussion_bridge.admin.settings_nav",
+          route: "adminPlugins.show.settings",
+          description: "discussion_bridge.admin.settings_nav_description",
+        },
       ]);
     });
   },

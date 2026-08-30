@@ -9,6 +9,10 @@ adapter and manages many Bridge Records.
 The plugin is default-disabled. Discourse remains authoritative for users,
 topics, categories, tags, visibility, moderation, sessions, and replies.
 
+The same downloadable plugin can receive connected-platform content, publish
+explicitly selected Discourse topics to another DiscussionBridge forum, or do
+both. Its role is configuration, not a separate receiver or publisher package.
+
 ## Product model
 
 - **Content Connection** — one publishing-platform installation with its own

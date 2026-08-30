@@ -19,6 +19,11 @@ describe DiscussionBridge do
       discussion_bridge_lane_policies
       discussion_bridge_default_visibility
       discussion_bridge_comments_only_full_interactive
+      discussion_bridge_publisher_enabled
+      discussion_bridge_publisher_receiver_url
+      discussion_bridge_publisher_connection_id
+      discussion_bridge_publisher_lane
+      discussion_bridge_publisher_import_category_id
     ]
 
     labels = settings.map { |setting| SiteSettings::LabelFormatter.humanized_name(setting) }
@@ -35,5 +40,12 @@ describe DiscussionBridge do
     )
 
     expect(locale).to include('discourse_discussion_bridge: "DiscussionBridge"')
+  end
+
+  it "keeps publishing in the same default-disabled product" do
+    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.4")
+    expect(SiteSetting.discussion_bridge_publisher_enabled).to eq(false)
+    expect(SiteSetting.discussion_bridge_publisher_receiver_url).to eq("")
+    expect(SiteSetting.discussion_bridge_publisher_connection_id).to eq("")
   end
 end

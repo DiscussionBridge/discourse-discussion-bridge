@@ -1,0 +1,52 @@
+.discussion-bridge-publishing {
+  --dbp-ink: #173b40;
+  --dbp-teal: #0f766e;
+  --dbp-mint: #e8f7f3;
+  --dbp-border: #c8ded9;
+
+  &__hero,
+  &__metrics,
+  &__actions {
+    display: grid;
+    gap: 1rem;
+  }
+
+  &__hero {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    color: var(--dbp-ink);
+    background: linear-gradient(135deg, var(--dbp-mint), #fff);
+    border: 1px solid var(--dbp-border);
+    border-radius: 0.75rem;
+
+    > div { display: flex; align-items: center; gap: 1rem; }
+    > div > span { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; color: #fff; background: var(--dbp-teal); font-weight: 800; }
+    h2, p { margin: 0; }
+    > strong { padding: 0.4rem 0.75rem; border-radius: 999px; background: #fff; }
+    > strong[data-ready="true"] { color: #087443; }
+    > strong[data-ready="false"] { color: #a13b1b; }
+  }
+
+  &__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 1rem 0; }
+  &__metrics article { padding: 1rem; border: 1px solid var(--dbp-border); border-radius: 0.6rem; }
+  &__metrics span, td small { display: block; }
+  &__metrics strong { display: block; margin-top: 0.25rem; font-size: 1.8rem; color: var(--dbp-teal); }
+  &__connection, &__actions form, &__recent { padding: 1rem; margin: 1rem 0; border: 1px solid var(--dbp-border); border-radius: 0.6rem; }
+  &__connection dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+  &__connection dl div { min-width: 0; }
+  &__connection dt { font-weight: 700; }
+  &__connection dd { margin: 0.15rem 0 0; overflow-wrap: anywhere; }
+  &__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  &__actions form { margin: 0; }
+  &__actions label, &__actions input { display: block; width: 100%; }
+  &__actions input { box-sizing: border-box; margin: 0.35rem 0 0.75rem; }
+  &__notice { padding: 0.75rem 1rem; color: #075b3a; background: #e7f8ef; border-radius: 0.4rem; }
+  &__recent { overflow-x: auto; }
+  &__recent table { width: 100%; }
+
+  @media (max-width: 700px) {
+    &__hero, &__metrics, &__actions, &__connection dl { grid-template-columns: 1fr; }
+  }
+}

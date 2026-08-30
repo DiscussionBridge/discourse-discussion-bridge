@@ -105,7 +105,7 @@ describe "DiscussionBridge native product administration" do
 
     expect(page).to have_css(".discussion-bridge-operations", wait: 30)
     expect(page).to have_content("Direction belongs to each record, not the connection.")
-    expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']", text: "to discourse")
+    expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']", text: "To Discourse")
     expect(page).to have_content("Community Guide")
     expect(page).to have_button("View")
   end

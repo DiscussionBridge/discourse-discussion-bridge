@@ -34,3 +34,20 @@ plugins:
   discussion_bridge_comments_only_full_interactive:
     default: false
     client: false
+  discussion_bridge_publisher_enabled:
+    default: false
+    client: false
+  discussion_bridge_publisher_receiver_url:
+    default: ""
+    client: false
+  discussion_bridge_publisher_connection_id:
+    default: ""
+    client: false
+  discussion_bridge_publisher_lane:
+    default: "discourse-publisher-alpha"
+    client: false
+  discussion_bridge_publisher_import_category_id:
+    type: integer
+    default: 0
+    min: 0
+    client: false
