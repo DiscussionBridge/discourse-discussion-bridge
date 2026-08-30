@@ -73,6 +73,96 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
   end
 
+  it "adopts an exact Discourse Core embed without creating a duplicate topic" do
+    canonical_url = "https://example.com/articles/community-guide/"
+    embedded_topic = Fabricate(:topic, user: service_actor, category: category, visible: false)
+    embedded_post = Fabricate(:post, topic: embedded_topic, user: service_actor, post_number: 1)
+    TopicEmbed.create!(
+      topic_id: embedded_topic.id,
+      post_id: embedded_post.id,
+      embed_url: TopicEmbed.normalize_url(canonical_url),
+    )
+    expect(TopicEmbed.topic_id_for_embed(canonical_url)).to eq(embedded_topic.id)
+    original_topic_count = Topic.count
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(existing_topic_id: embedded_topic.id),
+         as: :json
+
+    expect(response).to have_http_status(:created), response.body
+    expect(response.parsed_body).to include(
+      "outcome" => "created",
+      "reason" => "core_embed_topic_adopted",
+      "topic_id" => embedded_topic.id,
+    )
+    expect(Topic.count).to eq(original_topic_count)
+    expect(DiscussionBridgeBridgeRecord.last).to have_attributes(
+      topic_id: embedded_topic.id,
+      state: "healthy",
+      reservation_token: nil,
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(existing_topic_id: embedded_topic.id),
+         as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      "outcome" => "resolved",
+      "topic_id" => embedded_topic.id,
+    )
+    expect(Topic.count).to eq(original_topic_count)
+  end
+
+  it "rejects adoption when Core does not attest the exact source and topic" do
+    embedded_topic = Fabricate(:topic, user: service_actor, category: category, visible: false)
+    embedded_post = Fabricate(:post, topic: embedded_topic, user: service_actor, post_number: 1)
+    TopicEmbed.create!(
+      topic_id: embedded_topic.id,
+      post_id: embedded_post.id,
+      embed_url: TopicEmbed.normalize_url("https://example.com/articles/other/"),
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(existing_topic_id: embedded_topic.id),
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+    expect(DiscussionBridgeContentBinding.count).to eq(0)
+  end
+
+  it "rejects adoption when the Core embed topic already belongs to a Bridge Record" do
+    canonical_url = "https://example.com/articles/already-bridged/"
+    embedded_topic = Fabricate(:topic, user: service_actor, category: category, visible: false)
+    embedded_post = Fabricate(:post, topic: embedded_topic, user: service_actor, post_number: 1)
+    TopicEmbed.create!(
+      topic_id: embedded_topic.id,
+      post_id: embedded_post.id,
+      embed_url: TopicEmbed.normalize_url(canonical_url),
+    )
+    DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "from_discourse",
+      state: "healthy",
+      title: embedded_topic.title,
+      topic_id: embedded_topic.id,
+      effective_actor_id: service_actor.id,
+      requested_visibility: "unlisted",
+      effective_visibility: "unlisted",
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload(canonical_url: canonical_url, existing_topic_id: embedded_topic.id),
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeContentBinding.count).to eq(0)
+  end
+
   it "uses a connection-selected visible author and preserves it across later policy changes" do
     selected_author = Fabricate(:user, username: "wordpress_author", trust_level: 1)
     replacement_author = Fabricate(:user, username: "replacement_author", trust_level: 1)
@@ -211,6 +301,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       payload(published: "true"),
       payload(canonical_url: "https://other.example/article"),
       payload(direction: "from_discourse"),
+      payload(existing_topic_id: 0),
+      payload(existing_topic_id: "1"),
+      payload(existing_topic_id: DiscussionBridge::BridgeRecordRequest::MAX_TOPIC_ID + 1),
     ].each do |body|
       post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
       expect(response).not_to have_http_status(:created)

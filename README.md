@@ -111,6 +111,14 @@ remains separate from a non-privileged visible author. A retry with the same ext
 identity and URL returns the same resource and topic without rewriting its
 first-published snapshot; conflicting identity claims fail closed.
 
+An adapter may include `existing_topic_id` only while adopting a standalone
+Discourse Core embed. The plugin creates a Bridge Record around that topic
+without creating a replacement only when Core already attests the exact
+canonical source URL, the topic is an available unlisted embed, and it has no
+prior DiscussionBridge mapping. This is the automatic upgrade path from a
+standard Core `full` embed. It is not authority to claim a manually selected
+topic; those remain standalone until a forum operator explicitly adopts them.
+
 ### Read records visible to a connection
 
 ```http

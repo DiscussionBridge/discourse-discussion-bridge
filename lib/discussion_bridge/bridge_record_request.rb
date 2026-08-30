@@ -11,6 +11,7 @@ module DiscussionBridge
     MAX_SOURCE_AUTHORS = 20
     MAX_SOURCE_AUTHOR_ID_BYTES = 255
     MAX_SOURCE_AUTHOR_NAME_BYTES = 200
+    MAX_TOPIC_ID = 9_223_372_036_854_775_807
     REQUIRED_KEYS = %w[direction external_id canonical_url title content_html published].freeze
     ALLOWED_KEYS = (
       REQUIRED_KEYS + %w[
@@ -21,6 +22,7 @@ module DiscussionBridge
         visibility
         source_authors
         primary_source_author_id
+        existing_topic_id
       ]
     ).freeze
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
@@ -57,6 +59,12 @@ module DiscussionBridge
       raise ArgumentError, "invalid lane" if raw.key?("lane") && !LanePolicies::LANE_PATTERN.match?(raw["lane"])
       raise ArgumentError, "invalid visibility" if raw.key?("visibility") && raw["visibility"] != "unlisted"
       validate_source_authors!(raw)
+      if raw.key?("existing_topic_id")
+        existing_topic_id = raw["existing_topic_id"]
+        unless existing_topic_id.is_a?(Integer) && existing_topic_id.between?(1, MAX_TOPIC_ID)
+          raise ArgumentError, "invalid existing_topic_id"
+        end
+      end
 
       raw.symbolize_keys
     rescue JSON::GeneratorError

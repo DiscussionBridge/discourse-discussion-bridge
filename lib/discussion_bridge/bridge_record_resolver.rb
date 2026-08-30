@@ -28,6 +28,7 @@ module DiscussionBridge
       url_digest = Digest::SHA256.hexdigest("#{@connection.public_id}\n#{canonical.source_url}")
       creation = nil
       bridge_record = nil
+      adopted_topic = nil
 
       DiscussionBridgeBridgeRecord.transaction do
         @connection.lock!
@@ -44,18 +45,21 @@ module DiscussionBridge
           return resolve_existing(matches, canonical, identity_digest, url_digest)
         end
 
+        adopted_topic = adoptable_core_embed_topic(canonical) if @request[:existing_topic_id]
+
         bridge_record = DiscussionBridgeBridgeRecord.create!(
           resource_id: SecureRandom.uuid,
           direction: "to_discourse",
-          state: "reserved",
+          state: adopted_topic ? "healthy" : "reserved",
           title: @request.fetch(:title),
-          effective_actor_id: @policy.effective_actor_id,
+          topic_id: adopted_topic&.id,
+          effective_actor_id: adopted_topic&.user_id || @policy.effective_actor_id,
           lane: @request[:lane],
           requested_visibility: @request.fetch(:visibility, "unlisted"),
           effective_visibility: @policy.effective_visibility,
           source_authors: Array(@request[:source_authors]),
           primary_source_author_id: @request[:primary_source_author_id],
-          reservation_token: SecureRandom.hex(32),
+          reservation_token: adopted_topic ? nil : SecureRandom.hex(32),
         )
         DiscussionBridgeContentBinding.create!(
           bridge_record: bridge_record,
@@ -68,22 +72,47 @@ module DiscussionBridge
           canonical_url_digest: url_digest,
           activated_at: Time.zone.now,
         )
-        creation = @topic_creator.call(request: topic_request(canonical), policy: @policy)
-        bridge_record.update!(
-          topic_id: creation.topic.id,
-          state: "healthy",
-          reservation_token: nil,
+        unless adopted_topic
+          creation = @topic_creator.call(request: topic_request(canonical), policy: @policy)
+          bridge_record.update!(
+            topic_id: creation.topic.id,
+            state: "healthy",
+            reservation_token: nil,
+          )
+        end
+        write_audit!(
+          bridge_record,
+          identity_digest,
+          "created",
+          adopted_topic ? "core_embed_topic_adopted" : "bridge_record_created",
         )
-        write_audit!(bridge_record, identity_digest, "created", "bridge_record_created")
       end
       update_connection_presence!
-      @topic_creator.after_commit(creation)
-      result("created", "bridge_record_created", bridge_record)
+      @topic_creator.after_commit(creation) if creation
+      result("created", adopted_topic ? "core_embed_topic_adopted" : "bridge_record_created", bridge_record)
     rescue ActiveRecord::RecordNotUnique
       retry_existing
     end
 
     private
+
+    def adoptable_core_embed_topic(canonical)
+      topic_id = @request.fetch(:existing_topic_id)
+      if DiscussionBridgeBridgeRecord.exists?(topic_id: topic_id) ||
+          (defined?(DiscussionBridgeConnection) && DiscussionBridgeConnection.exists?(topic_id: topic_id))
+        raise ArgumentError, "existing topic already has a DiscussionBridge mapping"
+      end
+      unless TopicEmbed.topic_id_for_embed(canonical.source_url) == topic_id
+        raise ArgumentError, "existing topic is not the Discourse Core embed for this canonical source"
+      end
+
+      topic = Topic.unscoped.lock.find_by(id: topic_id)
+      unless topic && topic.deleted_at.nil? && topic.visible == false &&
+          Post.unscoped.exists?(topic_id: topic.id, post_number: 1, deleted_at: nil)
+        raise ArgumentError, "existing Core embed topic is unavailable"
+      end
+      topic
+    end
 
     def retry_existing
       canonical = CanonicalSource.call(connection_id: @connection.public_id, source_url: @request.fetch(:canonical_url))
