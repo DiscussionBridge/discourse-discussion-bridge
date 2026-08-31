@@ -55,6 +55,7 @@ module DiscussionBridge
         :author_username,
         :authorship_mode,
         :unmapped_author_policy,
+        :generate_topic_toc,
         :adapter_id,
         :adapter_version,
         :enabled,
@@ -99,6 +100,7 @@ module DiscussionBridge
         author_override: connection.author_user_id.present?,
         authorship_mode: connection.authorship_mode,
         unmapped_author_policy: connection.unmapped_author_policy,
+        generate_topic_toc: connection.generate_topic_toc,
         source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|
           serialize_source_author(source_author)
         end,

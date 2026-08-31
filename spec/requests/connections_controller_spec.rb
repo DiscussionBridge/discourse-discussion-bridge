@@ -73,6 +73,25 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
   end
 
+  it "applies the selected connection's forum table-of-contents policy" do
+    @connection.update!(generate_topic_toc: true)
+    structured = payload(
+      content_html: "<h2>First section</h2><p>One.</p><h2>Second section</h2><p>Two.</p>",
+      external_id: "post-483",
+      canonical_url: "https://example.com/articles/structured-guide/",
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: structured,
+         as: :json
+
+    expect(response).to have_http_status(:created), response.body
+    expect(DiscussionBridgeBridgeRecord.last.topic.first_post.raw).to start_with(
+      '<div data-theme-toc="true"></div>',
+    )
+  end
+
   it "adopts an exact Discourse Core embed without creating a duplicate topic" do
     canonical_url = "https://example.com/articles/community-guide/"
     embedded_topic = Fabricate(:topic, user: service_actor, category: category, visible: false)
@@ -453,6 +472,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
              allowed_origins: ["https://publishing.example"],
              allowed_directions: ["from_discourse"],
              allowed_lanes: [],
+             generate_topic_toc: true,
            },
          },
          as: :json
@@ -465,16 +485,18 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "author_override" => true,
       "authorship_mode" => "fixed",
       "unmapped_author_policy" => "fallback",
+      "generate_topic_toc" => true,
     )
 
     get "/discussion-bridge/admin/content-connections.json"
     expect(response.parsed_body.to_json).not_to include(issued_secret)
     put "/discussion-bridge/admin/content-connections/#{created.fetch("id")}.json",
-        params: { content_connection: { enabled: false, author_username: "" } },
+        params: { content_connection: { enabled: false, author_username: "", generate_topic_toc: false } },
         as: :json
     expect(response.parsed_body.dig("content_connection", "enabled")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_override")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_username")).to eq(service_actor.username)
+    expect(response.parsed_body.dig("content_connection", "generate_topic_toc")).to eq(false)
     post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)

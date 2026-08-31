@@ -100,9 +100,11 @@ describe "DiscussionBridge native product administration" do
     end
     expect(page).to have_content("Manage connection")
     fill_in("Connection name", with: "Editorial Ghost Updated")
+    check("Generate topic table of contents")
     click_button("Save connection")
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
+    expect(created.generate_topic_toc).to eq(true)
   end
 
   it "manages observed platform authors inside the selected connection" do

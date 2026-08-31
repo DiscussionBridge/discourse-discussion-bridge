@@ -158,6 +158,7 @@ module DiscussionBridge
         correlation_id: @request[:correlation_id],
         source_authors: Array(@request[:source_authors]),
         primary_source_author_id: @request[:primary_source_author_id],
+        generate_topic_toc: @connection.generate_topic_toc,
       }.compact
     end
 

@@ -67,6 +67,29 @@ describe DiscussionBridge::TopicCreator do
     expect(post.raw.index("Source authors")).to be < post.raw.index("Originally published at")
   end
 
+  it "adds the official DiscoTOC marker only when the connection requests it for structured content" do
+    structured_request = request.merge(
+      content_html: "<h2>First section</h2><p>One.</p><h2>Second section</h2><p>Two.</p>",
+      generate_topic_toc: true,
+    )
+    post = described_class.new.call(request: structured_request, policy: policy).topic.first_post
+
+    expect(post.raw).to start_with("<div data-theme-toc=\"true\"></div>\n\n")
+    expect(post.cooked).to include('data-theme-toc="true"')
+
+    short_post = described_class.new.call(
+      request: request.merge(generate_topic_toc: true, source_url: "https://example.com/articles/short"),
+      policy: policy,
+    ).topic.first_post
+    expect(short_post.raw).not_to include("data-theme-toc")
+
+    disabled_post = described_class.new.call(
+      request: structured_request.merge(generate_topic_toc: false, source_url: "https://example.com/articles/disabled"),
+      policy: policy,
+    ).topic.first_post
+    expect(disabled_post.raw).not_to include("data-theme-toc")
+  end
+
   it "converts portable Mermaid and math HTML into Discourse-native source" do
     rich_request = request.merge(
       content_html: <<~HTML,

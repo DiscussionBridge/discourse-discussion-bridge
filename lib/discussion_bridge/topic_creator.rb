@@ -18,6 +18,7 @@ module DiscussionBridge
           source_url,
           request.fetch(:content_html),
           request[:source_authors],
+          request.fetch(:generate_topic_toc, false),
         ),
         category: policy.effective_category_id,
         tags: policy.effective_tags,
@@ -44,9 +45,11 @@ module DiscussionBridge
 
     private
 
-    def companion_post(source_url, content_html, source_authors)
+    def companion_post(source_url, content_html, source_authors, generate_topic_toc)
       credit = SourceAuthorship.credit_html(source_authors)
       parts = [PortableContent.to_discourse_raw(content_html)]
+      parts.unshift('<div data-theme-toc="true"></div>') if generate_topic_toc &&
+        PortableContent.toc_eligible?(content_html)
       parts << credit if credit.present?
       parts << "---\n\nOriginally published at [#{source_url}](#{source_url})"
       parts.join("\n\n")

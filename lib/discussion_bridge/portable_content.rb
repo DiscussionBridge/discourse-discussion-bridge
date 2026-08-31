@@ -7,6 +7,12 @@ module DiscussionBridge
   module PortableContent
     MERMAID_CLASSES = %w[language-mermaid lang-mermaid].freeze
     MATH_DELIMITER = /(?:\A|[^$])\${1,2}[^$]+\${1,2}(?:\z|[^$])/m
+    TOC_HEADING_SELECTOR = "h2, h3, h4, h5, h6"
+    MINIMUM_TOC_HEADINGS = 2
+
+    def self.toc_eligible?(content_html)
+      Nokogiri::HTML5.fragment(content_html).css(TOC_HEADING_SELECTOR).length >= MINIMUM_TOC_HEADINGS
+    end
 
     def self.to_discourse_raw(content_html)
       fragment = Nokogiri::HTML5.fragment(content_html)

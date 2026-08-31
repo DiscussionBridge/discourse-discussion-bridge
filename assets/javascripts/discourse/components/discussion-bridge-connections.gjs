@@ -26,6 +26,7 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked lanes = "";
   @tracked toDiscourse = true;
   @tracked fromDiscourse = true;
+  @tracked generateTopicToc = false;
   @tracked issuedSecret = null;
   @tracked issuedConnectionId = null;
   @tracked editingConnectionId = null;
@@ -72,6 +73,9 @@ export default class DiscussionBridgeConnections extends Component {
   updateFromDiscourse(event) { this.fromDiscourse = event.target.checked; }
 
   @action
+  updateGenerateTopicToc(event) { this.generateTopicToc = event.target.checked; }
+
+  @action
   async saveConnection(event) {
     event.preventDefault();
     const directions = [];
@@ -91,6 +95,7 @@ export default class DiscussionBridgeConnections extends Component {
             author_username: this.authorUsername,
             authorship_mode: this.authorshipMode,
             unmapped_author_policy: this.unmappedAuthorPolicy,
+            generate_topic_toc: this.generateTopicToc,
             allowed_origins: this.lines(this.origins),
             allowed_directions: directions,
             allowed_lanes: this.lines(this.lanes),
@@ -124,6 +129,7 @@ export default class DiscussionBridgeConnections extends Component {
     this.lanes = connection.allowed_lanes.join("\n");
     this.toDiscourse = connection.allowed_directions.includes("to_discourse");
     this.fromDiscourse = connection.allowed_directions.includes("from_discourse");
+    this.generateTopicToc = connection.generate_topic_toc;
   }
 
   @action
@@ -197,6 +203,7 @@ export default class DiscussionBridgeConnections extends Component {
     this.lanes = "";
     this.toDiscourse = true;
     this.fromDiscourse = true;
+    this.generateTopicToc = false;
   }
 
   displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
@@ -232,6 +239,7 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd>{{#each connection.allowed_directions as |direction|}}<span>{{this.displayToken direction}}</span>{{/each}}</dd>
               <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code>{{connection.author_username}}</code>{{#unless connection.author_override}} <small>{{i18n "discussion_bridge.admin.forum_default"}}</small>{{/unless}}</dd>
               <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd>{{this.displayToken connection.authorship_mode}} · {{connection.source_author_count}} {{i18n "discussion_bridge.admin.source_authors"}}{{#if connection.unmapped_source_author_count}} · {{connection.unmapped_source_author_count}} {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if connection.generate_topic_toc (i18n "discussion_bridge.admin.enabled") (i18n "discussion_bridge.admin.disabled")}}</dd>
               <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each connection.allowed_origins as |origin|}}<code>{{origin}}</code>{{/each}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
@@ -281,6 +289,10 @@ export default class DiscussionBridgeConnections extends Component {
             <label><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} />{{i18n "discussion_bridge.admin.to_discourse"}}</label>
             <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>
           </fieldset>
+          <label class="discussion-bridge-checkbox-setting">
+            <input type="checkbox" checked={{this.generateTopicToc}} {{on "change" this.updateGenerateTopicToc}} />
+            <span><strong>{{i18n "discussion_bridge.admin.generate_topic_toc"}}</strong><small>{{i18n "discussion_bridge.admin.generate_topic_toc_description"}}</small></span>
+          </label>
         {{else}}
           <section class="discussion-bridge-authors-panel">
             <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>

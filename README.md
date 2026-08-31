@@ -111,6 +111,13 @@ remains separate from a non-privileged visible author. A retry with the same ext
 identity and URL returns the same resource and topic without rewriting its
 first-published snapshot; conflicting identity claims fail closed.
 
+The General tab also offers **Generate topic table of contents** per Content
+Connection. When enabled, a newly created To Discourse topic with at least two
+source headings receives the official DiscoTOC marker. The forum must have the
+DiscoTOC theme component installed; this setting does not install it. Platform
+page navigation remains independent, and existing topics are not silently
+rewritten when the setting changes.
+
 An adapter may include `existing_topic_id` only while adopting a standalone
 Discourse Core embed. The plugin creates a Bridge Record around that topic
 without creating a replacement only when Core already attests the exact

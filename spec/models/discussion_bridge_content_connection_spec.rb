@@ -11,6 +11,7 @@ describe DiscussionBridgeContentConnection do
         allowed_lanes: [],
       )
       expect(secret.bytesize).to be_between(32, 256)
+      expect(connection.generate_topic_toc).to eq(false)
       connection
     end
     second_wordpress, = described_class.issue!(
@@ -23,6 +24,8 @@ describe DiscussionBridgeContentConnection do
 
     expect(created.map(&:platform)).to contain_exactly(*described_class::PLATFORMS)
     expect(second_wordpress.platform).to eq("wordpress")
+    second_wordpress.update!(generate_topic_toc: true)
+    expect(second_wordpress.reload.generate_topic_toc).to eq(true)
   end
 
   it "keeps credentials independent and rejects malformed scope" do
