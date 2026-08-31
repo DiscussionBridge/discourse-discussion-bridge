@@ -10,8 +10,12 @@ html[data-discussion-bridge-comments-only-attested] body.embed-mode {
 
   #main-outlet {
     grid-column: 1 !important;
-    width: 100% !important;
-    max-width: none !important;
+    box-sizing: border-box;
+    width: min(100%, 48rem) !important;
+    max-width: 48rem !important;
+    min-width: 0;
+    padding-inline: clamp(0.5rem, 2vw, 1rem);
+    margin-inline: auto !important;
   }
 
   // Discourse Core visually hides post 1 in full-app embeds but leaves it in
