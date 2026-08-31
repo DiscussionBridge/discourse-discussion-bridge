@@ -17,7 +17,8 @@
 - local publication of an existing Discourse topic as a From Discourse record
   for one or more independently authorized platform connections;
 - exact mapped-topic attestation for optional comments-only full-app
-  presentation.
+  presentation, including an explicit From Discourse source-presentation mode
+  that omits the already-rendered first post while retaining its replies.
 
 ## Discourse Core owns
 

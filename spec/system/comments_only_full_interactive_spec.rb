@@ -85,6 +85,30 @@ describe "DiscussionBridge comments-only fullInteractive" do
     expect(page).to have_no_css(".embed-topic-footer__first-reply")
   end
 
+  it "shows From Discourse replies without duplicating an explicitly presented first post" do
+    source_topic = Fabricate(:topic, user: service_actor, visible: true)
+    source_post = Fabricate(:post, topic: source_topic, raw: "Forum-owned source article")
+    reply = Fabricate(:post, topic: source_topic, raw: "A portable source reply")
+    DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "from_discourse",
+      state: "healthy",
+      title: source_topic.title,
+      topic_id: source_topic.id,
+      effective_actor_id: source_topic.user_id,
+      requested_visibility: "listed",
+      effective_visibility: "listed",
+    )
+
+    visit(
+      "/embed/comments?topic_id=#{source_topic.id}&full_app=true&class_name=#{DiscussionBridge::CommentsOnlyPresenter::SOURCE_PRESENTATION_CLASS}",
+    )
+
+    expect(page).to have_css("#post_#{source_post.post_number}", visible: :hidden)
+    expect(page).to have_css("#post_#{reply.post_number}", text: "A portable source reply")
+    expect(page).to have_css("#post_#{reply.post_number} nav.post-controls")
+  end
+
   it "completes an authenticated reply inside the full-app embed" do
     sign_in(interactive_user)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")

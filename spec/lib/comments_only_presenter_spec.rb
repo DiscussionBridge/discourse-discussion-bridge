@@ -41,7 +41,7 @@ describe DiscussionBridge::CommentsOnlyPresenter do
     expect(described_class.class_name(topic_id: topic.id, embed_mode: true)).to be_nil
   end
 
-  it "does not hide the first post of a From Discourse publication" do
+  it "does not hide the first post of an ordinary From Discourse embed" do
     source_topic = Fabricate(:topic)
     DiscussionBridgeBridgeRecord.create!(
       resource_id: SecureRandom.uuid,
@@ -55,6 +55,28 @@ describe DiscussionBridge::CommentsOnlyPresenter do
     )
 
     expect(described_class.class_name(topic_id: source_topic.id, embed_mode: true)).to be_nil
+  end
+
+  it "hides a From Discourse first post only for an explicit source presentation" do
+    source_topic = Fabricate(:topic)
+    DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "from_discourse",
+      state: "healthy",
+      title: source_topic.title,
+      topic_id: source_topic.id,
+      effective_actor_id: source_topic.user_id,
+      requested_visibility: "listed",
+      effective_visibility: "listed",
+    )
+
+    expect(
+      described_class.redirect_class_name(
+        topic_id: source_topic.id,
+        full_app: true,
+        existing_class_name: described_class::SOURCE_PRESENTATION_CLASS,
+      ),
+    ).to eq(described_class::CSS_CLASS)
   end
 
   it "is independently operator-disabled" do

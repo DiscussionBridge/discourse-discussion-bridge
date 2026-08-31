@@ -28,7 +28,9 @@ Direction belongs to each Bridge Record, not to the connection:
 - **To Discourse**: an authoritatively published external item creates or
   resolves one forum-governed discussion.
 - **From Discourse**: an existing Discourse topic and first post are exposed to
-  an authorized connection for external presentation.
+  an authorized connection for external presentation. A platform that renders
+  that first post may explicitly attach the same topic's fullInteractive
+  replies; the attested comments-only frame omits the duplicate first post.
 
 A migration prepares a replacement binding, preserves the resource and topic,
 then makes the old binding historical when an administrator applies it.

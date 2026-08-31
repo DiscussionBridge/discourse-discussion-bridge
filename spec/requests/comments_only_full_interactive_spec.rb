@@ -53,6 +53,42 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     )
   end
 
+  it "attests an explicit From Discourse source presentation without changing ordinary embeds" do
+    source_topic = Fabricate(:topic, user: service_actor, visible: true)
+    Fabricate(:post, topic: source_topic, raw: "Forum-owned source article")
+    source_record = DiscussionBridgeBridgeRecord.create!(
+      resource_id: SecureRandom.uuid,
+      direction: "from_discourse",
+      state: "healthy",
+      title: source_topic.title,
+      topic_id: source_topic.id,
+      effective_actor_id: source_topic.user_id,
+      requested_visibility: "listed",
+      effective_visibility: "listed",
+    )
+
+    get "/embed/comments",
+        params: {
+          topic_id: source_topic.id,
+          full_app: "true",
+          class_name: DiscussionBridge::CommentsOnlyPresenter::SOURCE_PRESENTATION_CLASS,
+        }
+
+    location = URI.parse(response.location)
+    query = Rack::Utils.parse_nested_query(location.query)
+    expect(query).to include(
+      "embed_mode" => "true",
+      "class_name" => "discussion-bridge-comments-only",
+    )
+    attestation = DiscussionBridge::EmbedRouteAttestation.verify(
+      query.fetch("discussion_bridge_embed_token"),
+    )
+    expect(attestation[:mapping]).to eq(source_record)
+
+    get "/embed/comments", params: { topic_id: source_topic.id, full_app: "true" }
+    expect(response.location.to_s).not_to include("discussion_bridge_embed_token")
+  end
+
   it "does not attest a forged direct topic URL" do
     get topic.url,
         params: {

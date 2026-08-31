@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.11
+# version: 0.2.0.alpha.12
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -111,16 +111,20 @@ after_initialize do
           end
 
         mapped_topic = CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id)
+        source_presentation = CommentsOnlyPresenter.source_presentation_requested?(
+          params[:class_name],
+        ) && CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
+        protected_topic = mapped_topic || source_presentation
         full_app_supplied = params.key?(:full_app)
         full_app_requested = params[:full_app].is_a?(String) && params[:full_app] == "true"
 
-        if mapped_topic && full_app_supplied && !full_app_requested
+        if protected_topic && full_app_supplied && !full_app_requested
           render plain: I18n.t("discussion_bridge.full_interactive_invalid_request"),
                  status: :unprocessable_entity
           return
         end
 
-        mapped_full_app = mapped_topic && full_app_requested
+        mapped_full_app = protected_topic && full_app_requested
 
         if mapped_full_app
           unless CommentsOnlyPresenter.valid_existing_class_name?(params[:class_name])
@@ -143,12 +147,20 @@ after_initialize do
             return
           end
 
-          mapping = DiscussionBridgeBridgeRecord.find_by(
-            topic_id: topic_id,
-            state: "healthy",
-            direction: "to_discourse",
-          ) ||
-            DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
+          mapping = if source_presentation
+            DiscussionBridgeBridgeRecord.find_by(
+              topic_id: topic_id,
+              state: "healthy",
+              direction: "from_discourse",
+            )
+          else
+            DiscussionBridgeBridgeRecord.find_by(
+              topic_id: topic_id,
+              state: "healthy",
+              direction: "to_discourse",
+            ) ||
+              DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
+          end
           unless mapping
             render plain: I18n.t(
                      "discussion_bridge.full_interactive_unavailable",
@@ -216,7 +228,11 @@ after_initialize do
           elsif params[:embed_url].present? && EmbeddableHost.url_allowed?(params[:embed_url])
             TopicEmbed.topic_id_for_embed(params[:embed_url])
           end
-        return unless CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id)
+        protected_topic = CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id) || (
+          CommentsOnlyPresenter.source_presentation_requested?(params[:class_name]) &&
+            CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
+        )
+        return unless protected_topic
         return unless params.key?(:full_app)
 
         unless params[:full_app].is_a?(String) && params[:full_app] == "true"
