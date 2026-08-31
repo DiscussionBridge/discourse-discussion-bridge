@@ -1,4 +1,19 @@
 html[data-discussion-bridge-comments-only-attested] body.embed-mode {
+  // Full-app embeds have no application sidebar, but current Core still uses
+  // the normal two-column wrap grid. Collapse that empty first column so the
+  // discussion uses the width the publishing page actually gave the iframe.
+  > .ember-view > .wrap,
+  .ember-application > .wrap,
+  .wrap {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  #main-outlet {
+    grid-column: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
   // Discourse Core visually hides post 1 in full-app embeds but leaves it in
   // layout. A long companion post can therefore inflate the virtualized stream
   // and create a large internal scrollbar. Completed DiscussionBridge mappings
