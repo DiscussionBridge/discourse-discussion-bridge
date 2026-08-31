@@ -69,6 +69,7 @@ describe DiscussionBridge::TopicCreator do
 
   it "adds the official DiscoTOC marker only when the connection requests it for structured content" do
     structured_request = request.merge(
+      title: "A structured DiscussionBridge companion topic",
       content_html: "<h2>First section</h2><p>One.</p><h2>Second section</h2><p>Two.</p>",
       generate_topic_toc: true,
     )
@@ -78,13 +79,21 @@ describe DiscussionBridge::TopicCreator do
     expect(post.cooked).to include('data-theme-toc="true"')
 
     short_post = described_class.new.call(
-      request: request.merge(generate_topic_toc: true, source_url: "https://example.com/articles/short"),
+      request: request.merge(
+        title: "A short DiscussionBridge companion topic",
+        generate_topic_toc: true,
+        source_url: "https://example.com/articles/short",
+      ),
       policy: policy,
     ).topic.first_post
     expect(short_post.raw).not_to include("data-theme-toc")
 
     disabled_post = described_class.new.call(
-      request: structured_request.merge(generate_topic_toc: false, source_url: "https://example.com/articles/disabled"),
+      request: structured_request.merge(
+        title: "A TOC-disabled DiscussionBridge companion topic",
+        generate_topic_toc: false,
+        source_url: "https://example.com/articles/disabled",
+      ),
       policy: policy,
     ).topic.first_post
     expect(disabled_post.raw).not_to include("data-theme-toc")
