@@ -23,3 +23,23 @@ class DiscussionBridgeSourceAuthor < ActiveRecord::Base
     errors.add(:discourse_user, "must be an active non-system Discourse user")
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_source_authors
+#
+#  id                    :bigint           not null, primary key
+#  display_name          :string(200)      not null
+#  last_seen_at          :datetime         not null
+#  profile_url           :text
+#  created_at            :datetime         not null
+#  updated_at            :datetime         not null
+#  content_connection_id :bigint           not null
+#  discourse_user_id     :bigint
+#  source_author_id      :string(255)      not null
+#
+# Indexes
+#
+#  idx_db_source_authors_connection_identity  (content_connection_id,source_author_id) UNIQUE
+#  idx_db_source_authors_discourse_user       (discourse_user_id)
+#

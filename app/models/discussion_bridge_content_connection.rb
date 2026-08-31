@@ -117,3 +117,34 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
       lanes.all? { |lane| DiscussionBridge::LanePolicies::LANE_PATTERN.match?(lane.to_s) }
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_content_connections
+#
+#  id                     :bigint           not null, primary key
+#  adapter_version        :string(100)
+#  allowed_directions     :jsonb            not null
+#  allowed_lanes          :jsonb            not null
+#  allowed_origins        :jsonb            not null
+#  authorship_mode        :string(32)       default("fixed"), not null
+#  enabled                :boolean          default(TRUE), not null
+#  generate_topic_toc     :boolean          default(FALSE), not null
+#  last_seen_at           :datetime
+#  name                   :string(120)      not null
+#  platform               :string(32)       not null
+#  secret_digest          :string(64)       not null
+#  unmapped_author_policy :string(32)       default("fallback"), not null
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  adapter_id             :string(100)
+#  author_user_id         :bigint
+#  public_id              :string(64)       not null
+#
+# Indexes
+#
+#  idx_db_content_connections_author     (author_user_id)
+#  idx_db_content_connections_name       (name) UNIQUE
+#  idx_db_content_connections_platform   (platform)
+#  idx_db_content_connections_public_id  (public_id) UNIQUE
+#

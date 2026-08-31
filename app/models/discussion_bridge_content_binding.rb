@@ -39,3 +39,33 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
     errors.add(:state, "already exists for this record and role") if scope.exists?
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_content_bindings
+#
+#  id                    :bigint           not null, primary key
+#  activated_at          :datetime
+#  canonical_url         :text             not null
+#  canonical_url_digest  :string(64)       not null
+#  identity_digest       :string(64)       not null
+#  retired_at            :datetime
+#  role                  :string(32)       not null
+#  state                 :string(32)       default("active"), not null
+#  created_at            :datetime         not null
+#  updated_at            :datetime         not null
+#  bridge_record_id      :bigint           not null
+#  content_connection_id :bigint           not null
+#  external_id           :string(255)      not null
+#
+# Indexes
+#
+#  idx_db_bindings_bridge_record                       (bridge_record_id)
+#  idx_db_bindings_content_connection                  (content_connection_id)
+#  idx_db_bindings_identity                            (identity_digest) UNIQUE
+#  idx_discussion_bridge_bindings_canonical_url        (canonical_url_digest) UNIQUE
+#  idx_discussion_bridge_bindings_connection_external  (content_connection_id,external_id) UNIQUE
+#  idx_discussion_bridge_bindings_one_active           (bridge_record_id,role) UNIQUE WHERE ((state)::text = 'active'::text)
+#  idx_discussion_bridge_bindings_one_prepared         (bridge_record_id,role) UNIQUE WHERE ((state)::text = 'prepared'::text)
+#  idx_discussion_bridge_bindings_record_role_state    (bridge_record_id,role,state)
+#

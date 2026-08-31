@@ -27,3 +27,33 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
     content_bindings.find_by(role: role, state: "active")
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_bridge_records
+#
+#  id                       :bigint           not null, primary key
+#  direction                :string(32)       not null
+#  effective_visibility     :string(32)       default("unlisted"), not null
+#  lane                     :string(64)
+#  requested_visibility     :string(32)       default("unlisted"), not null
+#  reservation_token        :string(64)
+#  retry_authorized_at      :datetime
+#  source_authors           :jsonb            not null
+#  state                    :string(32)       default("reserved"), not null
+#  title                    :string(1024)     not null
+#  created_at               :datetime         not null
+#  updated_at               :datetime         not null
+#  effective_actor_id       :bigint
+#  primary_source_author_id :string(255)
+#  resource_id              :string(64)       not null
+#  retry_authorized_by_id   :bigint
+#  topic_id                 :bigint
+#
+# Indexes
+#
+#  idx_db_bridge_records_reservation  (reservation_token) UNIQUE
+#  idx_db_bridge_records_resource_id  (resource_id) UNIQUE
+#  idx_db_bridge_records_state        (state)
+#  idx_db_bridge_records_topic_id     (topic_id)
+#
