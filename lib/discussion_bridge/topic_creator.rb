@@ -46,7 +46,7 @@ module DiscussionBridge
 
     def companion_post(source_url, content_html, source_authors)
       credit = SourceAuthorship.credit_html(source_authors)
-      parts = [content_html]
+      parts = [PortableContent.to_discourse_raw(content_html)]
       parts << credit if credit.present?
       parts << "---\n\nOriginally published at [#{source_url}](#{source_url})"
       parts.join("\n\n")

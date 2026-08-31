@@ -66,4 +66,38 @@ describe DiscussionBridge::TopicCreator do
     )
     expect(post.raw.index("Source authors")).to be < post.raw.index("Originally published at")
   end
+
+  it "converts portable Mermaid and math HTML into Discourse-native source" do
+    rich_request = request.merge(
+      content_html: <<~HTML,
+        <h2>Portable structure</h2>
+        <pre><code class="language-mermaid">flowchart LR
+        A[Source] --&gt; B[Bridge]</code></pre>
+        <p>Inline notation $E = mc^2$ remains text.</p>
+        <p>$$
+        \\sum_{n=1}^{10} n = 55
+        $$</p>
+      HTML
+    )
+
+    post = described_class.new.call(request: rich_request, policy: policy).topic.first_post
+
+    expect(post.raw).to include(
+      "```mermaid\nflowchart LR\nA[Source] --> B[Bridge]\n```",
+      "Inline notation $E = mc^2$ remains text.",
+      "$$\n\\sum_{n=1}^{10} n = 55\n$$",
+    )
+    expect(post.raw).not_to include("language-mermaid", "<p>$$")
+  end
+
+  it "does not unwrap a Mermaid block that could terminate its own fence" do
+    unsafe_request = request.merge(
+      content_html: '<pre><code class="language-mermaid">flowchart LR\n```\nunsafe</code></pre>',
+    )
+
+    post = described_class.new.call(request: unsafe_request, policy: policy).topic.first_post
+
+    expect(post.raw).to include('class="language-mermaid"')
+    expect(post.raw).not_to include("\n```mermaid\n")
+  end
 end

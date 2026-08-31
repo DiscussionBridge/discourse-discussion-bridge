@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.8
+# version: 0.2.0.alpha.9
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -68,6 +68,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/bridge_reconciliation_index"
   require_relative "lib/discussion_bridge/audit_state"
   require_relative "lib/discussion_bridge/existing_mapping_integrity"
+  require_relative "lib/discussion_bridge/portable_content"
   require_relative "lib/discussion_bridge/topic_creator"
   require_relative "lib/discussion_bridge/full_interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
