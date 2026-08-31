@@ -31,7 +31,10 @@ module DiscussionBridge
         paragraph.replace(Nokogiri::XML::Text.new(placeholder, fragment.document))
       end
 
-      output = fragment.to_html.strip
+      # Blank lines keep each top-level HTML block independent. Without them,
+      # Markdown fences and math source inserted between HTML siblings remain
+      # inside one CommonMark HTML block and are displayed literally.
+      output = fragment.children.map(&:to_html).join("\n\n").strip
       replacements.each { |placeholder, source| output.sub!(placeholder, source) }
       output
     end

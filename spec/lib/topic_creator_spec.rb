@@ -33,7 +33,7 @@ describe DiscussionBridge::TopicCreator do
     expect(creation.topic.visible).to eq(false)
     expect(post.user_id).to eq(author.id)
     expect(post.raw).to eq(
-      "<h2>Community guide</h2><p>Source-owned article content.</p>\n\n" \
+      "<h2>Community guide</h2>\n\n<p>Source-owned article content.</p>\n\n" \
         "---\n\nOriginally published at " \
         "[https://example.com/articles/source](https://example.com/articles/source)",
     )
@@ -88,6 +88,8 @@ describe DiscussionBridge::TopicCreator do
       "$$\n\\sum_{n=1}^{10} n = 55\n$$",
     )
     expect(post.raw).not_to include("language-mermaid", "<p>$$")
+    expect(post.cooked).to include('class="lang-mermaid"')
+    expect(post.cooked).not_to include("```mermaid")
   end
 
   it "does not unwrap a Mermaid block that could terminate its own fence" do
