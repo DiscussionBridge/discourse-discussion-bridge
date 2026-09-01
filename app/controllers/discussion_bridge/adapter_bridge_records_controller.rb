@@ -136,6 +136,7 @@ module DiscussionBridge
         source_authors: record.source_authors,
         primary_source_author_id: record.primary_source_author_id,
         content_html: record.direction == "from_discourse" ? first_post&.cooked : nil,
+        source: record.direction == "from_discourse" ? discourse_source(topic, first_post) : nil,
         bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
           {
             role: binding.role,
@@ -144,6 +145,28 @@ module DiscussionBridge
             canonical_url: binding.canonical_url,
           }
         end,
+      }
+    end
+
+    def discourse_source(topic, first_post)
+      return nil unless topic && first_post
+
+      author = first_post.user
+      {
+        platform: "discourse",
+        origin: Discourse.base_url,
+        topic_id: topic.id,
+        topic_url: topic.url,
+        post_id: first_post.id,
+        post_number: first_post.post_number,
+        post_version: first_post.version,
+        revision: "post:#{first_post.id}:version:#{first_post.version}",
+        updated_at: first_post.updated_at&.iso8601(6),
+        author: {
+          username: author&.username,
+          name: author&.name.presence || author&.username,
+          profile_url: author ? "#{Discourse.base_url}/u/#{author.username_lower}" : nil,
+        },
       }
     end
 

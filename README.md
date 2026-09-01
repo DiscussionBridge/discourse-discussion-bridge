@@ -136,7 +136,11 @@ GET /discussion-bridge/v1/bridge-records/:resource_id.json
 ```
 
 For a From Discourse record, the response includes the first post's cooked HTML
-for the authorized connection. It never includes another connection's record.
+and a `source` object containing the exact forum origin, topic/post identity,
+post version, stable revision token, update timestamp, and visible author
+identity. Adapters use that revision to create or update native platform
+content idempotently; they must not infer change from mutable titles or URLs.
+The response never includes another connection's record.
 
 ## Forum-wide settings
 

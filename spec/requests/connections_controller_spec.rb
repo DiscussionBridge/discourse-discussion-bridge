@@ -375,7 +375,34 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "direction")).to eq("from_discourse")
     expect(response.parsed_body.dig("bridge_record", "content_html")).to be_present
+    expect(response.parsed_body.dig("bridge_record", "source")).to include(
+      "platform" => "discourse",
+      "origin" => Discourse.base_url,
+      "topic_id" => topic.id,
+      "topic_url" => topic.url,
+      "post_id" => topic.first_post.id,
+      "post_number" => 1,
+      "post_version" => topic.first_post.version,
+      "revision" => "post:#{topic.first_post.id}:version:#{topic.first_post.version}",
+      "updated_at" => topic.first_post.updated_at.iso8601(6),
+      "author" => {
+        "username" => service_actor.username,
+        "name" => service_actor.name.presence || service_actor.username,
+        "profile_url" => "#{Discourse.base_url}/u/#{service_actor.username_lower}",
+      },
+    )
     expect(@connection.reload.last_seen_at).to be_present
+  end
+
+  it "does not attach Discourse publisher provenance to a To Discourse record" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created), response.body
+
+    resource_id = response.parsed_body.fetch("resource_id")
+    get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("bridge_record", "source")).to be_nil
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
