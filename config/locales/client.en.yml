@@ -125,6 +125,7 @@ en:
         publisher_publish_description: "Select a local topic and Content Connection, then identify its authorized platform presentation. Exact retries preserve the Bridge Record."
         publisher_local_topic_id: "Local topic ID"
         publisher_publish: "Publish through DiscussionBridge"
+        publisher_native_materialization: "Authorize the adapter to create or update a native platform record"
         publisher_created: "Platform publication created"
         publisher_resolved: "Existing platform publication resolved"
         publisher_recent_activity: "Recent platform publications"

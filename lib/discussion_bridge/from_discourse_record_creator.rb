@@ -6,25 +6,28 @@ module DiscussionBridge
   class FromDiscourseRecordCreator
     Result = Data.define(:record, :outcome)
 
-    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:)
+    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:, native_materialization: false)
       new(
         user: user,
         connection_id: connection_id,
         topic_id: topic_id,
         external_id: external_id,
         canonical_url: canonical_url,
+        native_materialization: native_materialization,
       ).call
     end
 
-    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:)
+    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, native_materialization:)
       @user = user
       @connection_id = connection_id
       @topic_id = topic_id
       @external_id = external_id
       @canonical_url = canonical_url
+      @native_materialization = native_materialization
     end
 
     def call
+      raise ArgumentError, "invalid native_materialization" unless [true, false].include?(@native_materialization)
       raise ArgumentError, "invalid external_id" unless
         DiscussionBridgeContentBinding.valid_external_id?(@external_id)
 
@@ -61,6 +64,7 @@ module DiscussionBridge
           valid = binding && binding.content_connection_id == connection.id &&
             binding.role == "presentation" && binding.state == "active" &&
             binding.external_id == @external_id && binding.canonical_url == canonical.source_url &&
+            binding.native_materialization == @native_materialization &&
             binding.bridge_record.direction == "from_discourse" &&
             binding.bridge_record.topic_id == topic.id
           raise ArgumentError, "binding identity conflict" unless valid
@@ -88,6 +92,7 @@ module DiscussionBridge
           canonical_url: canonical.source_url,
           identity_digest: identity_digest,
           canonical_url_digest: canonical_url_digest,
+          native_materialization: @native_materialization,
           activated_at: Time.zone.now,
         )
         result = Result.new(record: record, outcome: "created")

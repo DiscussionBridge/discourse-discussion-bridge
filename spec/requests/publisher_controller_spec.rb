@@ -12,7 +12,7 @@ describe DiscussionBridge::PublisherController do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_endpoint_enabled = true
     SiteSetting.discussion_bridge_publisher_enabled = true
-    @connection, = DiscussionBridgeContentConnection.issue!(
+    @connection, @secret = DiscussionBridgeContentConnection.issue!(
       name: "Astro Demo",
       platform: "astro",
       allowed_origins: ["https://astro.example.com"],
@@ -21,12 +21,13 @@ describe DiscussionBridge::PublisherController do
     )
   end
 
-  def publication(connection: @connection, external_id: "roadmap", canonical_url: "https://astro.example.com/roadmap/")
+  def publication(connection: @connection, external_id: "roadmap", canonical_url: "https://astro.example.com/roadmap/", native_materialization: false)
     {
       publication: {
         content_connection_id: connection.id,
         external_id: external_id,
         canonical_url: canonical_url,
+        native_materialization: native_materialization,
       },
     }
   end
@@ -62,6 +63,38 @@ describe DiscussionBridge::PublisherController do
       "resource_id" => created.fetch("resource_id"),
     )
     expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse").count).to eq(1)
+    expect(DiscussionBridgeContentBinding.last.native_materialization).to eq(false)
+  end
+
+  it "explicitly authorizes native materialization and exposes it to the adapter" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(native_materialization: true),
+         as: :json
+
+    expect(response).to have_http_status(:created)
+    expect(response.parsed_body.fetch("native_materialization")).to eq(true)
+    record = DiscussionBridgeBridgeRecord.last
+    expect(record.active_binding("presentation").native_materialization).to eq(true)
+
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: {
+          "X-DiscussionBridge-Connection" => @connection.public_id,
+          "X-DiscussionBridge-Secret" => @secret,
+        }
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
+  end
+
+  it "rejects malformed native materialization authority" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(native_materialization: "yes"),
+         as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse")).to be_empty
   end
 
   it "publishes one local topic independently to more than one platform" do

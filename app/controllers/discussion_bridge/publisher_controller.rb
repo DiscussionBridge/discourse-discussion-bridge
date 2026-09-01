@@ -33,6 +33,7 @@ module ::DiscussionBridge
         topic_id: params.require(:topic_id),
         external_id: input.fetch(:external_id),
         canonical_url: input.fetch(:canonical_url),
+        native_materialization: native_materialization(input[:native_materialization]),
       )
       render json: publication_payload(result.record).merge(outcome: result.outcome),
              status: result.outcome == "created" ? :created : :ok
@@ -99,12 +100,20 @@ module ::DiscussionBridge
         platform: binding&.content_connection&.platform,
         external_id: binding&.external_id,
         canonical_url: binding&.canonical_url,
+        native_materialization: binding&.native_materialization || false,
       }
     end
 
     def recent_records
       from_discourse_records.includes(:topic, content_bindings: :content_connection)
         .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
+    end
+
+    def native_materialization(value)
+      return false if value.nil? || value == false || value == "false"
+      return true if value == true || value == "true"
+
+      raise ArgumentError, "invalid native_materialization"
     end
 
     def ensure_staff

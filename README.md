@@ -173,6 +173,12 @@ more than one platform connection. The authorized platform adapter retrieves
 the record from this forum; no second receiving forum or outbound forum secret
 is part of ordinary publishing.
 
+Publishing authority is explicit per binding. **Authorize native
+materialization** permits the selected adapter to create or update a genuine
+platform record at that URL. When it is off, the record is presentation-only
+and may be rendered inside an existing platform page; adapters must not infer
+permission to create content from retrieval access alone.
+
 ## Presentation boundary
 
 DiscussionBridge can qualify a healthy mapped topic for Discourse Core's

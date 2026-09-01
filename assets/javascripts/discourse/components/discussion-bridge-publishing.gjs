@@ -17,6 +17,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked connectionId = "";
   @tracked externalId = "";
   @tracked canonicalUrl = "";
+  @tracked nativeMaterialization = false;
   @tracked notice = "";
   @tracked createdRecord = null;
   @tracked working = false;
@@ -34,6 +35,9 @@ export default class DiscussionBridgePublishing extends Component {
   updateCanonicalUrl(event) { this.canonicalUrl = event.target.value; }
 
   @action
+  updateNativeMaterialization(event) { this.nativeMaterialization = event.target.checked; }
+
+  @action
   async publishTopic(event) {
     event.preventDefault();
     this.working = true;
@@ -48,6 +52,7 @@ export default class DiscussionBridgePublishing extends Component {
               content_connection_id: this.connectionId,
               external_id: this.externalId,
               canonical_url: this.canonicalUrl,
+              native_materialization: this.nativeMaterialization,
             },
           },
         }
@@ -105,6 +110,7 @@ export default class DiscussionBridgePublishing extends Component {
           </label>
           <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
           <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.canonicalUrl}} {{on "input" this.updateCanonicalUrl}} /></label>
+          <label class="discussion-bridge-publishing__checkbox"><input type="checkbox" checked={{this.nativeMaterialization}} {{on "change" this.updateNativeMaterialization}} /> {{i18n "discussion_bridge.admin.publisher_native_materialization"}}</label>
           <DButton @type="submit" @label="discussion_bridge.admin.publisher_publish" @disabled={{this.working}} class="btn-primary" />
         </form>
       </div>

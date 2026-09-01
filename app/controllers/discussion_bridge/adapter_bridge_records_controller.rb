@@ -143,6 +143,7 @@ module DiscussionBridge
             state: binding.state,
             external_id: binding.external_id,
             canonical_url: binding.canonical_url,
+            native_materialization: binding.native_materialization,
           }
         end,
       }
