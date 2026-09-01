@@ -5,7 +5,7 @@ require "digest"
 class DiscussionBridgeContentConnection < ActiveRecord::Base
   self.table_name = "discussion_bridge_content_connections"
 
-  PLATFORMS = %w[wordpress ghost statamic astro discourse].freeze
+  PLATFORMS = %w[wordpress ghost statamic astro hugo discourse].freeze
   DIRECTIONS = %w[to_discourse from_discourse].freeze
   PUBLIC_ID_PATTERN = /\Adbc_[a-z0-9]{24}\z/
   MAX_ORIGINS = 50
