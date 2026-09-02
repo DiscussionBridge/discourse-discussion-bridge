@@ -290,7 +290,12 @@ export default class DiscussionBridgeConnections extends Component {
             <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>
           </fieldset>
           <label class="discussion-bridge-checkbox-setting">
-            <input type="checkbox" checked={{this.generateTopicToc}} {{on "change" this.updateGenerateTopicToc}} />
+            <input
+              type="checkbox"
+              aria-label={{i18n "discussion_bridge.admin.generate_topic_toc"}}
+              checked={{this.generateTopicToc}}
+              {{on "change" this.updateGenerateTopicToc}}
+            />
             <span><strong>{{i18n "discussion_bridge.admin.generate_topic_toc"}}</strong><small>{{i18n "discussion_bridge.admin.generate_topic_toc_description"}}</small></span>
           </label>
         {{else}}
