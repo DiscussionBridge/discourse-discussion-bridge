@@ -51,4 +51,28 @@ describe DiscussionBridge::ReconciliationController do
     get "/discussion-bridge/admin/reconciliation.json"
     expect(response).not_to have_http_status(:ok)
   end
+
+  it "rejects an active binding whose role does not match the record direction" do
+    connection, = DiscussionBridgeContentConnection.issue!(
+      name: "Wrong role connection",
+      platform: "astro",
+      allowed_origins: ["https://example.com"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+    )
+    DiscussionBridgeContentBinding.create!(
+      bridge_record: record,
+      content_connection: connection,
+      role: "presentation",
+      state: "active",
+      external_id: "wrong-role",
+      canonical_url: "https://example.com/wrong-role/",
+      identity_digest: Digest::SHA256.hexdigest("#{connection.public_id}\nwrong-role"),
+      canonical_url_digest: Digest::SHA256.hexdigest("#{connection.public_id}\nhttps://example.com/wrong-role/"),
+    )
+
+    result = DiscussionBridge::BridgeReconciliationIndex.call(query: record.resource_id)
+
+    expect(result.fetch(:items).map { |item| item.fetch(:code) }).to include("active_binding_invalid")
+  end
 end

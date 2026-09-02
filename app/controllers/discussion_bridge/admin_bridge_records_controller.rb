@@ -82,16 +82,34 @@ module DiscussionBridge
         raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(canonical.source_url)
         role = record.direction == "to_discourse" ? "source" : "presentation"
         raise ArgumentError, "migration already prepared" if record.content_bindings.exists?(role: role, state: "prepared")
-        binding = DiscussionBridgeContentBinding.create!(
-          bridge_record: record,
-          content_connection: connection,
-          role: role,
-          state: "prepared",
-          external_id: external_id,
-          canonical_url: canonical.source_url,
-          identity_digest: Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}"),
-          canonical_url_digest: Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}"),
-        )
+        identity_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}")
+        canonical_url_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}")
+        matches = DiscussionBridgeContentBinding.lock.where(
+          "identity_digest = :identity OR canonical_url_digest = :url",
+          identity: identity_digest,
+          url: canonical_url_digest,
+        ).to_a
+        if matches.any?
+          binding = matches.one? && matches.first
+          reusable = binding && binding.bridge_record_id == record.id && binding.role == role &&
+            binding.state == "historical" && binding.content_connection_id == connection.id &&
+            binding.external_id == external_id && binding.canonical_url == canonical.source_url &&
+            binding.identity_digest == identity_digest && binding.canonical_url_digest == canonical_url_digest
+          raise ArgumentError, "target binding conflicts with existing history" unless reusable
+
+          binding.update!(state: "prepared", activated_at: nil, retired_at: nil)
+        else
+          binding = DiscussionBridgeContentBinding.create!(
+            bridge_record: record,
+            content_connection: connection,
+            role: role,
+            state: "prepared",
+            external_id: external_id,
+            canonical_url: canonical.source_url,
+            identity_digest: identity_digest,
+            canonical_url_digest: canonical_url_digest,
+          )
+        end
         record.update!(state: "migration")
       end
       render json: { bridge_record: serialize(record.reload, detailed: true), prepared_binding_id: binding.id }
@@ -105,12 +123,26 @@ module DiscussionBridge
       DiscussionBridgeBridgeRecord.transaction do
         record.lock!
         prepared = record.content_bindings.lock.find_by!(id: params[:binding_id], state: "prepared")
-        current = record.content_bindings.lock.find_by(role: prepared.role, state: "active")
+        expected_role = record.direction == "to_discourse" ? "source" : "presentation"
+        raise ArgumentError, "prepared binding role does not match record direction" unless prepared.role == expected_role
+
+        connection = DiscussionBridgeContentConnection.lock.find(prepared.content_connection_id)
+        raise ArgumentError, "target connection is unavailable" unless connection.enabled &&
+          connection.allows_direction?(record.direction)
+        raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(prepared.canonical_url)
+
+        active = record.content_bindings.lock.where(state: "active").to_a
+        raise ArgumentError, "record has an invalid active binding set" unless
+          active.length <= 1 && active.all? { |binding| binding.role == expected_role }
+        current = active.first
         current&.update!(state: "historical", retired_at: Time.zone.now)
         prepared.update!(state: "active", activated_at: Time.zone.now)
         record.update!(state: "healthy")
       end
       render json: { bridge_record: serialize(record.reload, detailed: true) }
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
     end
 
     private

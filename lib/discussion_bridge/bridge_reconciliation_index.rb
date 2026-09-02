@@ -73,8 +73,16 @@ module DiscussionBridge
         end
         active = record.content_bindings.select { |binding| binding.state == "active" }
         expected_role = record.direction == "to_discourse" ? "source" : "presentation"
-        issues << issue(record, "active_binding_missing", "critical", "Restore one active #{expected_role} binding") unless
-          active.one? { |binding| binding.role == expected_role }
+        if active.empty?
+          issues << issue(record, "active_binding_missing", "critical", "Restore one active #{expected_role} binding")
+        elsif active.length != 1 || active.first.role != expected_role
+          issues << issue(
+            record,
+            "active_binding_invalid",
+            "critical",
+            "Retain exactly one active #{expected_role} binding and retire every other active role",
+          )
+        end
         active.each do |binding|
           issues << issue(record, "connection_disabled", "high", "Enable or migrate the connection") unless binding.content_connection.enabled
           issues << issue(record, "origin_outside_scope", "high", "Correct the binding or connection origin scope") unless

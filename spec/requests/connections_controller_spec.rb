@@ -438,6 +438,88 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(record.content_bindings.find_by(state: "active").content_connection).to eq(target)
   end
 
+  it "revalidates a prepared target at apply time without retiring the current binding" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    current = record.content_bindings.find_by!(state: "active")
+    target, = DiscussionBridgeContentConnection.issue!(
+      name: "Disabled migration target",
+      platform: "astro",
+      allowed_origins: ["https://docs.example.com"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["articles"],
+    )
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: {
+           migration: {
+             content_connection_id: target.id,
+             external_id: "guide-community",
+             canonical_url: "https://docs.example.com/community-guide/",
+           },
+         },
+         as: :json
+    prepared_id = response.parsed_body.fetch("prepared_binding_id")
+    target.update!(enabled: false)
+
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include("target connection is unavailable")
+    expect(current.reload.state).to eq("active")
+    expect(record.content_bindings.find(prepared_id).state).to eq("prepared")
+    expect(record.reload.state).to eq("migration")
+  end
+
+  it "reuses exact historical bindings for a reverse migration without changing the resource or topic" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    original = record.content_bindings.find_by!(state: "active")
+    target, = DiscussionBridgeContentConnection.issue!(
+      name: "Reversible migration target",
+      platform: "astro",
+      allowed_origins: ["https://docs.example.com"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["articles"],
+    )
+    resource_id = record.resource_id
+    topic_id = record.topic_id
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: {
+           migration: {
+             content_connection_id: target.id,
+             external_id: "guide-community",
+             canonical_url: "https://docs.example.com/community-guide/",
+           },
+         },
+         as: :json
+    forward_id = response.parsed_body.fetch("prepared_binding_id")
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{forward_id}/apply.json", as: :json
+    expect(response).to have_http_status(:ok)
+
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: {
+           migration: {
+             content_connection_id: @connection.id,
+             external_id: original.external_id,
+             canonical_url: original.canonical_url,
+           },
+         },
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    reverse_id = response.parsed_body.fetch("prepared_binding_id")
+    expect(reverse_id).to eq(original.id)
+
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{reverse_id}/apply.json", as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(record.reload).to have_attributes(resource_id: resource_id, topic_id: topic_id, state: "healthy")
+    expect(record.content_bindings.where(state: "active").sole.id).to eq(original.id)
+    expect(record.content_bindings.where(state: "historical").sole.id).to eq(forward_id)
+  end
+
   it "stops the former connection from reading a record after migration" do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     record = DiscussionBridgeBridgeRecord.last
