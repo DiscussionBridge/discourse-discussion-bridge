@@ -69,6 +69,9 @@ module DiscussionBridge
       records = scoped_records
       snapshot = AdapterFeedSnapshot.capture(records)
       token = params[:snapshot].presence
+      if page > 1 && token.blank?
+        raise Discourse::InvalidParameters.new(:snapshot)
+      end
       if token && !AdapterFeedSnapshot.valid?(token, connection: @content_connection, snapshot: snapshot)
         raise Discourse::InvalidParameters.new(:snapshot)
       end
