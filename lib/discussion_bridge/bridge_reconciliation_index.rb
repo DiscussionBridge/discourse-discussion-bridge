@@ -85,6 +85,10 @@ module DiscussionBridge
         end
         active.each do |binding|
           issues << issue(record, "connection_disabled", "high", "Enable or migrate the connection") unless binding.content_connection.enabled
+          issues << issue(record, "direction_outside_scope", "high", "Restore the direction or migrate the record") unless
+            binding.content_connection.allows_direction?(record.direction)
+          issues << issue(record, "lane_outside_scope", "high", "Restore the lane or migrate the record") unless
+            binding.content_connection.allows_lane?(record.lane)
           issues << issue(record, "origin_outside_scope", "high", "Correct the binding or connection origin scope") unless
             binding.content_connection.allows_origin?(binding.canonical_url)
         end

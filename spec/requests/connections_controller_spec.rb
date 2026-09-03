@@ -353,6 +353,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "lets an administrator create a From Discourse record and exposes it only to its connection" do
+    @connection.update!(allowed_lanes: [])
     topic = Fabricate(:topic, user: service_actor, category: category)
     Fabricate(:post, topic: topic, user: service_actor, post_number: 1)
     sign_in(admin)
@@ -403,6 +404,26 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "source")).to be_nil
+  end
+
+  it "stops returning an existing record when its current connection scope is narrowed" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    resource_id = response.parsed_body.fetch("resource_id")
+
+    @connection.update!(allowed_directions: ["from_discourse"])
+    get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("bridge_records")).to be_empty
+
+    @connection.update!(allowed_directions: ["to_discourse"], allowed_lanes: ["news"])
+    get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response.parsed_body.fetch("bridge_records")).to be_empty
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
@@ -470,6 +491,45 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(current.reload.state).to eq("active")
     expect(record.content_bindings.find(prepared_id).state).to eq("prepared")
     expect(record.reload.state).to eq("migration")
+  end
+
+  it "rejects migration prepare and apply when the target does not allow the record lane" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    current = record.content_bindings.find_by!(state: "active")
+    target, = DiscussionBridgeContentConnection.issue!(
+      name: "Lane-scoped migration target",
+      platform: "astro",
+      allowed_origins: ["https://docs.example.com"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["news"],
+    )
+
+    sign_in(admin)
+    migration = {
+      content_connection_id: target.id,
+      external_id: "guide-community",
+      canonical_url: "https://docs.example.com/community-guide/",
+    }
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: { migration: migration },
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include("lane is outside target connection scope")
+
+    target.update!(allowed_lanes: ["articles"])
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
+         params: { migration: migration },
+         as: :json
+    expect(response).to have_http_status(:ok)
+    prepared_id = response.parsed_body.fetch("prepared_binding_id")
+    target.update!(allowed_lanes: ["news"])
+
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include("lane is outside target connection scope")
+    expect(current.reload.state).to eq("active")
+    expect(record.content_bindings.find(prepared_id).state).to eq("prepared")
   end
 
   it "reuses exact historical bindings for a reverse migration without changing the resource or topic" do

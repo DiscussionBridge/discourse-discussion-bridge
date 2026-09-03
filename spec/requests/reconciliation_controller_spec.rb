@@ -75,4 +75,32 @@ describe DiscussionBridge::ReconciliationController do
 
     expect(result.fetch(:items).map { |item| item.fetch(:code) }).to include("active_binding_invalid")
   end
+
+  it "reports current direction and lane scope drift on an existing active binding" do
+    record.update!(lane: "articles")
+    connection, = DiscussionBridgeContentConnection.issue!(
+      name: "Narrowed connection",
+      platform: "astro",
+      allowed_origins: ["https://example.com"],
+      allowed_directions: ["from_discourse"],
+      allowed_lanes: ["news"],
+    )
+    DiscussionBridgeContentBinding.create!(
+      bridge_record: record,
+      content_connection: connection,
+      role: "source",
+      state: "active",
+      external_id: "scope-drift",
+      canonical_url: "https://example.com/scope-drift/",
+      identity_digest: Digest::SHA256.hexdigest("#{connection.public_id}\nscope-drift"),
+      canonical_url_digest: Digest::SHA256.hexdigest("#{connection.public_id}\nhttps://example.com/scope-drift/"),
+    )
+
+    result = DiscussionBridge::BridgeReconciliationIndex.call(query: record.resource_id)
+
+    expect(result.fetch(:items).map { |item| item.fetch(:code) }).to include(
+      "direction_outside_scope",
+      "lane_outside_scope",
+    )
+  end
 end

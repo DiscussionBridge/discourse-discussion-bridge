@@ -75,6 +75,7 @@ module DiscussionBridge
         connection = DiscussionBridgeContentConnection.lock.find(connection_id)
         raise ArgumentError, "target connection is unavailable" unless connection.enabled &&
           connection.allows_direction?(record.direction)
+        raise ArgumentError, "lane is outside target connection scope" unless connection.allows_lane?(record.lane)
         canonical = CanonicalSource.call(
           connection_id: connection.public_id,
           source_url: params.require(:migration).fetch(:canonical_url),
@@ -129,6 +130,7 @@ module DiscussionBridge
         connection = DiscussionBridgeContentConnection.lock.find(prepared.content_connection_id)
         raise ArgumentError, "target connection is unavailable" unless connection.enabled &&
           connection.allows_direction?(record.direction)
+        raise ArgumentError, "lane is outside target connection scope" unless connection.allows_lane?(record.lane)
         raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(prepared.canonical_url)
 
         active = record.content_bindings.lock.where(state: "active").to_a

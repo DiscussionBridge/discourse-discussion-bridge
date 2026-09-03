@@ -25,20 +25,7 @@ class AddAuthorToDiscussionBridgeContentConnections < ActiveRecord::Migration[7.
   end
 
   def down
-    remove_index :discussion_bridge_bridge_records,
-                 name: "idx_db_bridge_records_topic_id",
-                 if_exists: true
-    add_index :discussion_bridge_bridge_records,
-              :topic_id,
-              unique: true,
-              name: "idx_db_bridge_records_topic_id",
-              algorithm: :concurrently
-    remove_index :discussion_bridge_content_connections,
-                 name: "idx_db_content_connections_author",
-                 if_exists: true
-    execute <<~SQL
-      ALTER TABLE discussion_bridge_content_connections
-      DROP COLUMN IF EXISTS author_user_id
-    SQL
+    raise ActiveRecord::IrreversibleMigration,
+          "DiscussionBridge permits one topic to serve multiple destination records; restore a pre-migration backup or keep this schema and roll application code forward"
   end
 end

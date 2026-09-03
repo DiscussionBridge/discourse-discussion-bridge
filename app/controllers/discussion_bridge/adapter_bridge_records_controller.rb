@@ -69,10 +69,17 @@ module DiscussionBridge
       records = DiscussionBridgeBridgeRecord
         .joins(:content_bindings)
         .where(discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" })
+        .where(direction: @content_connection.allowed_directions)
         .includes(topic: :first_post)
         .order(updated_at: :desc, id: :desc)
-      total = records.distinct.count
-      records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE)
+      records = if Array(@content_connection.allowed_lanes).empty?
+        records.where(lane: [nil, ""])
+      else
+        records.where(lane: @content_connection.allowed_lanes)
+      end
+      records = records.distinct.to_a.select { |record| record_within_connection_scope?(record) }
+      total = records.length
+      records = records.slice((page - 1) * PER_PAGE, PER_PAGE) || []
       render json: {
         bridge_records: records.map { |record| adapter_record(record) },
         pagination: {
@@ -94,6 +101,10 @@ module DiscussionBridge
           },
         )
         .find_by!(resource_id: params[:resource_id])
+      unless record_within_connection_scope?(record)
+        render json: rejection("connection_scope_denied"), status: :forbidden
+        return
+      end
       render json: { bridge_record: adapter_record(record) }
     end
 
@@ -147,6 +158,15 @@ module DiscussionBridge
           }
         end,
       }
+    end
+
+    def record_within_connection_scope?(record)
+      binding = record.content_bindings.find do |candidate|
+        candidate.content_connection_id == @content_connection.id && candidate.state == "active"
+      end
+      binding && @content_connection.allows_direction?(record.direction) &&
+        @content_connection.allows_lane?(record.lane) &&
+        @content_connection.allows_origin?(binding.canonical_url)
     end
 
     def discourse_source(topic, first_post)
