@@ -624,6 +624,17 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "total" => 0,
       "pages" => 1,
     )
+    snapshot = response.parsed_body.dig("pagination", "snapshot")
+    expect(snapshot).to be_present
+
+    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("pagination", "snapshot")).to eq(snapshot)
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created)
+    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
+    expect(response).to have_http_status(:bad_request)
 
     get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
     expect(response).to have_http_status(:bad_request)

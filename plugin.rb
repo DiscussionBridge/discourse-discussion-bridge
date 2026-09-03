@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.17
+# version: 0.2.0.alpha.18
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.17"
+    VERSION = "0.2.0.alpha.18"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -73,6 +73,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/full_interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
+  require_relative "lib/discussion_bridge/adapter_feed_snapshot"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
   require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"

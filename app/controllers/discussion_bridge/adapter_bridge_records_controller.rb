@@ -66,29 +66,28 @@ module DiscussionBridge
       page = Integer(params[:page].presence || 1, exception: false)
       raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
 
-      records = DiscussionBridgeBridgeRecord
-        .joins(:content_bindings)
-        .where(discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" })
-        .where(direction: @content_connection.allowed_directions)
-        .includes(topic: :first_post)
-        .order(updated_at: :desc, id: :desc)
-      records = if Array(@content_connection.allowed_lanes).empty?
-        records.where(lane: [nil, ""])
-      else
-        records.where(lane: @content_connection.allowed_lanes)
+      records = scoped_records
+      snapshot = AdapterFeedSnapshot.capture(records)
+      token = params[:snapshot].presence
+      if token && !AdapterFeedSnapshot.valid?(token, connection: @content_connection, snapshot: snapshot)
+        raise Discourse::InvalidParameters.new(:snapshot)
       end
-      records = records.distinct.to_a.select { |record| record_within_connection_scope?(record) }
-      total = records.length
-      records = records.slice((page - 1) * PER_PAGE, PER_PAGE) || []
-      render json: {
-        bridge_records: records.map { |record| adapter_record(record) },
+      token ||= AdapterFeedSnapshot.issue(connection: @content_connection, snapshot: snapshot)
+      page_records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE).to_a
+      unless AdapterFeedSnapshot.capture(scoped_records) == snapshot
+        raise Discourse::InvalidParameters.new(:snapshot)
+      end
+      payload = {
+        bridge_records: page_records.map { |record| adapter_record(record) },
         pagination: {
           page: page,
           per_page: PER_PAGE,
-          total: total,
-          pages: [(total.to_f / PER_PAGE).ceil, 1].max,
+          total: snapshot.total,
+          pages: [(snapshot.total.to_f / PER_PAGE).ceil, 1].max,
+          snapshot: token,
         },
       }
+      render json: payload
     end
 
     def show
@@ -109,6 +108,25 @@ module DiscussionBridge
     end
 
     private
+
+    def scoped_records
+      records = DiscussionBridgeBridgeRecord
+        .joins(:content_bindings)
+        .where(discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" })
+        .where(direction: @content_connection.allowed_directions)
+        .includes(topic: :first_post)
+        .order(id: :asc)
+      records = if Array(@content_connection.allowed_lanes).empty?
+        records.where(lane: [nil, ""])
+      else
+        records.where(lane: @content_connection.allowed_lanes)
+      end
+      origin_patterns = Array(@content_connection.allowed_origins).map do |origin|
+        "#{ActiveRecord::Base.sanitize_sql_like(origin)}/%"
+      end
+      origin_clause = Array.new(origin_patterns.length, "discussion_bridge_content_bindings.canonical_url LIKE ?").join(" OR ")
+      records.where(origin_clause, *origin_patterns)
+    end
 
     def ensure_json_request
       raise Discourse::InvalidParameters.new(:format) unless request.format.json?
