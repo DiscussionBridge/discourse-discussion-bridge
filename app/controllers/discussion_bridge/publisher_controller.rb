@@ -33,6 +33,7 @@ module ::DiscussionBridge
         topic_id: params.require(:topic_id),
         external_id: input.fetch(:external_id),
         canonical_url: input.fetch(:canonical_url),
+        lane: input[:lane],
         native_materialization: native_materialization(input[:native_materialization]),
       )
       render json: publication_payload(result.record).merge(outcome: result.outcome),
@@ -83,6 +84,7 @@ module ::DiscussionBridge
         name: connection.name,
         platform: connection.platform,
         allowed_origins: connection.allowed_origins,
+        allowed_lanes: connection.allowed_lanes,
         author_username: connection.effective_author&.username,
       }
     end
@@ -100,6 +102,7 @@ module ::DiscussionBridge
         platform: binding&.content_connection&.platform,
         external_id: binding&.external_id,
         canonical_url: binding&.canonical_url,
+        lane: record.lane,
         native_materialization: binding&.native_materialization || false,
       }
     end

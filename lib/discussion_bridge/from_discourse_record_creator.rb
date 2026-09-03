@@ -6,28 +6,30 @@ module DiscussionBridge
   class FromDiscourseRecordCreator
     Result = Data.define(:record, :outcome)
 
-    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:, native_materialization: false)
+    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane: nil, native_materialization: false)
       new(
         user: user,
         connection_id: connection_id,
         topic_id: topic_id,
         external_id: external_id,
         canonical_url: canonical_url,
+        lane: lane,
         native_materialization: native_materialization,
       ).call
     end
 
-    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, native_materialization:)
+    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane:, native_materialization:)
       @user = user
       @connection_id = connection_id
       @topic_id = topic_id
       @external_id = external_id
       @canonical_url = canonical_url
+      @lane = lane
       @native_materialization = native_materialization
     end
 
     def call
-      raise ArgumentError, "invalid native_materialization" unless [true, false].include?(@native_materialization)
+      raise ArgumentError, "invalid native_materialization" if [true, false].exclude?(@native_materialization)
       raise ArgumentError, "invalid external_id" unless
         DiscussionBridgeContentBinding.valid_external_id?(@external_id)
 
@@ -36,6 +38,7 @@ module DiscussionBridge
         connection = DiscussionBridgeContentConnection.lock.find(@connection_id)
         raise ArgumentError, "connection does not permit From Discourse" unless
           connection.enabled && connection.allows_direction?("from_discourse")
+        lane = resolved_lane(connection)
 
         topic = Topic.lock.find(@topic_id)
         raise Discourse::InvalidAccess unless Guardian.new(@user).can_see?(topic)
@@ -66,6 +69,7 @@ module DiscussionBridge
             binding.external_id == @external_id && binding.canonical_url == canonical.source_url &&
             binding.native_materialization == @native_materialization &&
             binding.bridge_record.direction == "from_discourse" &&
+            binding.bridge_record.lane.to_s == lane.to_s &&
             binding.bridge_record.topic_id == topic.id
           raise ArgumentError, "binding identity conflict" unless valid
 
@@ -76,6 +80,7 @@ module DiscussionBridge
         record = DiscussionBridgeBridgeRecord.create!(
           resource_id: SecureRandom.uuid,
           direction: "from_discourse",
+          lane: lane,
           state: "healthy",
           title: topic.title,
           topic_id: topic.id,
@@ -100,6 +105,18 @@ module DiscussionBridge
       result
     rescue ActiveRecord::RecordNotUnique
       retry
+    end
+
+    private
+
+    def resolved_lane(connection)
+      requested = @lane.to_s.presence
+      allowed = Array(connection.allowed_lanes)
+      resolved = requested || (allowed.one? ? allowed.first : nil)
+      raise ArgumentError, "lane is required for this connection" if resolved.nil? && allowed.many?
+      raise ArgumentError, "lane is outside connection scope" unless connection.allows_lane?(resolved)
+
+      resolved
     end
   end
 end

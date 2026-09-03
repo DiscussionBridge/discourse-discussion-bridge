@@ -21,8 +21,8 @@ describe DiscussionBridge::PublisherController do
     )
   end
 
-  def publication(connection: @connection, external_id: "roadmap", canonical_url: "https://astro.example.com/roadmap/", native_materialization: false)
-    {
+  def publication(connection: @connection, external_id: "roadmap", canonical_url: "https://astro.example.com/roadmap/", lane: :omitted, native_materialization: false)
+    payload = {
       publication: {
         content_connection_id: connection.id,
         external_id: external_id,
@@ -30,6 +30,8 @@ describe DiscussionBridge::PublisherController do
         native_materialization: native_materialization,
       },
     }
+    payload[:publication][:lane] = lane unless lane == :omitted
+    payload
   end
 
   it "requires a staff session" do
@@ -123,6 +125,72 @@ describe DiscussionBridge::PublisherController do
     expect(records.pluck(:resource_id).uniq.count).to eq(2)
   end
 
+  it "assigns a single allowed lane and exposes the publication to that connection" do
+    scoped, secret = DiscussionBridgeContentConnection.issue!(
+      name: "Lane-scoped Statamic",
+      platform: "statamic",
+      allowed_origins: ["https://statamic.example.com"],
+      allowed_directions: ["from_discourse"],
+      allowed_lanes: ["statamic-demo"],
+    )
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(
+           connection: scoped,
+           canonical_url: "https://statamic.example.com/roadmap/",
+         ),
+         as: :json
+
+    expect(response).to have_http_status(:created)
+    resource_id = response.parsed_body.fetch("resource_id")
+    expect(response.parsed_body.fetch("lane")).to eq("statamic-demo")
+    expect(DiscussionBridgeBridgeRecord.last.lane).to eq("statamic-demo")
+
+    sign_out
+    headers = {
+      "X-DiscussionBridge-Connection" => scoped.public_id,
+      "X-DiscussionBridge-Secret" => secret,
+    }
+    get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("bridge_records").map { |record| record.fetch("resource_id") }).to include(resource_id)
+  end
+
+  it "requires an explicit allowed lane when a publishing connection permits several" do
+    scoped, = DiscussionBridgeContentConnection.issue!(
+      name: "Multi-lane Astro",
+      platform: "astro",
+      allowed_origins: ["https://multi.example.com"],
+      allowed_directions: ["from_discourse"],
+      allowed_lanes: ["news", "guides"],
+    )
+    sign_in(admin)
+    attributes = {
+      connection: scoped,
+      canonical_url: "https://multi.example.com/roadmap/",
+    }
+
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(**attributes),
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include("lane is required for this connection")
+
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(**attributes, lane: "other"),
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include("lane is outside connection scope")
+
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(**attributes, lane: "guides"),
+         as: :json
+    expect(response).to have_http_status(:created)
+    expect(response.parsed_body.fetch("lane")).to eq("guides")
+  end
+
   it "rejects a destination outside the selected connection" do
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
@@ -145,6 +213,7 @@ describe DiscussionBridge::PublisherController do
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("product", "blockers")).to eq([])
     expect(response.parsed_body.dig("connections", 0, "public_id")).to eq(@connection.public_id)
+    expect(response.parsed_body.dig("connections", 0, "allowed_lanes")).to eq([])
     expect(response.body).not_to include("X-DiscussionBridge-Secret")
   end
 end

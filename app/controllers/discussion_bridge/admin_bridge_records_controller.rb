@@ -53,6 +53,7 @@ module DiscussionBridge
         topic_id: input.fetch(:topic_id),
         external_id: input.fetch(:external_id),
         canonical_url: input.fetch(:canonical_url),
+        lane: input[:lane],
       )
       render json: {
         bridge_record: serialize(result.record, detailed: true),

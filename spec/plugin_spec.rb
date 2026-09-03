@@ -41,7 +41,7 @@ describe DiscussionBridge do
   end
 
   it "keeps publishing in the same default-disabled product" do
-    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.16")
+    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.17")
     expect(SiteSetting.discussion_bridge_publisher_enabled).to eq(false)
   end
 end

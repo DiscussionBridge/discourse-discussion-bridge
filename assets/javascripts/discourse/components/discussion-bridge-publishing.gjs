@@ -17,6 +17,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked connectionId = "";
   @tracked externalId = "";
   @tracked canonicalUrl = "";
+  @tracked lane = "";
   @tracked nativeMaterialization = false;
   @tracked notice = "";
   @tracked createdRecord = null;
@@ -26,7 +27,16 @@ export default class DiscussionBridgePublishing extends Component {
   updateTopicId(event) { this.topicId = event.target.value; }
 
   @action
-  updateConnectionId(event) { this.connectionId = event.target.value; }
+  updateConnectionId(event) {
+    this.connectionId = event.target.value;
+    const connection = this.selectedConnection;
+    this.lane = connection?.allowed_lanes?.length === 1
+      ? connection.allowed_lanes[0]
+      : "";
+  }
+
+  @action
+  updateLane(event) { this.lane = event.target.value; }
 
   @action
   updateExternalId(event) { this.externalId = event.target.value; }
@@ -36,6 +46,16 @@ export default class DiscussionBridgePublishing extends Component {
 
   @action
   updateNativeMaterialization(event) { this.nativeMaterialization = event.target.checked; }
+
+  get selectedConnection() {
+    return this.args.model.connections.find(
+      (connection) => String(connection.id) === String(this.connectionId)
+    );
+  }
+
+  get selectedLanes() {
+    return this.selectedConnection?.allowed_lanes || [];
+  }
 
   @action
   async publishTopic(event) {
@@ -52,6 +72,7 @@ export default class DiscussionBridgePublishing extends Component {
               content_connection_id: this.connectionId,
               external_id: this.externalId,
               canonical_url: this.canonicalUrl,
+              lane: this.lane || null,
               native_materialization: this.nativeMaterialization,
             },
           },
@@ -108,6 +129,14 @@ export default class DiscussionBridgePublishing extends Component {
               {{#each @model.connections as |connection|}}<option value={{connection.id}} selected={{eq connection.id this.connectionId}}>{{connection.name}} · {{this.displayToken connection.platform}}</option>{{/each}}
             </select>
           </label>
+          {{#if this.selectedLanes.length}}
+            <label>{{i18n "discussion_bridge.admin.lane"}}
+              <select required {{on "change" this.updateLane}}>
+                <option value="">—</option>
+                {{#each this.selectedLanes as |lane|}}<option value={{lane}} selected={{eq lane this.lane}}>{{lane}}</option>{{/each}}
+              </select>
+            </label>
+          {{/if}}
           <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
           <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.canonicalUrl}} {{on "input" this.updateCanonicalUrl}} /></label>
           <label class="discussion-bridge-publishing__checkbox"><input type="checkbox" checked={{this.nativeMaterialization}} {{on "change" this.updateNativeMaterialization}} /> {{i18n "discussion_bridge.admin.publisher_native_materialization"}}</label>
