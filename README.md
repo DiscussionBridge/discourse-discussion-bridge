@@ -1,4 +1,4 @@
-# DiscussionBridge for Discourse
+# The Bridge — DiscussionBridge for Discourse
 
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent

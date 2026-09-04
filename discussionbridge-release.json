@@ -1,0 +1,12 @@
+{
+  "family": {
+    "name": "DiscussionBridge",
+    "version": "0.2.0-alpha.18"
+  },
+  "component": {
+    "name": "The Bridge — DiscussionBridge for Discourse",
+    "version": "0.2.0.alpha.18"
+  },
+  "bridgeCompatibility": "0.2",
+  "repository": "https://github.com/DiscussionBridge/discourse-discussion-bridge"
+}
