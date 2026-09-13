@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-describe "DiscussionBridge comments-only fullInteractive redirect" do
+describe "DiscussionBridge comments-only Interactive redirect" do
   fab!(:service_actor, :admin)
   fab!(:topic) { Fabricate(:topic, user: service_actor) }
   fab!(:post) { Fabricate(:post, topic: topic) }
@@ -170,7 +170,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     get "/embed/comments", params: { topic_id: topic.id }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).not_to include("fullInteractive is unavailable")
+    expect(response.body).not_to include("Interactive is unavailable")
   end
 
   it "fails closed when readiness changes after redirect issuance" do
@@ -294,7 +294,7 @@ describe "DiscussionBridge comments-only fullInteractive redirect" do
     get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).not_to include("fullInteractive is unavailable")
+    expect(response.body).not_to include("Interactive is unavailable")
   end
 
   it "preserves a valid operator class and appends the comments-only class" do

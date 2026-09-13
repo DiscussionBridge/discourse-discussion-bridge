@@ -161,7 +161,7 @@ en:
         blockers: "Readiness blockers"
         no_blockers: "No readiness blockers."
         endpoint: "Controlled-creation endpoint"
-        comments_only: "Comments-only fullInteractive"
+        comments_only: "Comments-only Interactive"
         credential: "Connection credential"
         trusted_origins: "Trusted origins"
         category: "Effective category"

@@ -29,7 +29,7 @@ Direction belongs to each Bridge Record, not to the connection:
   resolves one forum-governed discussion.
 - **From Discourse**: an existing Discourse topic and first post are exposed to
   an authorized connection for external presentation. A platform that renders
-  that first post may explicitly attach the same topic's fullInteractive
+  that first post may explicitly attach the same topic's Interactive
   replies; the attested comments-only frame omits the duplicate first post.
 
 A migration prepares a replacement binding, preserves the resource and topic,

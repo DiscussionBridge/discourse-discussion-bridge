@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-describe "DiscussionBridge comments-only fullInteractive" do
+describe "DiscussionBridge comments-only Interactive" do
   fab!(:service_actor, :admin)
   fab!(:topic) { Fabricate(:topic, user: service_actor, visible: false) }
   fab!(:first_post) { Fabricate(:post, topic: topic, raw: "Companion source post") }
@@ -733,7 +733,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
 
     visit(mapped_url)
 
-    expect(page).to have_content("DiscussionBridge fullInteractive is unavailable")
+    expect(page).to have_content("DiscussionBridge Interactive is unavailable")
     expect(page).to have_no_css("#post_1")
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
   end
@@ -743,7 +743,7 @@ describe "DiscussionBridge comments-only fullInteractive" do
 
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
-    expect(page).to have_content("DiscussionBridge fullInteractive is unavailable")
+    expect(page).to have_content("DiscussionBridge Interactive is unavailable")
     expect(page).to have_no_css("#post_1")
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
   end

@@ -8,7 +8,7 @@ en:
     discussion_bridge_effective_tags: "Existing forum tags enforced on new companion topics. Adapter tag requests do not override this list."
     discussion_bridge_lane_policies: "Optional JSON array of forum-owned lane policies. Each lane selects an existing category and tags; missing or unknown lanes fail closed when policies are configured."
     discussion_bridge_default_visibility: "Forum-enforced visibility for newly created topics. The current product contract supports unlisted creation."
-    discussion_bridge_comments_only_full_interactive: "For completed DiscussionBridge mappings, omit companion post 1 from full-app embed layout while preserving the ordinary topic and native discussion interactions."
+    discussion_bridge_comments_only_full_interactive: "For completed DiscussionBridge mappings, enable Interactive mode by omitting companion post 1 from the full-app embed layout while preserving the ordinary topic and native discussion interactions."
     discussion_bridge_publisher_enabled: "Enable local publication of selected Discourse topics through authorized Content Connections. No second receiving forum is required."
     discussion_bridge_service_username_error: "Choose an active, non-system, non-staged Discourse user that is not suspended or silenced."
     discussion_bridge_default_author_username_error: "Choose an active, non-system, non-staged Discourse user that is not suspended or silenced."
@@ -16,10 +16,10 @@ en:
     discussion_bridge_effective_tags_error: "Every configured DiscussionBridge tag must already exist in Discourse."
     discussion_bridge_lane_policies_error: "Use a JSON array of unique lowercase lane objects with an existing category_id, existing tag names, and visibility set to unlisted."
   discussion_bridge:
-    full_interactive_requires_core_full_app: "DiscussionBridge fullInteractive is unavailable because Discourse's Embed full app setting is disabled. An administrator must enable and verify the required full-app embed settings before this page can provide native in-frame interaction."
-    full_interactive_invalid_request: "DiscussionBridge fullInteractive requires the exact full_app=true request contract."
-    full_interactive_invalid_class: "DiscussionBridge fullInteractive requires an absent, blank, or valid bounded class_name."
-    full_interactive_unavailable: "DiscussionBridge fullInteractive is unavailable because required readiness checks failed: %{reasons}."
+    full_interactive_requires_core_full_app: "DiscussionBridge Interactive is unavailable because Discourse's Embed full app setting is disabled. An administrator must enable and verify the required full-app embed settings before this page can provide native in-frame interaction."
+    full_interactive_invalid_request: "DiscussionBridge Interactive requires the exact full_app=true request contract."
+    full_interactive_invalid_class: "DiscussionBridge Interactive requires an absent, blank, or valid bounded class_name."
+    full_interactive_unavailable: "DiscussionBridge Interactive is unavailable because required readiness checks failed: %{reasons}."
     errors:
       disabled: "DiscussionBridge is disabled."
       endpoint_disabled: "DiscussionBridge topic creation is not enabled."
