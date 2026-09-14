@@ -56,7 +56,7 @@ describe DiscussionBridge::HealthController do
       response.parsed_body.dig("interactive_readiness", "connections", 0, "origins", 0),
     ).to eq("origin" => "https://publisher.example", "embeddable" => false)
 
-    EmbeddableHost.create!(host: "publisher.example")
+    EmbeddableHost.create!(host: "publisher.example", category: category)
     get "/discussion-bridge/admin/health.json"
 
     expect(response.parsed_body.dig("interactive_readiness", "ready")).to eq(true)
