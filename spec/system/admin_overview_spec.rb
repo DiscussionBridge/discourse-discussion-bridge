@@ -59,6 +59,8 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("One forum, many publishing connections, continuous discussions.")
     expect(page).to have_content("Content Connections")
     expect(page).to have_content("Bridge Records")
+    expect(page).to have_content("Records needing attention")
+    expect(page).to have_content("In-page interaction readiness")
     expect(page).to have_content("To Discourse")
     expect(page).to have_content("From Discourse")
     expect(page).to have_link("Download support bundle")
@@ -91,6 +93,8 @@ describe "DiscussionBridge native product administration" do
     click_button("Add connection")
 
     expect(page).to have_content("Copy this connection credential now", wait: 30)
+    expect(page).to have_button("Copy ID")
+    expect(page).to have_button("Copy secret")
     expect(page).to have_content("Editorial Ghost")
     created = DiscussionBridgeContentConnection.find_by!(name: "Editorial Ghost")
     expect(page).to have_content(created.public_id)
@@ -105,6 +109,29 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
     expect(created.generate_topic_toc).to eq(true)
+  end
+
+  it "persists the selected publishing connection and creates a native platform record" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    topic = Fabricate(:topic, user: admin, category: category, title: "From the forum")
+    Fabricate(:post, topic: topic, user: admin, post_number: 1)
+    sign_in(admin)
+    visit("/")
+    page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
+
+    expect(page).to have_css(".discussion-bridge-publishing", wait: 30)
+    fill_in("Local topic ID", with: topic.id)
+    select("Main publication · wordpress", from: "Publishing connection")
+    fill_in("Platform content ID", with: "astro-native:from-the-forum")
+    fill_in("Presentation URL", with: "https://example.com/comments/from-the-forum/")
+    check("Authorize the adapter to create or update a native platform record")
+    click_button("Publish through DiscussionBridge")
+
+    expect(page).to have_content("Platform publication created", wait: 30)
+    binding = DiscussionBridgeContentBinding.find_by!(external_id: "astro-native:from-the-forum")
+    expect(binding.content_connection).to eq(@connection)
+    expect(binding.native_materialization).to eq(true)
+    expect(binding.bridge_record.topic_id).to eq(topic.id)
   end
 
   it "manages observed platform authors inside the selected connection" do

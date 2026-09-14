@@ -27,10 +27,42 @@ describe DiscussionBridge::HealthController do
     get "/discussion-bridge/admin/health.json"
 
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body).to include("product", "metrics", "directions", "readiness", "connections")
+    expect(response.parsed_body).to include(
+      "product",
+      "metrics",
+      "directions",
+      "readiness",
+      "interactive_readiness",
+      "connections",
+    )
     expect(response.parsed_body.dig("metrics", "content_connections")).to eq(1)
     expect(response.parsed_body.dig("connections", 0, "public_id")).to eq(@connection.public_id)
     expect(response.body).not_to include(@secret)
+  end
+
+  it "reports Interactive readiness for each Content Connection origin" do
+    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.embed_full_app = true
+    SiteSetting.embed_full_app_signin_flow = true
+    sign_in(admin)
+
+    get "/discussion-bridge/admin/health.json"
+
+    expect(response.parsed_body.dig("interactive_readiness", "ready")).to eq(false)
+    expect(response.parsed_body.dig("interactive_readiness", "blockers")).to include(
+      "content_connection_origin_not_embeddable",
+    )
+    expect(
+      response.parsed_body.dig("interactive_readiness", "connections", 0, "origins", 0),
+    ).to eq("origin" => "https://publisher.example", "embeddable" => false)
+
+    EmbeddableHost.create!(host: "publisher.example")
+    get "/discussion-bridge/admin/health.json"
+
+    expect(response.parsed_body.dig("interactive_readiness", "ready")).to eq(true)
+    expect(
+      response.parsed_body.dig("interactive_readiness", "connections", 0, "origins", 0),
+    ).to eq("origin" => "https://publisher.example", "embeddable" => true)
   end
 
   it "exports a redacted support bundle to an administrator" do

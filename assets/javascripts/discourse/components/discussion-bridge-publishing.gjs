@@ -28,7 +28,9 @@ export default class DiscussionBridgePublishing extends Component {
 
   @action
   updateConnectionId(event) {
-    this.connectionId = event.target.value;
+    this.connectionId = event.target.value
+      ? Number(event.target.value)
+      : "";
     const connection = this.selectedConnection;
     this.lane = connection?.allowed_lanes?.length === 1
       ? connection.allowed_lanes[0]
@@ -139,7 +141,7 @@ export default class DiscussionBridgePublishing extends Component {
           {{/if}}
           <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
           <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.canonicalUrl}} {{on "input" this.updateCanonicalUrl}} /></label>
-          <label class="discussion-bridge-publishing__checkbox"><input type="checkbox" checked={{this.nativeMaterialization}} {{on "change" this.updateNativeMaterialization}} /> {{i18n "discussion_bridge.admin.publisher_native_materialization"}}</label>
+          <label class="discussion-bridge-publishing__checkbox"><input type="checkbox" checked={{this.nativeMaterialization}} {{on "change" this.updateNativeMaterialization}} /><span>{{i18n "discussion_bridge.admin.publisher_native_materialization"}}</span></label>
           <DButton @type="submit" @label="discussion_bridge.admin.publisher_publish" @disabled={{this.working}} class="btn-primary" />
         </form>
       </div>

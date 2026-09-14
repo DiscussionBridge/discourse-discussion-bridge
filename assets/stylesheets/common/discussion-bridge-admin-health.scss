@@ -57,6 +57,12 @@
     > span {
       color: var(--primary-medium);
     }
+
+    > strong {
+      display: block;
+      margin-block-start: 0.35rem;
+      font-size: var(--font-up-2);
+    }
   }
 
   &__metric-value {
@@ -250,8 +256,39 @@
   background: var(--primary-very-low);
 }
 
-.discussion-bridge-secret code {
-  overflow-wrap: anywhere;
+.discussion-bridge-secret {
+  display: grid;
+  gap: 0.75rem;
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(8rem, auto) minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  code {
+    display: block;
+    min-width: 0;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+.discussion-bridge-direction-options {
+  display: grid;
+  gap: 0.5rem;
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  input {
+    flex: 0 0 auto;
+    margin: 0;
+  }
 }
 
 .discussion-bridge-add-connection,
@@ -549,6 +586,10 @@
 }
 
 @media (width <= 50rem) {
+  .discussion-bridge-secret__row {
+    grid-template-columns: 1fr;
+  }
+
   .discussion-bridge-health__grid dl {
     grid-template-columns: 1fr;
     gap: 0.2rem;

@@ -29,6 +29,7 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked generateTopicToc = false;
   @tracked issuedSecret = null;
   @tracked issuedConnectionId = null;
+  @tracked copiedCredential = null;
   @tracked editingConnectionId = null;
 
   @action
@@ -74,6 +75,21 @@ export default class DiscussionBridgeConnections extends Component {
 
   @action
   updateGenerateTopicToc(event) { this.generateTopicToc = event.target.checked; }
+
+  @action
+  async copyCredential(kind, value) {
+    try {
+      await navigator.clipboard.writeText(value);
+      this.copiedCredential = kind;
+      window.setTimeout(() => {
+        if (this.copiedCredential === kind) {
+          this.copiedCredential = null;
+        }
+      }, 2000);
+    } catch {
+      this.dialog.alert(i18n("discussion_bridge.admin.credential_copy_failed"));
+    }
+  }
 
   @action
   async saveConnection(event) {
@@ -218,8 +234,20 @@ export default class DiscussionBridgeConnections extends Component {
       {{#if this.issuedSecret}}
         <section class="discussion-bridge-secret" role="status">
           <strong>{{i18n "discussion_bridge.admin.secret_shown_once"}}</strong>
-          <p><code>{{this.issuedConnectionId}}</code></p>
-          <p><code>{{this.issuedSecret}}</code></p>
+          <div class="discussion-bridge-secret__row">
+            <span>{{i18n "discussion_bridge.admin.connection_id"}}</span>
+            <code>{{this.issuedConnectionId}}</code>
+            <button type="button" class="btn btn-default" {{on "click" (fn this.copyCredential "id" this.issuedConnectionId)}}>
+              {{if (eq this.copiedCredential "id") (i18n "discussion_bridge.admin.copied") (i18n "discussion_bridge.admin.copy_connection_id")}}
+            </button>
+          </div>
+          <div class="discussion-bridge-secret__row">
+            <span>{{i18n "discussion_bridge.admin.connection_secret"}}</span>
+            <code>{{this.issuedSecret}}</code>
+            <button type="button" class="btn btn-default" {{on "click" (fn this.copyCredential "secret" this.issuedSecret)}}>
+              {{if (eq this.copiedCredential "secret") (i18n "discussion_bridge.admin.copied") (i18n "discussion_bridge.admin.copy_connection_secret")}}
+            </button>
+          </div>
         </section>
       {{/if}}
 
@@ -284,7 +312,7 @@ export default class DiscussionBridgeConnections extends Component {
           <label>{{i18n "discussion_bridge.admin.topic_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
           <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea required value={{this.origins}} {{on "input" this.updateOrigins}}></textarea></label>
           <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
-          <fieldset>
+          <fieldset class="discussion-bridge-direction-options">
             <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
             <label><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} />{{i18n "discussion_bridge.admin.to_discourse"}}</label>
             <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>

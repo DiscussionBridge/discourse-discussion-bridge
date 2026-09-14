@@ -42,6 +42,18 @@
   &__actions form { margin: 0; }
   &__actions label, &__actions input { display: block; width: 100%; }
   &__actions input { box-sizing: border-box; margin: 0.35rem 0 0.75rem; }
+  &__actions &__checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    width: auto;
+  }
+  &__actions &__checkbox input {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0.2rem 0 0;
+  }
+  &__actions &__checkbox span { min-width: 0; }
   &__notice { padding: 0.75rem 1rem; color: #075b3a; background: #e7f8ef; border-radius: 0.4rem; }
   &__recent { overflow-x: auto; }
   &__recent table { width: 100%; }

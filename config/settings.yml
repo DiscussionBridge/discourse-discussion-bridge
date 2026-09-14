@@ -7,10 +7,12 @@ plugins:
     client: false
   discussion_bridge_service_username:
     default: ""
+    type: username
     client: false
     validator: "DiscussionBridge::ServiceUsernameValidator"
   discussion_bridge_default_author_username:
     default: ""
+    type: username
     client: false
     validator: "DiscussionBridge::ServiceUsernameValidator"
   discussion_bridge_effective_category_id:

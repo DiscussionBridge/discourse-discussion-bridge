@@ -27,6 +27,30 @@ module DiscussionBridge
         },
       )
       blockers << "source_authors_unmapped" if held_unmapped_authors.exists?
+      embeddable_hosts = EmbeddableHost.pluck(:host)
+      interactive_connection_status = connections.select do |connection|
+        connection.enabled && connection.allows_direction?("to_discourse")
+      end.map do |connection|
+        {
+          id: connection.id,
+          name: connection.name,
+          origins: connection.allowed_origins.map do |origin|
+            host = URI.parse(origin).host
+            embeddable = embeddable_hosts.any? do |candidate|
+              candidate == host ||
+                (candidate.start_with?("*.") && host.end_with?(candidate.delete_prefix("*")))
+            end
+            { origin: origin, embeddable: embeddable }
+          end,
+        }
+      end
+      interactive_blockers = DiscussionBridge::FullInteractiveReadiness.blockers
+      missing_embeddable_origin = interactive_connection_status.any? do |connection|
+        connection[:origins].any? { |origin| !origin[:embeddable] }
+      end
+      if missing_embeddable_origin
+        interactive_blockers << "content_connection_origin_not_embeddable"
+      end
 
       {
         product: {
@@ -52,6 +76,11 @@ module DiscussionBridge
           endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
           operating_identity: actor && { id: actor.id, username: actor.username },
           default_author: default_author && { id: default_author.id, username: default_author.username },
+        },
+        interactive_readiness: {
+          ready: interactive_blockers.empty?,
+          blockers: interactive_blockers,
+          connections: interactive_connection_status,
         },
         connections: connections.order(:name).limit(10).map do |connection|
           {
