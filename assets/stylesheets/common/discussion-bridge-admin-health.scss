@@ -569,6 +569,17 @@
   }
 }
 
+.discussion-bridge-add-connection .discussion-bridge-direction-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+
+  input {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+}
+
 .discussion-bridge-authors-table {
   width: 100%;
 

@@ -79,6 +79,12 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_button("Add connection")
     expect(page).to have_button("Manage")
     expect(page.html).not_to include(@secret)
+    expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-direction-option')).every((label) => getComputedStyle(label).display === 'flex' && getComputedStyle(label).alignItems === 'center')",
+      ),
+    ).to eq(true)
   end
 
   it "creates and manages another platform installation through native administration" do

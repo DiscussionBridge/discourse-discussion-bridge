@@ -314,8 +314,8 @@ export default class DiscussionBridgeConnections extends Component {
           <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
           <fieldset class="discussion-bridge-direction-options">
             <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
-            <label><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} />{{i18n "discussion_bridge.admin.to_discourse"}}</label>
-            <label><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} />{{i18n "discussion_bridge.admin.from_discourse"}}</label>
+            <label class="discussion-bridge-direction-option"><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} /><span>{{i18n "discussion_bridge.admin.to_discourse"}}</span></label>
+            <label class="discussion-bridge-direction-option"><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} /><span>{{i18n "discussion_bridge.admin.from_discourse"}}</span></label>
           </fieldset>
           <label class="discussion-bridge-checkbox-setting">
             <input
