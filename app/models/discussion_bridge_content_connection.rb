@@ -143,17 +143,17 @@ end
 #  secret_digest          :string(64)       not null
 #  unmapped_author_policy :string(32)       default("fallback"), not null
 #  created_at             :datetime         not null
-#  default_category_id    :bigint
 #  updated_at             :datetime         not null
 #  adapter_id             :string(100)
 #  author_user_id         :bigint
+#  default_category_id    :bigint
 #  public_id              :string(64)       not null
 #
 # Indexes
 #
-#  idx_db_content_connections_author     (author_user_id)
+#  idx_db_content_connections_author            (author_user_id)
 #  idx_db_content_connections_default_category  (default_category_id)
-#  idx_db_content_connections_name       (name) UNIQUE
-#  idx_db_content_connections_platform   (platform)
-#  idx_db_content_connections_public_id  (public_id) UNIQUE
+#  idx_db_content_connections_name              (name) UNIQUE
+#  idx_db_content_connections_platform          (platform)
+#  idx_db_content_connections_public_id         (public_id) UNIQUE
 #
