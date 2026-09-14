@@ -73,6 +73,16 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
   end
 
+  it "uses the forum-selected connection category instead of the forum fallback" do
+    connection_category = Fabricate(:category)
+    @connection.update!(default_category_id: connection_category.id)
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+
+    expect(response).to have_http_status(:created), response.body
+    expect(DiscussionBridgeBridgeRecord.last.topic.category_id).to eq(connection_category.id)
+  end
+
   it "applies the selected connection's forum table-of-contents policy" do
     @connection.update!(generate_topic_toc: true)
     structured = payload(
@@ -645,6 +655,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
   it "creates, updates, and rotates a connection only through native administration" do
     selected_author = Fabricate(:user, username: "publishing_author")
+    selected_category = Fabricate(:category)
     sign_in(admin)
     post "/discussion-bridge/admin/content-connections.json",
          params: {
@@ -655,6 +666,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
              allowed_origins: ["https://publishing.example"],
              allowed_directions: ["from_discourse"],
              allowed_lanes: [],
+             default_category_id: selected_category.id,
              generate_topic_toc: true,
            },
          },
@@ -669,6 +681,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "authorship_mode" => "fixed",
       "unmapped_author_policy" => "fallback",
       "generate_topic_toc" => true,
+      "default_category_id" => selected_category.id,
     )
 
     get "/discussion-bridge/admin/content-connections.json"
@@ -680,6 +693,10 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response.parsed_body.dig("content_connection", "author_override")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_username")).to eq(service_actor.username)
     expect(response.parsed_body.dig("content_connection", "generate_topic_toc")).to eq(false)
+    expect(response.parsed_body.dig("content_connection", "category_route")).to include(
+      "category_id" => selected_category.id,
+      "source" => "connection",
+    )
     post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)

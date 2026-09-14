@@ -4,7 +4,7 @@ en:
     discussion_bridge_endpoint_enabled: "Enable authenticated Content Connection endpoints. Keep disabled until Content Connections and forum policy are reviewed."
     discussion_bridge_service_username: "Active non-system operating identity authorized to create companion topics. It is separate from visible authorship."
     discussion_bridge_default_author_username: "Forum-default visible author for new companion topics. Each Content Connection may select another active Discourse user. Blank temporarily falls back to the operating identity for upgrade compatibility."
-    discussion_bridge_effective_category_id: "Forum-enforced category ID for new companion topics. Adapter category requests do not override this value."
+    discussion_bridge_effective_category_id: "Forum fallback category ID for new companion topics. A Content Connection or forum-owned lane may select another category; adapter category requests never override forum policy."
     discussion_bridge_effective_tags: "Existing forum tags enforced on new companion topics. Adapter tag requests do not override this list."
     discussion_bridge_lane_policies: "Optional JSON array of forum-owned lane policies. Each lane selects an existing category and tags; missing or unknown lanes fail closed when policies are configured."
     discussion_bridge_default_visibility: "Forum-enforced visibility for newly created topics. The current product contract supports unlisted creation."

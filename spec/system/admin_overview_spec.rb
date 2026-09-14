@@ -78,6 +78,8 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Each installation has independent credentials, scope, and many Bridge Records.")
     expect(page).to have_button("Add connection")
     expect(page).to have_button("Manage")
+    expect(page).to have_content("Topic destination")
+    expect(page).to have_content("forum fallback")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(
@@ -96,6 +98,7 @@ describe "DiscussionBridge native product administration" do
     fill_in("Connection name", with: "Editorial Ghost")
     select("ghost", from: "Platform")
     fill_in("Allowed origins (one per line)", with: "https://ghost.example")
+    select(category.name, from: "Companion-topic category")
     click_button("Add connection")
 
     expect(page).to have_content("Copy this connection credential now", wait: 30)
@@ -104,6 +107,7 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Editorial Ghost")
     created = DiscussionBridgeContentConnection.find_by!(name: "Editorial Ghost")
     expect(page).to have_content(created.public_id)
+    expect(created.default_category_id).to eq(category.id)
 
     within(".discussion-bridge-connection-card", text: "Editorial Ghost") do
       click_button("Manage")

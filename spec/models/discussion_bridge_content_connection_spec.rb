@@ -55,4 +55,20 @@ describe DiscussionBridgeContentConnection do
     ).for(:allowed_origins)
     expect(first).not_to allow_value(%w[to_discourse unknown]).for(:allowed_directions)
   end
+
+  it "accepts an optional forum-owned companion-topic category" do
+    category = Fabricate(:category)
+    connection, = described_class.issue!(
+      name: "Routed WordPress",
+      platform: "wordpress",
+      allowed_origins: ["https://routed.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+      default_category_id: category.id,
+    )
+
+    expect(connection.default_category_id).to eq(category.id)
+    connection.default_category_id = 9_999_999
+    expect(connection).not_to be_valid
+  end
 end

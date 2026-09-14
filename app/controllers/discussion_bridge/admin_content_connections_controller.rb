@@ -10,6 +10,10 @@ module DiscussionBridge
         content_connections: connections.map { |connection| serialize(connection) },
         platforms: DiscussionBridgeContentConnection::PLATFORMS,
         directions: DiscussionBridgeContentConnection::DIRECTIONS,
+        categories: Category.order(:name, :id).pluck(:id, :name).map do |id, name|
+          { id: id, id_string: id.to_s, name: name }
+        end,
+        fallback_category: fallback_category,
       }
     end
 
@@ -56,6 +60,7 @@ module DiscussionBridge
         :authorship_mode,
         :unmapped_author_policy,
         :generate_topic_toc,
+        :default_category_id,
         :adapter_id,
         :adapter_version,
         :enabled,
@@ -66,6 +71,10 @@ module DiscussionBridge
       if raw.key?(:author_username)
         username = raw.delete(:author_username).to_s.strip
         raw[:author_user_id] = username.present? ? author_user!(username).id : nil
+      end
+      if raw.key?(:default_category_id)
+        category_id = raw[:default_category_id].to_s.strip
+        raw[:default_category_id] = category_id.present? ? Integer(category_id, 10) : nil
       end
       raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
@@ -101,6 +110,8 @@ module DiscussionBridge
         authorship_mode: connection.authorship_mode,
         unmapped_author_policy: connection.unmapped_author_policy,
         generate_topic_toc: connection.generate_topic_toc,
+        default_category_id: connection.default_category_id,
+        category_route: category_route(connection),
         source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|
           serialize_source_author(source_author)
         end,
@@ -134,6 +145,21 @@ module DiscussionBridge
         discourse_username: source_author.discourse_user&.username,
         mapped: source_author.discourse_user_id.present?,
         last_seen_at: source_author.last_seen_at,
+      }
+    end
+
+    def fallback_category
+      category = Category.find_by(id: SiteSetting.discussion_bridge_effective_category_id)
+      { id: category&.id, name: category&.name }
+    end
+
+    def category_route(connection)
+      category = Category.find_by(id: connection.default_category_id) ||
+        Category.find_by(id: SiteSetting.discussion_bridge_effective_category_id)
+      {
+        category_id: category&.id,
+        category_name: category&.name,
+        source: connection.default_category_id.present? ? "connection" : "forum_fallback",
       }
     end
 

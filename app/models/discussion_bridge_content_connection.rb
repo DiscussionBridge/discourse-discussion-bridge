@@ -34,6 +34,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validates :adapter_id, :adapter_version, length: { maximum: 100 }, allow_nil: true
   validate :scopes_are_valid
   validate :author_user_is_usable
+  validate :default_category_is_available
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -90,6 +91,12 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
 
   private
 
+  def default_category_is_available
+    return if default_category_id.blank? || Category.exists?(id: default_category_id)
+
+    errors.add(:default_category_id, "must identify an existing Discourse category")
+  end
+
   def author_user_is_usable
     return if author_user.nil?
     return if author_user.active? && !author_user.staged? && !author_user.suspended? &&
@@ -136,6 +143,7 @@ end
 #  secret_digest          :string(64)       not null
 #  unmapped_author_policy :string(32)       default("fallback"), not null
 #  created_at             :datetime         not null
+#  default_category_id    :bigint
 #  updated_at             :datetime         not null
 #  adapter_id             :string(100)
 #  author_user_id         :bigint
@@ -144,6 +152,7 @@ end
 # Indexes
 #
 #  idx_db_content_connections_author     (author_user_id)
+#  idx_db_content_connections_default_category  (default_category_id)
 #  idx_db_content_connections_name       (name) UNIQUE
 #  idx_db_content_connections_platform   (platform)
 #  idx_db_content_connections_public_id  (public_id) UNIQUE

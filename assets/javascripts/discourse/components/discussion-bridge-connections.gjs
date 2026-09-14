@@ -24,6 +24,7 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked sourceMappings = {};
   @tracked origins = "";
   @tracked lanes = "";
+  @tracked defaultCategoryId = "";
   @tracked toDiscourse = true;
   @tracked fromDiscourse = true;
   @tracked generateTopicToc = false;
@@ -66,6 +67,9 @@ export default class DiscussionBridgeConnections extends Component {
 
   @action
   updateLanes(event) { this.lanes = event.target.value; }
+
+  @action
+  updateDefaultCategory(event) { this.defaultCategoryId = event.target.value; }
 
   @action
   updateToDiscourse(event) { this.toDiscourse = event.target.checked; }
@@ -115,6 +119,7 @@ export default class DiscussionBridgeConnections extends Component {
             allowed_origins: this.lines(this.origins),
             allowed_directions: directions,
             allowed_lanes: this.lines(this.lanes),
+            default_category_id: this.defaultCategoryId,
           },
         },
       });
@@ -143,6 +148,7 @@ export default class DiscussionBridgeConnections extends Component {
     );
     this.origins = connection.allowed_origins.join("\n");
     this.lanes = connection.allowed_lanes.join("\n");
+    this.defaultCategoryId = connection.default_category_id?.toString() ?? "";
     this.toDiscourse = connection.allowed_directions.includes("to_discourse");
     this.fromDiscourse = connection.allowed_directions.includes("from_discourse");
     this.generateTopicToc = connection.generate_topic_toc;
@@ -217,6 +223,7 @@ export default class DiscussionBridgeConnections extends Component {
     this.sourceMappings = {};
     this.origins = "";
     this.lanes = "";
+    this.defaultCategoryId = "";
     this.toDiscourse = true;
     this.fromDiscourse = true;
     this.generateTopicToc = false;
@@ -268,6 +275,7 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code>{{connection.author_username}}</code>{{#unless connection.author_override}} <small>{{i18n "discussion_bridge.admin.forum_default"}}</small>{{/unless}}</dd>
               <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd>{{this.displayToken connection.authorship_mode}} · {{connection.source_author_count}} {{i18n "discussion_bridge.admin.source_authors"}}{{#if connection.unmapped_source_author_count}} · {{connection.unmapped_source_author_count}} {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
               <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if connection.generate_topic_toc (i18n "discussion_bridge.admin.enabled") (i18n "discussion_bridge.admin.disabled")}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.category_route"}}</dt><dd>{{connection.category_route.category_name}} <small>({{if (eq connection.category_route.source "connection") (i18n "discussion_bridge.admin.connection_route") (i18n "discussion_bridge.admin.forum_fallback")}})</small></dd>
               <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each connection.allowed_origins as |origin|}}<code>{{origin}}</code>{{/each}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
@@ -311,6 +319,21 @@ export default class DiscussionBridgeConnections extends Component {
           </label>
           <label>{{i18n "discussion_bridge.admin.topic_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
           <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea required value={{this.origins}} {{on "input" this.updateOrigins}}></textarea></label>
+          <label>{{i18n "discussion_bridge.admin.companion_topic_category"}}
+            <select {{on "change" this.updateDefaultCategory}}>
+              <option value="" selected={{eq this.defaultCategoryId ""}}>
+                {{#if @model.fallback_category.name}}
+                  {{i18n "discussion_bridge.admin.use_forum_fallback_category" category=@model.fallback_category.name}}
+                {{else}}
+                  {{i18n "discussion_bridge.admin.forum_fallback_unavailable"}}
+                {{/if}}
+              </option>
+              {{#each @model.categories as |category|}}
+                <option value={{category.id}} selected={{eq this.defaultCategoryId category.id_string}}>{{category.name}}</option>
+              {{/each}}
+            </select>
+            <small>{{i18n "discussion_bridge.admin.companion_topic_category_description"}}</small>
+          </label>
           <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
           <fieldset class="discussion-bridge-direction-options">
             <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>

@@ -39,7 +39,8 @@ module DiscussionBridge
       lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: data[:lane])
       authority = ForumAuthority.call(
         actor: actor,
-        category_id: lane_resolution.category_id || SiteSetting.discussion_bridge_effective_category_id,
+        category_id: lane_resolution.category_id || @content_connection.default_category_id ||
+          SiteSetting.discussion_bridge_effective_category_id,
         tags: lane_resolution.tags || SiteSetting.discussion_bridge_effective_tags,
       ) if actor
       policy = PolicyEvaluator.call(

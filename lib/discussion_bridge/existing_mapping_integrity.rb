@@ -125,9 +125,18 @@ module DiscussionBridge
       )
       return denied(lane.reason) unless lane.allowed
 
+      connection_category_id = if defined?(DiscussionBridgeBridgeRecord) &&
+          mapping.is_a?(DiscussionBridgeBridgeRecord)
+        mapping.content_bindings
+          .where(role: "source", state: "active")
+          .pick(:content_connection_id)
+          .then { |id| DiscussionBridgeContentConnection.find_by(id: id)&.default_category_id }
+      end
+
       authority = ForumAuthority.call(
         actor: operating_actor,
-        category_id: lane.category_id || SiteSetting.discussion_bridge_effective_category_id,
+        category_id: lane.category_id || connection_category_id ||
+          SiteSetting.discussion_bridge_effective_category_id,
         tags: lane.tags || SiteSetting.discussion_bridge_effective_tags,
       )
       return denied(authority.reason) unless authority.allowed?
