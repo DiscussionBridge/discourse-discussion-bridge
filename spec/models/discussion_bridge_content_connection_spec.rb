@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 describe DiscussionBridgeContentConnection do
+  it "presents supported platforms alphabetically" do
+    expect(described_class::PLATFORMS).to eq(%w[astro discourse ghost hugo statamic wordpress])
+  end
+
   it "supports every settled platform type and multiple installations of one type" do
     created = described_class::PLATFORMS.each_with_index.map do |platform, index|
       connection, secret = described_class.issue!(
