@@ -57,6 +57,10 @@
   &__notice { padding: 0.75rem 1rem; color: #075b3a; background: #e7f8ef; border-radius: 0.4rem; }
   &__recent { overflow-x: auto; }
   &__recent table { width: 100%; }
+  &__correction { max-width: 48rem; padding-top: 1rem; }
+  &__correction label, &__correction input { display: block; width: 100%; }
+  &__correction input { box-sizing: border-box; margin: 0.35rem 0 0.75rem; }
+  &__correction .btn + .btn { margin-left: 0.5rem; }
 
   @media (max-width: 700px) {
     &__hero, &__metrics, &__actions, &__connection dl { grid-template-columns: 1fr; }

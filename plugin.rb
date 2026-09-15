@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.26
+# version: 0.2.0.alpha.27
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.26"
+    VERSION = "0.2.0.alpha.27"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -78,6 +78,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
+  require_relative "lib/discussion_bridge/presentation_binding_corrector"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
@@ -320,6 +321,7 @@ after_initialize do
     get "/admin/reconciliation/report" => "reconciliation#report"
     get "/admin/publishing" => "publisher#overview"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
+    put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
     get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
   end
 

@@ -158,6 +158,14 @@ describe "DiscussionBridge native product administration" do
     expect(binding.content_connection).to eq(@connection)
     expect(binding.native_materialization).to eq(true)
     expect(binding.bridge_record.topic_id).to eq(topic.id)
+
+    within(".discussion-bridge-publishing__recent") do
+      click_button("Edit presentation")
+      fill_in("Presentation URL", with: "https://example.com/discussionbridge/from-the-forum/")
+      click_button("Save presentation URL")
+    end
+    expect(page).to have_content("Platform presentation URL corrected", wait: 30)
+    expect(binding.reload.canonical_url).to eq("https://example.com/discussionbridge/from-the-forum/")
   end
 
   it "manages observed platform authors inside the selected connection" do

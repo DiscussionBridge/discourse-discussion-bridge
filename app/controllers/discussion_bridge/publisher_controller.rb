@@ -56,6 +56,19 @@ module ::DiscussionBridge
       }
     end
 
+    def correct_presentation
+      record = PresentationBindingCorrector.call(
+        user: current_user,
+        resource_id: params.require(:resource_id),
+        canonical_url: params.require(:publication).fetch(:canonical_url),
+      )
+      render json: publication_payload(record).merge(outcome: "presentation_corrected")
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique,
+           ActiveRecord::RecordNotFound, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
+    end
+
     private
 
     def available_connections

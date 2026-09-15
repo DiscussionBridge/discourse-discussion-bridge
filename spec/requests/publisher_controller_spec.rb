@@ -68,6 +68,47 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeContentBinding.last.native_materialization).to eq(false)
   end
 
+  it "lets staff correct only the presentation URL without replacing its identity" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication,
+         as: :json
+    created = response.parsed_body
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: created.fetch("resource_id"))
+    binding = record.active_binding("presentation")
+
+    put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/presentation.json",
+        params: { publication: { canonical_url: "https://astro.example.com/discussionbridge/roadmap/" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      "outcome" => "presentation_corrected",
+      "resource_id" => created.fetch("resource_id"),
+      "topic_id" => topic.id,
+      "external_id" => "roadmap",
+      "canonical_url" => "https://astro.example.com/discussionbridge/roadmap/",
+    )
+    expect(binding.reload.canonical_url).to eq("https://astro.example.com/discussionbridge/roadmap/")
+    expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse").count).to eq(1)
+  end
+
+  it "rejects a corrected presentation URL outside the connection scope" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication,
+         as: :json
+    resource_id = response.parsed_body.fetch("resource_id")
+
+    put "/discussion-bridge/v1/publisher/publications/#{resource_id}/presentation.json",
+        params: { publication: { canonical_url: "https://wrong.example.com/roadmap/" } },
+        as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeBridgeRecord.find_by!(resource_id: resource_id)
+      .active_binding("presentation").canonical_url).to eq("https://astro.example.com/roadmap/")
+  end
+
   it "explicitly authorizes native materialization and exposes it to the adapter" do
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
