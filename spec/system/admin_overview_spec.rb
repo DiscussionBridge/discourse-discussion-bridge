@@ -169,6 +169,10 @@ describe "DiscussionBridge native product administration" do
     end
     expect(page).to have_content("Platform presentation URL corrected", wait: 30)
     expect(page).to have_css(".discussion-bridge-publishing__recent .discussion-bridge-publishing__notice")
+    expect(page).to have_link(
+      "Main publication",
+      href: "https://example.com/discussionbridge/from-the-forum/",
+    )
     expect(binding.reload.canonical_url).to eq("https://example.com/discussionbridge/from-the-forum/")
   end
 

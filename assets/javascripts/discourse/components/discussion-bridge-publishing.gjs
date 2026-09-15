@@ -25,6 +25,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked working = false;
   @tracked editingRecord = null;
   @tracked correctedCanonicalUrl = "";
+  @tracked correctedPresentationUrls = {};
 
   @action
   updateTopicId(event) { this.topicId = event.target.value; }
@@ -55,7 +56,7 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   beginPresentationCorrection(record) {
     this.editingRecord = record;
-    this.correctedCanonicalUrl = record.canonical_url;
+    this.correctedCanonicalUrl = this.presentationUrl(record);
     this.notice = "";
     this.noticeContext = "";
   }
@@ -85,10 +86,13 @@ export default class DiscussionBridgePublishing extends Component {
         }
       );
       this.createdRecord = result;
+      this.correctedPresentationUrls = {
+        ...this.correctedPresentationUrls,
+        [result.resource_id]: result.canonical_url,
+      };
       this.notice = i18n("discussion_bridge.admin.publisher_presentation_corrected");
       this.noticeContext = "correction";
       this.cancelPresentationCorrection();
-      this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
     } finally {
@@ -144,6 +148,10 @@ export default class DiscussionBridgePublishing extends Component {
   }
 
   displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
+
+  presentationUrl(record) {
+    return this.correctedPresentationUrls[record.resource_id] || record.canonical_url;
+  }
 
   <template>
     <section class="discussion-bridge-publishing">
@@ -204,7 +212,7 @@ export default class DiscussionBridgePublishing extends Component {
         {{/if}}
         <table><thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th>{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
           <tbody>{{#each @model.recent_records as |record|}}
-            <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{record.canonical_url}}>{{record.connection_name}}</a></td><td>{{record.state}}</td><td><DButton @label="discussion_bridge.admin.publisher_edit_presentation" @action={{this.beginPresentationCorrection}} @actionParam={{record}} /></td></tr>
+            <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{this.presentationUrl record}}>{{record.connection_name}}</a></td><td>{{record.state}}</td><td><DButton @label="discussion_bridge.admin.publisher_edit_presentation" @action={{this.beginPresentationCorrection}} @actionParam={{record}} /></td></tr>
             {{#if this.editingRecord}}
               {{#if (eq record.resource_id this.editingRecord.resource_id)}}
                 <tr class="discussion-bridge-publishing__correction-row"><td colspan="5">
