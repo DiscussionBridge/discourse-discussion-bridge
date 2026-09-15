@@ -120,7 +120,7 @@ describe "DiscussionBridge native product administration" do
     expect(created.default_category_id).to eq(category.id)
 
     within(".discussion-bridge-connection-card", text: "Editorial Ghost") do
-      expect(page).to have_content("Not yet verified")
+      expect(page).to have_content("Not Yet Verified")
       expect(page).to have_content("Adapter identity")
       expect(page).to have_content("Adapter version")
     end
