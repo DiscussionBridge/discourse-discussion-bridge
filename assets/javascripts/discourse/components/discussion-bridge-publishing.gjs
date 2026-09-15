@@ -149,6 +149,7 @@ export default class DiscussionBridgePublishing extends Component {
 
   displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
 
+  @action
   presentationUrl(record) {
     return this.correctedPresentationUrls[record.resource_id] || record.canonical_url;
   }
