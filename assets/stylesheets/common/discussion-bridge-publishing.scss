@@ -61,10 +61,21 @@
     margin: 0.2rem 0 0;
   }
   &__actions &__checkbox span { min-width: 0; }
-  &__notice { padding: 0.75rem 1rem; color: #075b3a; background: #e7f8ef; border-radius: 0.4rem; }
+  &__notice {
+    padding: 0.85rem 1rem;
+    margin: 1rem 0 0;
+    color: #075b3a;
+    background: #e7f8ef;
+    border: 1px solid #78c9a3;
+    border-left: 0.35rem solid #159b63;
+    border-radius: 0.4rem;
+    box-shadow: 0 0.15rem 0.45rem rgb(7 91 58 / 12%);
+  }
   &__recent { overflow-x: auto; }
   &__recent table { width: 100%; }
-  &__correction { max-width: 48rem; padding-top: 1rem; }
+  &__correction-row td { background: var(--dbp-mint); }
+  &__correction { max-width: 48rem; padding: 0.5rem; }
+  &__correction h4 { margin-top: 0; }
   &__correction label, &__correction input { display: block; width: 100%; }
   &__correction input { box-sizing: border-box; margin: 0.35rem 0 0.75rem; }
   &__correction .btn + .btn { margin-left: 0.5rem; }

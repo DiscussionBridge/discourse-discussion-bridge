@@ -160,11 +160,15 @@ describe "DiscussionBridge native product administration" do
     expect(binding.bridge_record.topic_id).to eq(topic.id)
 
     within(".discussion-bridge-publishing__recent") do
+      expect(page).to have_css("th", text: "Actions")
       click_button("Edit presentation")
-      fill_in("Presentation URL", with: "https://example.com/discussionbridge/from-the-forum/")
-      click_button("Save presentation URL")
+      within(".discussion-bridge-publishing__correction-row") do
+        fill_in("Presentation URL", with: "https://example.com/discussionbridge/from-the-forum/")
+        click_button("Save presentation URL")
+      end
     end
     expect(page).to have_content("Platform presentation URL corrected", wait: 30)
+    expect(page).to have_css(".discussion-bridge-publishing__recent .discussion-bridge-publishing__notice")
     expect(binding.reload.canonical_url).to eq("https://example.com/discussionbridge/from-the-forum/")
   end
 
