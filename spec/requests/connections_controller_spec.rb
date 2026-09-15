@@ -27,6 +27,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     {
       "X-DiscussionBridge-Connection" => @connection.public_id,
       "X-DiscussionBridge-Secret" => secret,
+      "X-DiscussionBridge-Adapter" => "wordpress-official",
+      "X-DiscussionBridge-Adapter-Version" => "1.0.0",
     }
   end
 
@@ -403,6 +405,26 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       },
     )
     expect(@connection.reload.last_seen_at).to be_present
+  end
+
+  it "records adapter presence during an authenticated read without creating content" do
+    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil, last_seen_at: nil)
+
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+
+    expect(response).to have_http_status(:ok)
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+    expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
+    expect(@connection.last_seen_at).to be_present
+  end
+
+  it "rejects incomplete adapter presence headers" do
+    invalid_headers = headers.except("X-DiscussionBridge-Adapter-Version")
+
+    get "/discussion-bridge/v1/bridge-records.json", headers: invalid_headers
+
+    expect(response).to have_http_status(:unauthorized)
+    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil, last_seen_at: nil)
   end
 
   it "does not attach Discourse publisher provenance to a To Discourse record" do
