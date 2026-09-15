@@ -29,23 +29,23 @@ export default <template>
     </div>
 
     <div class="discussion-bridge-direction-cards">
-      <section>
+      <section data-direction="to_discourse">
         <h3>{{i18n "discussion_bridge.admin.to_discourse"}}</h3>
-        <span>{{i18n "discussion_bridge.admin.connected_platform"}}</span>
-        <strong>{{i18n "discussion_bridge.admin.content_source"}}</strong>
-        <div aria-label={{i18n "discussion_bridge.admin.to_discourse"}}>→</div>
-        <span>{{i18n "discussion_bridge.admin.discourse"}}</span>
-        <strong>{{i18n "discussion_bridge.admin.discussion"}}</strong>
-        <p>{{@status.directions.to_discourse}} {{i18n "discussion_bridge.admin.bridge_records"}}</p>
+        <div class="discussion-bridge-direction-cards__flow">
+          <div><span>{{i18n "discussion_bridge.admin.flow_source"}}</span><strong>{{i18n "discussion_bridge.admin.platform_content"}}</strong></div>
+          <span class="discussion-bridge-direction-cards__arrow" aria-hidden="true">→</span>
+          <div><span>{{i18n "discussion_bridge.admin.destination"}}</span><strong>{{i18n "discussion_bridge.admin.discourse_topic_and_discussion"}}</strong></div>
+        </div>
+        <p>{{i18n "discussion_bridge.admin.to_discourse_record_count" count=@status.directions.to_discourse}}</p>
       </section>
-      <section>
+      <section data-direction="from_discourse">
         <h3>{{i18n "discussion_bridge.admin.from_discourse"}}</h3>
-        <span>{{i18n "discussion_bridge.admin.discourse"}}</span>
-        <strong>{{i18n "discussion_bridge.admin.content_and_discussion"}}</strong>
-        <div aria-label={{i18n "discussion_bridge.admin.from_discourse"}}>→</div>
-        <span>{{i18n "discussion_bridge.admin.connected_platform"}}</span>
-        <strong>{{i18n "discussion_bridge.admin.presentation"}}</strong>
-        <p>{{@status.directions.from_discourse}} {{i18n "discussion_bridge.admin.bridge_records"}}</p>
+        <div class="discussion-bridge-direction-cards__flow">
+          <div><span>{{i18n "discussion_bridge.admin.flow_source"}}</span><strong>{{i18n "discussion_bridge.admin.discourse_content_and_discussion"}}</strong></div>
+          <span class="discussion-bridge-direction-cards__arrow" aria-hidden="true">→</span>
+          <div><span>{{i18n "discussion_bridge.admin.destination"}}</span><strong>{{i18n "discussion_bridge.admin.platform_presentation"}}</strong></div>
+        </div>
+        <p>{{i18n "discussion_bridge.admin.from_discourse_record_count" count=@status.directions.from_discourse}}</p>
       </section>
     </div>
 

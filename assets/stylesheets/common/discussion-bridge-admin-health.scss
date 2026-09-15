@@ -173,6 +173,16 @@
   background: var(--success-low, var(--primary-low));
 }
 
+.discussion-bridge-direction[data-direction="to_discourse"] {
+  color: var(--tertiary);
+  background: var(--tertiary-low, var(--primary-low));
+}
+
+.discussion-bridge-direction[data-direction="from_discourse"] {
+  color: var(--success);
+  background: var(--success-low, var(--primary-low));
+}
+
 .discussion-bridge-status[data-state="attention"],
 .discussion-bridge-status[data-state="failed"] {
   color: var(--danger);
@@ -197,16 +207,49 @@
 }
 
 .discussion-bridge-direction-cards > section {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 0.35rem 0.75rem;
-  align-items: center;
+  border-inline-start: 0.3rem solid var(--tertiary);
+
+  &[data-direction="from_discourse"] {
+    border-inline-start-color: var(--success);
+  }
+
+  h3 {
+    margin-block-start: 0;
+  }
 
   p {
-    grid-column: 1 / -1;
     margin-block-end: 0;
     color: var(--primary-medium);
   }
+}
+
+.discussion-bridge-direction-cards__flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+
+  > div {
+    min-width: 0;
+    padding: 0.75rem;
+    border-radius: var(--d-border-radius);
+    background: var(--primary-very-low);
+  }
+
+  span,
+  strong {
+    display: block;
+  }
+
+  span {
+    color: var(--primary-medium);
+    font-size: var(--font-down-1);
+  }
+}
+
+.discussion-bridge-direction-cards__arrow {
+  color: var(--primary-medium);
+  font-size: var(--font-up-2);
 }
 
 .discussion-bridge-connection-card {
@@ -233,15 +276,29 @@
   }
 
   dd code,
-  dd span {
+  dd > span:not(.discussion-bridge-direction) {
     display: block;
   }
+}
+
+.discussion-bridge-connection-card__directions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .discussion-bridge-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: center;
+  padding-block-start: 0.85rem;
+  margin-block-start: 0.85rem;
+  border-top: 1px solid var(--primary-low);
+
+  &__credential {
+    margin-inline-start: auto;
+  }
 }
 
 .discussion-bridge-secret,
@@ -278,11 +335,18 @@
 .discussion-bridge-direction-options {
   display: grid;
   gap: 0.5rem;
+  min-width: 0;
+  padding: 0.85rem 1rem 1rem;
+  border: 1px solid var(--primary-low);
+  border-radius: var(--d-border-radius);
+  background: var(--secondary);
 
   label {
     display: flex;
     align-items: center;
     gap: 0.55rem;
+    width: fit-content;
+    margin: 0;
   }
 
   input {
@@ -439,6 +503,10 @@
     gap: 0.25rem;
   }
 
+  &__search .btn-primary {
+    min-width: 6rem;
+  }
+
   &__summary {
     color: var(--primary-medium);
   }
@@ -569,6 +637,11 @@
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--primary-low);
+  border-radius: var(--d-border-radius);
+  background: var(--secondary);
 
   input {
     margin-block-start: 0.2rem;
@@ -594,6 +667,18 @@
     flex: 0 0 auto;
     margin: 0;
   }
+}
+
+.discussion-bridge-add-connection__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding-block-start: 0.25rem;
+}
+
+.discussion-bridge-create-from__topic-id {
+  max-width: 14rem;
 }
 
 .discussion-bridge-authors-table {
@@ -624,6 +709,19 @@
     dd + dt {
       margin-block-start: 0.65rem;
     }
+  }
+
+  .discussion-bridge-direction-cards__flow {
+    grid-template-columns: 1fr;
+  }
+
+  .discussion-bridge-direction-cards__arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .discussion-bridge-actions__credential {
+    margin-inline-start: 0;
   }
 
   .discussion-bridge-operations {

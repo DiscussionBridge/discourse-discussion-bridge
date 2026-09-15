@@ -129,8 +129,8 @@ export default class DiscussionBridgeOperations extends Component {
       />
 
       <div class="discussion-bridge-direction-cards">
-        <section><strong>{{i18n "discussion_bridge.admin.to_discourse"}}</strong><p>{{i18n "discussion_bridge.admin.to_discourse_description"}}</p></section>
-        <section><strong>{{i18n "discussion_bridge.admin.from_discourse"}}</strong><p>{{i18n "discussion_bridge.admin.from_discourse_description"}}</p></section>
+        <section data-direction="to_discourse"><strong>{{i18n "discussion_bridge.admin.to_discourse"}}</strong><p>{{i18n "discussion_bridge.admin.to_discourse_description"}}</p></section>
+        <section data-direction="from_discourse"><strong>{{i18n "discussion_bridge.admin.from_discourse"}}</strong><p>{{i18n "discussion_bridge.admin.from_discourse_description"}}</p></section>
       </div>
 
       <form {{on "submit" this.filter}} class="discussion-bridge-operations__search">
@@ -156,7 +156,7 @@ export default class DiscussionBridgeOperations extends Component {
             {{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}
           </select>
         </label>
-        <DButton @type="submit" @label="discussion_bridge.admin.apply" />
+        <DButton @type="submit" @label="discussion_bridge.admin.apply" class="btn-primary" />
       </form>
 
       <div class="discussion-bridge-operations__table-wrap">
@@ -170,7 +170,7 @@ export default class DiscussionBridgeOperations extends Component {
                 <td><span class="discussion-bridge-direction" data-direction={{record.direction}}>{{this.displayToken record.direction}}</span></td>
                 <td>{{#if record.topic_id}}<a href="/t/{{record.topic_id}}">Topic {{record.topic_id}} · {{record.reply_count}} replies</a>{{else}}—{{/if}}</td>
                 <td><span class="discussion-bridge-status" data-state={{record.state}}>{{this.displayToken record.state}}</span></td>
-                <td><DButton @label="discussion_bridge.admin.view" @action={{this.showRecord}} @actionParam={{record}} /></td>
+                <td><DButton @label="discussion_bridge.admin.view" @action={{this.showRecord}} @actionParam={{record}} class="btn-primary" /></td>
               </tr>
             {{else}}<tr><td colspan="6">{{i18n "discussion_bridge.admin.no_records"}}</td></tr>{{/each}}
           </tbody>
@@ -201,7 +201,7 @@ export default class DiscussionBridgeOperations extends Component {
 
           <form {{on "submit" this.prepareMigration}}>
             <h4>{{i18n "discussion_bridge.admin.prepare_migration"}}</h4>
-            <select required {{on "change" this.updateMigrationConnection}}><option value="">—</option>{{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}</select>
+            <select required {{on "change" this.updateMigrationConnection}}><option value="" selected={{eq this.migrationConnectionId ""}} disabled>{{i18n "discussion_bridge.admin.select_connection"}}</option>{{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}</select>
             <input required placeholder={{i18n "discussion_bridge.admin.external_id"}} value={{this.migrationExternalId}} {{on "input" this.updateMigrationExternal}} />
             <input required type="url" placeholder={{i18n "discussion_bridge.admin.canonical_url"}} value={{this.migrationUrl}} {{on "input" this.updateMigrationUrl}} />
             <DButton @type="submit" @label="discussion_bridge.admin.prepare_migration" />
@@ -212,8 +212,8 @@ export default class DiscussionBridgeOperations extends Component {
       <form class="discussion-bridge-create-from" {{on "submit" this.createFromDiscourse}}>
         <h3>{{i18n "discussion_bridge.admin.create_from_discourse"}}</h3>
         <p>{{i18n "discussion_bridge.admin.create_from_discourse_description"}}</p>
-        <select required {{on "change" this.updateFromConnection}}><option value="">—</option>{{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}</select>
-        <input required type="number" min="1" placeholder={{i18n "discussion_bridge.admin.topic_id"}} value={{this.fromTopicId}} {{on "input" this.updateFromTopic}} />
+        <label>{{i18n "discussion_bridge.admin.connection"}}<select required {{on "change" this.updateFromConnection}}><option value="" selected={{eq this.fromConnectionId ""}} disabled>{{i18n "discussion_bridge.admin.select_connection"}}</option>{{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}</select></label>
+        <label class="discussion-bridge-create-from__topic-id">{{i18n "discussion_bridge.admin.topic_id"}}<input required type="number" min="1" max="999999999999" inputmode="numeric" value={{this.fromTopicId}} {{on "input" this.updateFromTopic}} /></label>
         <input required placeholder={{i18n "discussion_bridge.admin.external_id"}} value={{this.fromExternalId}} {{on "input" this.updateFromExternal}} />
         <input required type="url" placeholder={{i18n "discussion_bridge.admin.presentation_url"}} value={{this.fromUrl}} {{on "input" this.updateFromUrl}} />
         <DButton @type="submit" @label="discussion_bridge.admin.create_bridge_record" class="btn-primary" />

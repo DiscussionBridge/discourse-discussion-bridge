@@ -180,17 +180,17 @@ export default class DiscussionBridgePublishing extends Component {
         <form {{on "submit" this.publishTopic}}>
           <h3>{{i18n "discussion_bridge.admin.publisher_publish_title"}}</h3>
           <p>{{i18n "discussion_bridge.admin.publisher_publish_description"}}</p>
-          <label class="discussion-bridge-publishing__topic-id">{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
+          <label class="discussion-bridge-publishing__topic-id">{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" max="999999999999" inputmode="numeric" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
           <label>{{i18n "discussion_bridge.admin.publisher_connection"}}
             <select required {{on "change" this.updateConnectionId}}>
-              <option value="">—</option>
+              <option value="" selected={{eq this.connectionId ""}} disabled>{{i18n "discussion_bridge.admin.select_connection"}}</option>
               {{#each @model.connections as |connection|}}<option value={{connection.id}} selected={{eq connection.id this.connectionId}}>{{connection.name}} · {{this.displayToken connection.platform}}</option>{{/each}}
             </select>
           </label>
           {{#if this.selectedLanes.length}}
             <label>{{i18n "discussion_bridge.admin.publisher_lane"}}
               <select required {{on "change" this.updateLane}}>
-                <option value="">—</option>
+                <option value="" selected={{eq this.lane ""}} disabled>{{i18n "discussion_bridge.admin.select_category_route"}}</option>
                 {{#each this.selectedLanes as |lane|}}<option value={{lane}} selected={{eq lane this.lane}}>{{lane}}</option>{{/each}}
               </select>
               <small>{{i18n "discussion_bridge.admin.publisher_lane_description"}}</small>
@@ -213,7 +213,7 @@ export default class DiscussionBridgePublishing extends Component {
         {{/if}}
         <table><thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th>{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
           <tbody>{{#each @model.recent_records as |record|}}
-            <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{this.presentationUrl record}}>{{record.connection_name}}</a></td><td>{{record.state}}</td><td><DButton @label="discussion_bridge.admin.publisher_edit_presentation" @action={{this.beginPresentationCorrection}} @actionParam={{record}} /></td></tr>
+            <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{this.presentationUrl record}}>{{record.connection_name}}</a></td><td><span class="discussion-bridge-status" data-state={{record.state}}>{{this.displayToken record.state}}</span></td><td><DButton @label="discussion_bridge.admin.publisher_edit_presentation" @action={{this.beginPresentationCorrection}} @actionParam={{record}} /></td></tr>
             {{#if this.editingRecord}}
               {{#if (eq record.resource_id this.editingRecord.resource_id)}}
                 <tr class="discussion-bridge-publishing__correction-row"><td colspan="5">

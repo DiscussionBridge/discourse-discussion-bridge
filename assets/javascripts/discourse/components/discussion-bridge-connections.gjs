@@ -279,7 +279,7 @@ export default class DiscussionBridgeConnections extends Component {
             <dl>
               <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd>{{connection.bridge_record_count}}</dd>
               <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd><code>{{connection.public_id}}</code></dd>
-              <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd>{{#each connection.allowed_directions as |direction|}}<span>{{this.displayToken direction}}</span>{{/each}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd class="discussion-bridge-connection-card__directions">{{#each connection.allowed_directions as |direction|}}<span class="discussion-bridge-direction" data-direction={{direction}}>{{this.displayToken direction}}</span>{{/each}}</dd>
               <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code>{{connection.author_username}}</code>{{#unless connection.author_override}} <small>{{i18n "discussion_bridge.admin.forum_default"}}</small>{{/unless}}</dd>
               <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd>{{this.displayToken connection.authorship_mode}} · {{connection.source_author_count}} {{i18n "discussion_bridge.admin.source_authors"}}{{#if connection.unmapped_source_author_count}} · {{connection.unmapped_source_author_count}} {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
               <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if connection.generate_topic_toc (i18n "discussion_bridge.admin.enabled") (i18n "discussion_bridge.admin.disabled")}}</dd>
@@ -290,11 +290,12 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.adapter_version"}}</dt><dd><code>{{this.displayToken connection.adapter_version}}</code></dd>
               <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd>{{this.displayTimestamp connection.last_seen_at}}</dd>
             </dl>
-            <div class="discussion-bridge-actions">
+            <div class="discussion-bridge-actions" aria-label={{i18n "discussion_bridge.admin.connection_actions"}}>
               <DButton
                 @label="discussion_bridge.admin.manage"
                 @action={{this.editConnection}}
                 @actionParam={{connection}}
+                class="btn-primary"
               />
               <DButton
                 @label={{if connection.enabled "discussion_bridge.admin.disable" "discussion_bridge.admin.enable"}}
@@ -305,6 +306,7 @@ export default class DiscussionBridgeConnections extends Component {
                 @label="discussion_bridge.admin.rotate_secret"
                 @action={{this.rotateSecret}}
                 @actionParam={{connection}}
+                class="discussion-bridge-actions__credential"
               />
             </div>
           </article>
@@ -400,14 +402,16 @@ export default class DiscussionBridgeConnections extends Component {
             </table>
           </section>
         {{/if}}
-        <DButton
-          @type="submit"
-          @label={{if this.editingConnectionId "discussion_bridge.admin.save_connection" "discussion_bridge.admin.add_connection"}}
-          class="btn-primary"
-        />
-        {{#if this.editingConnectionId}}
-          <DButton @label="discussion_bridge.admin.cancel" @action={{this.cancelEdit}} />
-        {{/if}}
+        <div class="discussion-bridge-add-connection__actions">
+          <DButton
+            @type="submit"
+            @label={{if this.editingConnectionId "discussion_bridge.admin.save_connection" "discussion_bridge.admin.add_connection"}}
+            class="btn-primary"
+          />
+          {{#if this.editingConnectionId}}
+            <DButton @label="discussion_bridge.admin.cancel" @action={{this.cancelEdit}} />
+          {{/if}}
+        </div>
       </form>
     </section>
   </template>

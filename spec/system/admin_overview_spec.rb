@@ -68,6 +68,8 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("In-page interaction readiness")
     expect(page).to have_content("To Discourse")
     expect(page).to have_content("From Discourse")
+    expect(page).to have_content("Bridge Records publish platform content into Discourse")
+    expect(page).to have_content("Bridge Records present Discourse content on connected platforms")
     expect(page).to have_link("Download support bundle")
     expect(page.html).not_to include(@secret)
   end
@@ -80,7 +82,7 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_css(".discussion-bridge-connections", wait: 30)
     expect(page).to have_content("Main publication")
     expect(page).to have_content("wordpress")
-    expect(page).to have_content("Each installation has independent credentials, scope, and many Bridge Records.")
+    expect(page).to have_content("Each installation has independent credentials and scope, and can have many Bridge Records.")
     expect(page).to have_button("Add connection")
     expect(page).to have_button("Manage")
     expect(page).to have_content("Topic destination")
@@ -92,11 +94,14 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Last seen")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
+    expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']")
+    expect(page).to have_css(".discussion-bridge-direction[data-direction='from_discourse']")
     expect(
       page.evaluate_script(
         "Array.from(document.querySelectorAll('.discussion-bridge-direction-option')).every((label) => getComputedStyle(label).display === 'flex' && getComputedStyle(label).alignItems === 'center')",
       ),
     ).to eq(true)
+    expect(page).to have_css(".discussion-bridge-add-connection__actions .btn-primary", text: "Add connection")
   end
 
   it "creates and manages another platform installation through native administration" do
@@ -146,6 +151,8 @@ describe "DiscussionBridge native product administration" do
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
     expect(page).to have_css(".discussion-bridge-publishing", wait: 30)
+    expect(page).to have_select("Publishing connection", selected: "Select a connection")
+    expect(page).to have_css(".discussion-bridge-publishing__topic-id input[max='999999999999']")
     fill_in("Local topic ID", with: topic.id)
     select("Main publication · wordpress", from: "Publishing connection")
     fill_in("Platform content ID", with: "astro-native:from-the-forum")
@@ -209,6 +216,12 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']", text: "To Discourse")
     expect(page).to have_content("Community Guide")
     expect(page).to have_button("View")
+    expect(page).to have_css(".discussion-bridge-operations__search .btn-primary", text: "Apply")
+    expect(page).to have_css("td .btn-primary", text: "View")
+    within(".discussion-bridge-create-from") do
+      expect(page).to have_select("Connection", selected: "Select a connection")
+      expect(page).to have_css("input[max='999999999999']")
+    end
   end
 
   it "renders truthful reconciliation without hidden support controls" do
