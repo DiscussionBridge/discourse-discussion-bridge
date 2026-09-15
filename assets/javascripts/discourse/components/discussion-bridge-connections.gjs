@@ -231,6 +231,14 @@ export default class DiscussionBridgeConnections extends Component {
 
   displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
 
+  adapterVerified(connection) {
+    return Boolean(connection.adapter_id && connection.adapter_version && connection.last_seen_at);
+  }
+
+  displayTimestamp(value) {
+    return value ? new Date(value).toLocaleString() : "—";
+  }
+
   <template>
     <section class="discussion-bridge-connections">
       <DPageSubheader
@@ -277,6 +285,10 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if connection.generate_topic_toc (i18n "discussion_bridge.admin.enabled") (i18n "discussion_bridge.admin.disabled")}}</dd>
               <dt>{{i18n "discussion_bridge.admin.category_route"}}</dt><dd>{{connection.category_route.category_name}} <small>({{if (eq connection.category_route.source "connection") (i18n "discussion_bridge.admin.connection_route") (i18n "discussion_bridge.admin.forum_fallback")}})</small></dd>
               <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each connection.allowed_origins as |origin|}}<code>{{origin}}</code>{{/each}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_presence"}}</dt><dd><span class="discussion-bridge-status" data-state={{if (this.adapterVerified connection) "healthy" "setup"}}>{{if (this.adapterVerified connection) (i18n "discussion_bridge.admin.adapter_verified") (i18n "discussion_bridge.admin.adapter_unverified")}}</span></dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_identity"}}</dt><dd><code>{{this.displayToken connection.adapter_id}}</code></dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_version"}}</dt><dd><code>{{this.displayToken connection.adapter_version}}</code></dd>
+              <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd>{{this.displayTimestamp connection.last_seen_at}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
               <DButton

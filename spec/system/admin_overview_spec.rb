@@ -18,6 +18,11 @@ describe "DiscussionBridge native product administration" do
       allowed_directions: %w[to_discourse from_discourse],
       allowed_lanes: [],
     )
+    @connection.update!(
+      adapter_id: "wordpress-discussion-bridge",
+      adapter_version: "0.2.0-alpha.20",
+      last_seen_at: Time.zone.now,
+    )
     DiscussionBridgeSourceAuthor.create!(
       content_connection: @connection,
       source_author_id: "wordpress:author-7",
@@ -80,6 +85,11 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_button("Manage")
     expect(page).to have_content("Topic destination")
     expect(page).to have_content("forum fallback")
+    expect(page).to have_content("Adapter presence")
+    expect(page).to have_content("Verified")
+    expect(page).to have_content("wordpress-discussion-bridge")
+    expect(page).to have_content("0.2.0-alpha.20")
+    expect(page).to have_content("Last seen")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(
@@ -108,6 +118,12 @@ describe "DiscussionBridge native product administration" do
     created = DiscussionBridgeContentConnection.find_by!(name: "Editorial Ghost")
     expect(page).to have_content(created.public_id)
     expect(created.default_category_id).to eq(category.id)
+
+    within(".discussion-bridge-connection-card", text: "Editorial Ghost") do
+      expect(page).to have_content("Not yet verified")
+      expect(page).to have_content("Adapter identity")
+      expect(page).to have_content("Adapter version")
+    end
 
     within(".discussion-bridge-connection-card", text: "Editorial Ghost") do
       click_button("Manage")
