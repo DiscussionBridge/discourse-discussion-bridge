@@ -16,7 +16,7 @@ export default class DiscussionBridgeConnections extends Component {
   @service dialog;
 
   @tracked name = "";
-  @tracked platform = "wordpress";
+  @tracked platform = "";
   @tracked authorUsername = "";
   @tracked authorshipMode = "fixed";
   @tracked unmappedAuthorPolicy = "fallback";
@@ -215,7 +215,7 @@ export default class DiscussionBridgeConnections extends Component {
   resetForm() {
     this.editingConnectionId = null;
     this.name = "";
-    this.platform = "wordpress";
+    this.platform = "";
     this.authorUsername = "";
     this.authorshipMode = "fixed";
     this.unmappedAuthorPolicy = "fallback";
@@ -325,7 +325,8 @@ export default class DiscussionBridgeConnections extends Component {
         {{#if (eq this.editingTab "general")}}
           <label>{{i18n "discussion_bridge.admin.connection_name"}}<input required value={{this.name}} {{on "input" this.updateName}} /></label>
           <label>{{i18n "discussion_bridge.admin.platform"}}
-            <select {{on "change" this.updatePlatform}}>
+            <select required {{on "change" this.updatePlatform}}>
+              <option value="" selected={{eq this.platform ""}}>{{i18n "discussion_bridge.admin.select_platform"}}</option>
               {{#each @model.platforms as |platform|}}<option value={{platform}} selected={{eq platform this.platform}}>{{this.displayToken platform}}</option>{{/each}}
             </select>
           </label>

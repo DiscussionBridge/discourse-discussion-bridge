@@ -302,6 +302,22 @@
     gap: 0.25rem;
   }
 
+  input,
+  select,
+  textarea {
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  input,
+  select {
+    min-height: 2.5rem;
+  }
+
+  select {
+    padding-inline: 0.65rem 2.25rem;
+  }
+
   textarea {
     min-height: 5rem;
   }

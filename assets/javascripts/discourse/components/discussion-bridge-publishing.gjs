@@ -168,7 +168,7 @@ export default class DiscussionBridgePublishing extends Component {
         <form {{on "submit" this.publishTopic}}>
           <h3>{{i18n "discussion_bridge.admin.publisher_publish_title"}}</h3>
           <p>{{i18n "discussion_bridge.admin.publisher_publish_description"}}</p>
-          <label>{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
+          <label class="discussion-bridge-publishing__topic-id">{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
           <label>{{i18n "discussion_bridge.admin.publisher_connection"}}
             <select required {{on "change" this.updateConnectionId}}>
               <option value="">—</option>
@@ -176,11 +176,12 @@ export default class DiscussionBridgePublishing extends Component {
             </select>
           </label>
           {{#if this.selectedLanes.length}}
-            <label>{{i18n "discussion_bridge.admin.lane"}}
+            <label>{{i18n "discussion_bridge.admin.publisher_lane"}}
               <select required {{on "change" this.updateLane}}>
                 <option value="">—</option>
                 {{#each this.selectedLanes as |lane|}}<option value={{lane}} selected={{eq lane this.lane}}>{{lane}}</option>{{/each}}
               </select>
+              <small>{{i18n "discussion_bridge.admin.publisher_lane_description"}}</small>
             </label>
           {{/if}}
           <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
