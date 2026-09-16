@@ -280,6 +280,7 @@ export default class DiscussionBridgePublishing extends Component {
     );
   }
 
+  @action
   nativePublication(record) {
     return (
       this.migratedNativeResourceIds[record.resource_id] ||
