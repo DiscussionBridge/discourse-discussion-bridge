@@ -16,6 +16,7 @@ describe DiscussionBridgeContentConnection do
       )
       expect(secret.bytesize).to be_between(32, 256)
       expect(connection.generate_topic_toc).to eq(false)
+      expect(connection.include_source_in_published_url).to eq(false)
       connection
     end
     second_wordpress, = described_class.issue!(
@@ -73,6 +74,32 @@ describe DiscussionBridgeContentConnection do
 
     expect(connection.default_category_id).to eq(category.id)
     connection.default_category_id = 9_999_999
+    expect(connection).not_to be_valid
+  end
+
+  it "defaults publications to the platform root and validates an optional source path" do
+    connection, = described_class.issue!(
+      name: "Root-native Hugo",
+      platform: "hugo",
+      allowed_origins: ["https://hugo.example"],
+      allowed_directions: ["from_discourse"],
+      allowed_lanes: [],
+    )
+
+    expect(connection).to have_attributes(
+      include_source_in_published_url: false,
+      publication_source_path: nil,
+    )
+    connection.assign_attributes(
+      include_source_in_published_url: true,
+      publication_source_path: "from-the-bridge",
+    )
+    expect(connection).to be_valid
+    connection.publication_source_path = "DiscussionBridge"
+    expect(connection).not_to be_valid
+    connection.publication_source_path = "../forum"
+    expect(connection).not_to be_valid
+    connection.publication_source_path = nil
     expect(connection).not_to be_valid
   end
 end

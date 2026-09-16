@@ -689,7 +689,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
              allowed_directions: ["from_discourse"],
              allowed_lanes: [],
              default_category_id: selected_category.id,
-             generate_topic_toc: true,
+              generate_topic_toc: true,
+              include_source_in_published_url: true,
+              publication_source_path: "from-the-bridge",
            },
          },
          as: :json
@@ -704,17 +706,21 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "unmapped_author_policy" => "fallback",
       "generate_topic_toc" => true,
       "default_category_id" => selected_category.id,
+      "include_source_in_published_url" => true,
+      "publication_source_path" => "from-the-bridge",
     )
 
     get "/discussion-bridge/admin/content-connections.json"
     expect(response.parsed_body.to_json).not_to include(issued_secret)
     put "/discussion-bridge/admin/content-connections/#{created.fetch("id")}.json",
-        params: { content_connection: { enabled: false, author_username: "", generate_topic_toc: false } },
+        params: { content_connection: { enabled: false, author_username: "", generate_topic_toc: false, include_source_in_published_url: false, publication_source_path: "" } },
         as: :json
     expect(response.parsed_body.dig("content_connection", "enabled")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_override")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_username")).to eq(service_actor.username)
     expect(response.parsed_body.dig("content_connection", "generate_topic_toc")).to eq(false)
+    expect(response.parsed_body.dig("content_connection", "include_source_in_published_url")).to eq(false)
+    expect(response.parsed_body.dig("content_connection", "publication_source_path")).to be_nil
     expect(response.parsed_body.dig("content_connection", "category_route")).to include(
       "category_id" => selected_category.id,
       "source" => "connection",

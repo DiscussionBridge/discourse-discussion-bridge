@@ -12,6 +12,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   MAX_LANES = 50
   AUTHORSHIP_MODES = %w[fixed mapped].freeze
   UNMAPPED_AUTHOR_POLICIES = %w[fallback hold].freeze
+  PUBLICATION_SOURCE_PATH_PATTERN = /\A[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*\z/
 
   has_many :content_bindings,
            class_name: "DiscussionBridgeContentBinding",
@@ -35,6 +36,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validate :scopes_are_valid
   validate :author_user_is_usable
   validate :default_category_is_available
+  validate :publication_path_is_valid
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -91,6 +93,17 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
 
   private
 
+  def publication_path_is_valid
+    path = publication_source_path.to_s
+    if include_source_in_published_url
+      errors.add(:publication_source_path, "is required") if path.blank?
+    end
+    return if path.blank?
+
+    errors.add(:publication_source_path, "is invalid") unless
+      path.bytesize <= 120 && PUBLICATION_SOURCE_PATH_PATTERN.match?(path)
+  end
+
   def default_category_is_available
     return if default_category_id.blank? || Category.exists?(id: default_category_id)
 
@@ -137,9 +150,11 @@ end
 #  authorship_mode        :string(32)       default("fixed"), not null
 #  enabled                :boolean          default(TRUE), not null
 #  generate_topic_toc     :boolean          default(FALSE), not null
+#  include_source_in_published_url :boolean  default(FALSE), not null
 #  last_seen_at           :datetime
 #  name                   :string(120)      not null
 #  platform               :string(32)       not null
+#  publication_source_path :string(120)
 #  secret_digest          :string(64)       not null
 #  unmapped_author_policy :string(32)       default("fallback"), not null
 #  created_at             :datetime         not null

@@ -99,6 +99,8 @@ module ::DiscussionBridge
         allowed_origins: connection.allowed_origins,
         allowed_lanes: connection.allowed_lanes,
         author_username: connection.effective_author&.username,
+        include_source_in_published_url: connection.include_source_in_published_url,
+        publication_source_path: connection.publication_source_path,
       }
     end
 

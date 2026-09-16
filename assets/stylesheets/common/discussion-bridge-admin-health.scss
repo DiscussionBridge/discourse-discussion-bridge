@@ -677,6 +677,21 @@
   padding-block-start: 0.25rem;
 }
 
+.discussion-bridge-publication-url-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  margin: 0;
+  padding: 0.75rem;
+  border-inline-start: 0.25rem solid var(--tertiary);
+  background: var(--primary-very-low);
+
+  code {
+    overflow-wrap: anywhere;
+  }
+}
+
 .discussion-bridge-create-from__topic-id {
   max-width: 14rem;
 }

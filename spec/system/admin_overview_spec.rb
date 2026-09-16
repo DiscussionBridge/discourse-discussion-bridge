@@ -136,10 +136,15 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Manage connection")
     fill_in("Connection name", with: "Editorial Ghost Updated")
     check("Generate topic table of contents")
+    check("Include source in published URL")
+    fill_in("Source path", with: "from-the-bridge")
+    expect(page).to have_content("https://ghost.example/from-the-bridge/example-page/")
     click_button("Save connection")
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
     expect(created.generate_topic_toc).to eq(true)
+    expect(created.include_source_in_published_url).to eq(true)
+    expect(created.publication_source_path).to eq("from-the-bridge")
   end
 
   it "persists the selected publishing connection and creates a native platform record" do
@@ -155,13 +160,13 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_css(".discussion-bridge-publishing__topic-id input[max='999999999999']")
     fill_in("Local topic ID", with: topic.id)
     select("Main publication · wordpress", from: "Publishing connection")
-    fill_in("Platform content ID", with: "astro-native:from-the-forum")
-    fill_in("Presentation URL", with: "https://example.com/comments/from-the-forum/")
+    fill_in("Platform content ID", with: "from-the-forum")
+    expect(page).to have_field("Presentation URL", with: "https://example.com/from-the-forum/")
     check("Authorize the adapter to create or update a native platform record")
     click_button("Publish through DiscussionBridge")
 
     expect(page).to have_content("Platform publication created", wait: 30)
-    binding = DiscussionBridgeContentBinding.find_by!(external_id: "astro-native:from-the-forum")
+    binding = DiscussionBridgeContentBinding.find_by!(external_id: "from-the-forum")
     expect(binding.content_connection).to eq(@connection)
     expect(binding.native_materialization).to eq(true)
     expect(binding.bridge_record.topic_id).to eq(topic.id)

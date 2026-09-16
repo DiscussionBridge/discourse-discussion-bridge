@@ -44,7 +44,8 @@ Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
 - **Connections** — create, enable or disable independent connections and
   rotate a secret. The selected connection has a **General** tab and an
   **Authors** tab. A new secret is shown once and is never returned by later
-  reads.
+  reads. From Discourse publication URLs default to the platform-native root;
+  a connection may explicitly include an operator-named source path.
 - **Bridge Records** — search and filter records, inspect bindings, create a
   From Discourse record, and perform a controlled migration.
 - **Reconciliation** — inspect operational inconsistencies and export a
@@ -172,6 +173,15 @@ resolve the same record. One local topic may be published independently through
 more than one platform connection. The authorized platform adapter retrieves
 the record from this forum; no second receiving forum or outbound forum secret
 is part of ordinary publishing.
+
+The connection's **Include source in published URL** setting is off by default.
+The Publishing page then suggests a root URL from the connection origin and
+Platform content ID. When enabled, the bounded relative **Source path** is
+inserted before that content ID and shown in an immediate preview. The
+suggestion remains editable for native platform permalink rules. Changing the
+canonical URL of an existing publication is an explicit identity-sensitive
+correction: adapters must preserve the existing Bridge Record and fail closed
+when they cannot safely migrate the platform URL.
 
 Publishing authority is explicit per binding. **Authorize native
 materialization** permits the selected adapter to create or update a genuine

@@ -60,6 +60,8 @@ module DiscussionBridge
         :authorship_mode,
         :unmapped_author_policy,
         :generate_topic_toc,
+        :include_source_in_published_url,
+        :publication_source_path,
         :default_category_id,
         :adapter_id,
         :adapter_version,
@@ -75,6 +77,16 @@ module DiscussionBridge
       if raw.key?(:default_category_id)
         category_id = raw[:default_category_id].to_s.strip
         raw[:default_category_id] = category_id.present? ? Integer(category_id, 10) : nil
+      end
+      if raw.key?(:publication_source_path)
+        source_path = raw[:publication_source_path].to_s.strip.downcase
+        raw[:publication_source_path] = source_path.presence
+      end
+      if raw.key?(:include_source_in_published_url)
+        raw[:include_source_in_published_url] = ActiveModel::Type::Boolean.new.cast(
+          raw[:include_source_in_published_url],
+        )
+        raw[:publication_source_path] = nil unless raw[:include_source_in_published_url]
       end
       raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
@@ -110,6 +122,8 @@ module DiscussionBridge
         authorship_mode: connection.authorship_mode,
         unmapped_author_policy: connection.unmapped_author_policy,
         generate_topic_toc: connection.generate_topic_toc,
+        include_source_in_published_url: connection.include_source_in_published_url,
+        publication_source_path: connection.publication_source_path,
         default_category_id: connection.default_category_id,
         category_route: category_route(connection),
         source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|

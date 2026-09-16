@@ -89,6 +89,8 @@ module DiscussionBridge
             name: connection.name,
             platform: connection.platform,
             authorship_mode: connection.authorship_mode,
+            include_source_in_published_url: connection.include_source_in_published_url,
+            publication_source_path: connection.publication_source_path,
             source_author_count: connection.source_authors.count,
             unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
             enabled: connection.enabled,
