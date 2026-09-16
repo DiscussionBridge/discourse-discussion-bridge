@@ -21,8 +21,8 @@ module DiscussionBridge
       raise ArgumentError, "publication URLs must differ" if old_uri == new_uri
 
       old_status, location = probe(old_uri)
-      raise ArgumentError, "old publication URL does not return a permanent redirect" unless
-        [301, 308].include?(old_status)
+      raise ArgumentError, "old publication URL does not return a permanent redirect" if
+        [301, 308].exclude?(old_status)
       raise ArgumentError, "old publication redirect has no destination" if location.blank?
       resolved = URI.join(old_uri.to_s, location).to_s
       raise ArgumentError, "old publication URL redirects to a different destination" unless

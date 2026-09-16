@@ -25,11 +25,13 @@ describe DiscussionBridge::PublicationRedirectVerifier do
 
   it "rejects other origins and non-HTTPS URLs before any request" do
     unsafe = described_class.new(old_url: old_url, new_url: "https://other.example.com/new/")
-    expect(unsafe).not_to receive(:probe)
+    allow(unsafe).to receive(:probe)
     expect { unsafe.call }.to raise_error(ArgumentError, /same origin/)
+    expect(unsafe).not_to have_received(:probe)
 
     insecure = described_class.new(old_url: "http://astro.example.com/old/", new_url: new_url)
-    expect(insecure).not_to receive(:probe)
+    allow(insecure).to receive(:probe)
     expect { insecure.call }.to raise_error(ArgumentError, /HTTPS/)
+    expect(insecure).not_to have_received(:probe)
   end
 end

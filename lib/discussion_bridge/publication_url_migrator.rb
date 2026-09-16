@@ -31,7 +31,7 @@ module DiscussionBridge
       # Network verification is outside the database transaction. Every binding
       # and collision condition is checked again under locks before committing.
       redirect_status = @verifier.call(old_url: old_canonical, new_url: new_canonical)
-      raise ArgumentError, "publication redirect must be permanent" unless [301, 308].include?(redirect_status)
+      raise ArgumentError, "publication redirect must be permanent" if [301, 308].exclude?(redirect_status)
 
       outcome = nil
       DiscussionBridgeBridgeRecord.transaction do
