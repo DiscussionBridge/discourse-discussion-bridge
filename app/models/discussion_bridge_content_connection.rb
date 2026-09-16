@@ -142,27 +142,27 @@ end
 #
 # Table name: discussion_bridge_content_connections
 #
-#  id                     :bigint           not null, primary key
-#  adapter_version        :string(100)
-#  allowed_directions     :jsonb            not null
-#  allowed_lanes          :jsonb            not null
-#  allowed_origins        :jsonb            not null
-#  authorship_mode        :string(32)       default("fixed"), not null
-#  enabled                :boolean          default(TRUE), not null
-#  generate_topic_toc     :boolean          default(FALSE), not null
-#  include_source_in_published_url :boolean  default(FALSE), not null
-#  last_seen_at           :datetime
-#  name                   :string(120)      not null
-#  platform               :string(32)       not null
-#  publication_source_path :string(120)
-#  secret_digest          :string(64)       not null
-#  unmapped_author_policy :string(32)       default("fallback"), not null
-#  created_at             :datetime         not null
-#  updated_at             :datetime         not null
-#  adapter_id             :string(100)
-#  author_user_id         :bigint
-#  default_category_id    :bigint
-#  public_id              :string(64)       not null
+#  id                              :bigint           not null, primary key
+#  adapter_version                 :string(100)
+#  allowed_directions              :jsonb            not null
+#  allowed_lanes                   :jsonb            not null
+#  allowed_origins                 :jsonb            not null
+#  authorship_mode                 :string(32)       default("fixed"), not null
+#  enabled                         :boolean          default(TRUE), not null
+#  generate_topic_toc              :boolean          default(FALSE), not null
+#  include_source_in_published_url :boolean          default(FALSE), not null
+#  last_seen_at                    :datetime
+#  name                            :string(120)      not null
+#  platform                        :string(32)       not null
+#  publication_source_path         :string(120)
+#  secret_digest                   :string(64)       not null
+#  unmapped_author_policy          :string(32)       default("fallback"), not null
+#  created_at                      :datetime         not null
+#  updated_at                      :datetime         not null
+#  adapter_id                      :string(100)
+#  author_user_id                  :bigint
+#  default_category_id             :bigint
+#  public_id                       :string(64)       not null
 #
 # Indexes
 #
