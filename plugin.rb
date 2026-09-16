@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.31
+# version: 0.2.0.alpha.32
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.31"
+    VERSION = "0.2.0.alpha.32"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -79,6 +79,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/bridge_record_resolver"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
+  require_relative "lib/discussion_bridge/publication_redirect_verifier"
+  require_relative "lib/discussion_bridge/publication_url_migrator"
   require_relative "lib/discussion_bridge/embeddable_origin_status"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
@@ -87,6 +89,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_source_author"
   require_relative "app/models/discussion_bridge_bridge_record"
   require_relative "app/models/discussion_bridge_content_binding"
+  require_relative "app/models/discussion_bridge_presentation_url_history"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
@@ -323,6 +326,7 @@ after_initialize do
     get "/admin/publishing" => "publisher#overview"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
+    put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"
     get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
   end
 

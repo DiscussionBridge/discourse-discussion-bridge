@@ -23,18 +23,25 @@ module DiscussionBridge
       )
 
       DiscussionBridgeBridgeRecord.transaction do
+        connection = record.content_bindings.find_by!(role: "presentation", state: "active").content_connection
+        connection.lock!
         binding = record.content_bindings.lock.find_by!(role: "presentation", state: "active")
-        connection = binding.content_connection
         canonical = CanonicalSource.call(
           connection_id: connection.public_id,
           source_url: @canonical_url,
         )
         raise ArgumentError, "origin is outside connection scope" unless
           connection.allows_origin?(canonical.source_url)
+        if binding.native_materialization && binding.canonical_url != canonical.source_url
+          raise ArgumentError, "native publication URL change requires an explicit migration and verified redirect"
+        end
 
         canonical_url_digest = Digest::SHA256.hexdigest(
           "#{connection.public_id}\n#{canonical.source_url}",
         )
+        raise ArgumentError, "presentation URL is reserved by migration history" if
+          binding.canonical_url != canonical.source_url &&
+            DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
         conflict = DiscussionBridgeContentBinding.where(
           canonical_url_digest: canonical_url_digest,
         ).where.not(id: binding.id).exists?

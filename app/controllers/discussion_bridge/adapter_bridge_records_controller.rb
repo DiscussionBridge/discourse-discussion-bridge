@@ -177,8 +177,26 @@ module DiscussionBridge
             external_id: binding.external_id,
             canonical_url: binding.canonical_url,
             native_materialization: binding.native_materialization,
+            url_migration: latest_presentation_url_migration(binding),
           }
         end,
+      }
+    end
+
+    def latest_presentation_url_migration(binding)
+      return nil unless binding.role == "presentation" && binding.native_materialization
+
+      history = DiscussionBridgePresentationUrlHistory
+        .where(content_binding_id: binding.id)
+        .order(id: :desc)
+        .first
+      return nil unless history
+
+      {
+        old_url: history.old_canonical_url,
+        new_url: history.new_canonical_url,
+        redirect_status: history.redirect_status,
+        verified_at: history.verified_at.iso8601(6),
       }
     end
 

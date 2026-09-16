@@ -61,6 +61,15 @@ module DiscussionBridge
           identity: identity_digest,
           url: canonical_url_digest,
         ).to_a
+        retired_url = DiscussionBridgePresentationUrlHistory.where(
+          old_canonical_url_digest: canonical_url_digest,
+        )
+        if retired_url.exists?
+          current_owner = bindings.one? && bindings.first.state == "active" &&
+            bindings.first.canonical_url_digest == canonical_url_digest &&
+            !retired_url.where.not(content_binding_id: bindings.first.id).exists?
+          raise ArgumentError, "publication URL is reserved by migration history" unless current_owner
+        end
 
         if bindings.any?
           binding = bindings.one? ? bindings.first : nil

@@ -65,6 +65,8 @@ module DiscussionBridge
     end
 
     def prepare_migration
+      raise ArgumentError, "presentation migration requires a verified URL cutover" if
+        DiscussionBridgeBridgeRecord.find(params[:id]).direction == "from_discourse"
       connection_id = params.require(:migration).fetch(:content_connection_id)
       external_id = params.require(:migration).fetch(:external_id)
       raise ArgumentError, "invalid external_id" unless DiscussionBridgeContentBinding.valid_external_id?(external_id)
@@ -83,9 +85,12 @@ module DiscussionBridge
         )
         raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(canonical.source_url)
         role = record.direction == "to_discourse" ? "source" : "presentation"
+        raise ArgumentError, "presentation migration requires a verified URL cutover" if role == "presentation"
         raise ArgumentError, "migration already prepared" if record.content_bindings.exists?(role: role, state: "prepared")
         identity_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}")
         canonical_url_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}")
+        raise ArgumentError, "target URL is reserved by publication history" if
+          DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
         matches = DiscussionBridgeContentBinding.lock.where(
           "identity_digest = :identity OR canonical_url_digest = :url",
           identity: identity_digest,
@@ -122,11 +127,14 @@ module DiscussionBridge
 
     def apply_migration
       record = DiscussionBridgeBridgeRecord.find(params[:id])
+      raise ArgumentError, "presentation migration requires a verified URL cutover" if
+        record.direction == "from_discourse"
       DiscussionBridgeBridgeRecord.transaction do
         record.lock!
         prepared = record.content_bindings.lock.find_by!(id: params[:binding_id], state: "prepared")
         expected_role = record.direction == "to_discourse" ? "source" : "presentation"
         raise ArgumentError, "prepared binding role does not match record direction" unless prepared.role == expected_role
+        raise ArgumentError, "presentation migration requires a verified URL cutover" if expected_role == "presentation"
 
         connection = DiscussionBridgeContentConnection.lock.find(prepared.content_connection_id)
         raise ArgumentError, "target connection is unavailable" unless connection.enabled &&

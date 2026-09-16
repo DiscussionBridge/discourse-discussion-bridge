@@ -32,8 +32,11 @@ Direction belongs to each Bridge Record, not to the connection:
   that first post may explicitly attach the same topic's Interactive
   replies; the attested comments-only frame omits the duplicate first post.
 
-A migration prepares a replacement binding, preserves the resource and topic,
-then makes the old binding historical when an administrator applies it.
+A To Discourse migration prepares a replacement source binding, preserves the
+resource and topic, then makes the old binding historical when an administrator
+applies it. A native From Discourse publication URL move instead verifies a
+permanent redirect and changes the same presentation binding in place; see
+[Publication URL migration](PUBLICATION_URL_MIGRATION.md).
 
 ## Native administration
 
@@ -47,7 +50,7 @@ Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
   reads. From Discourse publication URLs default to the platform-native root;
   a connection may explicitly include an operator-named source path.
 - **Bridge Records** — search and filter records, inspect bindings, create a
-  From Discourse record, and perform a controlled migration.
+  From Discourse record, and perform a controlled To Discourse migration.
 - **Reconciliation** — inspect operational inconsistencies and export a
   redacted report.
 
@@ -179,9 +182,10 @@ The Publishing page then suggests a root URL from the connection origin and
 Platform content ID. When enabled, the bounded relative **Source path** is
 inserted before that content ID and shown in an immediate preview. The
 suggestion remains editable for native platform permalink rules. Changing the
-canonical URL of an existing publication is an explicit identity-sensitive
-correction: adapters must preserve the existing Bridge Record and fail closed
-when they cannot safely migrate the platform URL.
+canonical URL of an existing native publication requires the dedicated
+redirect-backed [migration procedure](PUBLICATION_URL_MIGRATION.md). Adapters
+must preserve the existing Bridge Record and fail closed until the receiver
+accepts the new URL. Presentation-only records retain the correction action.
 
 Publishing authority is explicit per binding. **Authorize native
 materialization** permits the selected adapter to create or update a genuine

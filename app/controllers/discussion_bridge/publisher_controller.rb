@@ -69,6 +69,27 @@ module ::DiscussionBridge
       render json: { errors: errors }, status: :unprocessable_entity
     end
 
+    def migrate_presentation_url
+      input = params.require(:migration)
+      result = PublicationUrlMigrator.call(
+        user: current_user,
+        resource_id: params.require(:resource_id),
+        old_url: input.fetch(:old_url),
+        new_url: input.fetch(:new_url),
+        legacy_native_confirmation: input[:legacy_native_confirmation] == true ||
+          input[:legacy_native_confirmation] == "true",
+        platform_content_id: input[:platform_content_id],
+      )
+      render json: publication_payload(result.record).merge(
+        outcome: result.outcome,
+        redirect_status: result.redirect_status,
+      )
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique,
+           ActiveRecord::RecordNotFound, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
+    end
+
     private
 
     def available_connections
