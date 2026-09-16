@@ -174,11 +174,7 @@ export default class DiscussionBridgePublishing extends Component {
         }
       );
       this.createdRecord = result;
-      this.notice = i18n(
-        result.outcome === "created"
-          ? "discussion_bridge.admin.publisher_created"
-          : "discussion_bridge.admin.publisher_resolved"
-      );
+      this.notice = this.publicationOutcomeLabel(result);
       this.noticeContext = "publication";
       this.router.refresh();
     } catch (error) {
@@ -190,6 +186,21 @@ export default class DiscussionBridgePublishing extends Component {
 
   displayToken(value) {
     return value?.replaceAll("_", " ") || "—";
+  }
+
+  publicationOutcomeLabel(result) {
+    const platform = [
+      "astro",
+      "ghost",
+      "hugo",
+      "statamic",
+      "wordpress",
+    ].includes(result.platform)
+      ? `_${result.platform}`
+      : "";
+    const outcome = result.outcome === "created" ? "created" : "resolved";
+
+    return i18n(`discussion_bridge.admin.publisher_${outcome}${platform}`);
   }
 
   @action

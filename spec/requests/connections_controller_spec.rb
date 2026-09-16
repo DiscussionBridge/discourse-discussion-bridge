@@ -722,7 +722,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response.parsed_body.dig("content_connection", "include_source_in_published_url")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "publication_source_path")).to be_nil
     expect(response.parsed_body.dig("content_connection", "origin_readiness")).to eq(
-      [{ "origin" => "https://example.com", "embeddable" => false }],
+      [{ "origin" => "https://publishing.example", "embeddable" => false }],
     )
     expect(response.parsed_body.dig("content_connection", "category_route")).to include(
       "category_id" => selected_category.id,

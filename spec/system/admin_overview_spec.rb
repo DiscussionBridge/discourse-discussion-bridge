@@ -92,7 +92,7 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("wordpress-discussion-bridge")
     expect(page).to have_content("0.2.0-alpha.20")
     expect(page).to have_content("Last seen")
-    expect(page).to have_content("Embeddable Host missing")
+    expect(page).to have_content("Embeddable Host Missing")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']")
@@ -166,7 +166,7 @@ describe "DiscussionBridge native product administration" do
     check("Authorize the adapter to create or update a native platform record")
     click_button("Publish through DiscussionBridge")
 
-    expect(page).to have_content("Platform publication created", wait: 30)
+    expect(page).to have_content("WordPress post created", wait: 30)
     binding = DiscussionBridgeContentBinding.find_by!(external_id: "from-the-forum")
     expect(binding.content_connection).to eq(@connection)
     expect(binding.native_materialization).to eq(true)
