@@ -69,10 +69,14 @@ second Bridge Record or consume the new URL.
 
 After the receiver accepts the migration, **do not simply restore the old page
 or remove the redirect**. That would leave the forum binding pointing at the
-new URL. Keep the new page and redirect in place while investigating. Returning
-to a previously retired URL requires a separately verified reverse cutover;
-the current Alpha control does not automate that reversal. Escalate that
-case rather than editing database rows or creating another publication.
+new URL. Keep the new page and redirect in place while investigating. To
+return to the previous URL, move the **same** platform record back, reverse
+the permanent redirect so the currently bound URL points to the restored URL,
+verify both public routes and the resource/topic again, then run **Migrate
+publication URL** with the currently bound URL as old and the restored URL as
+new. This records a second verified move on the same binding. If the hosting
+layer cannot safely reverse the redirect, keep the current URL and escalate;
+do not edit database rows or create another publication.
 
 This procedure is source documentation pending exact-package CI and
 human-operated sandbox replay. It is not evidence that a live migration has

@@ -8,7 +8,7 @@ class DiscussionBridgePresentationUrlHistory < ActiveRecord::Base
   belongs_to :verified_by, class_name: "User"
 
   validates :old_canonical_url, :new_canonical_url, :old_canonical_url_digest, presence: true
-  validates :old_canonical_url_digest, length: { is: 64 }, uniqueness: true
+  validates :old_canonical_url_digest, length: { is: 64 }
   validates :redirect_status, inclusion: { in: [301, 308] }
   validate :different_urls
 
@@ -38,7 +38,7 @@ end
 #
 # Indexes
 #
-#  idx_db_presentation_old_url              (old_canonical_url_digest) UNIQUE
+#  idx_db_presentation_old_url              (old_canonical_url_digest)
 #  idx_db_presentation_url_history_binding  (content_binding_id)
 #  idx_db_presentation_url_history_record   (bridge_record_id)
 #

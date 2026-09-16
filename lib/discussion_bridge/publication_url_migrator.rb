@@ -51,7 +51,8 @@ module DiscussionBridge
           new_digest = digest(connection.public_id, new_canonical)
           raise ArgumentError, "destination URL is already bound or reserved" if
             DiscussionBridgeContentBinding.where(canonical_url_digest: new_digest).where.not(id: binding.id).exists? ||
-              DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: new_digest).exists?
+              DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: new_digest)
+                .where.not(content_binding_id: binding.id).exists?
 
           DiscussionBridgePresentationUrlHistory.create!(
             bridge_record: record,
@@ -84,7 +85,7 @@ module DiscussionBridge
     end
 
     def exact_history(binding, old_url, new_url)
-      DiscussionBridgePresentationUrlHistory.find_by(
+      DiscussionBridgePresentationUrlHistory.order(id: :desc).find_by(
         content_binding_id: binding.id,
         old_canonical_url_digest: digest(binding.content_connection.public_id, old_url),
         old_canonical_url: old_url,

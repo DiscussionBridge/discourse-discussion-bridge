@@ -16,7 +16,6 @@ class CreateDiscussionBridgePresentationUrlHistories < ActiveRecord::Migration[7
 
     add_index :discussion_bridge_presentation_url_histories,
               :old_canonical_url_digest,
-              unique: true,
               name: "idx_db_presentation_old_url"
     add_index :discussion_bridge_presentation_url_histories,
               :bridge_record_id,

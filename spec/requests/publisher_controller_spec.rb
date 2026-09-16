@@ -253,6 +253,34 @@ describe DiscussionBridge::PublisherController do
     expect(response.parsed_body.fetch("errors")).to include("presentation URL is reserved by migration history")
     expect(DiscussionBridgeBridgeRecord.find_by!(resource_id: second_resource_id)
       .active_binding("presentation").canonical_url).to eq("https://astro.example.com/second/")
+
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: new_url, new_url: old_url).and_return(308)
+    2.times do |attempt|
+      put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
+          params: { migration: { old_url: new_url, new_url: old_url } },
+          as: :json
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(
+        "outcome" => attempt.zero? ? "migrated" : "already_current",
+        "resource_id" => record.resource_id,
+        "topic_id" => topic.id,
+        "canonical_url" => old_url,
+        "redirect_status" => 308,
+      )
+    end
+    expect(record.reload.active_binding("presentation")).to have_attributes(
+      id: original_id,
+      canonical_url: old_url,
+      external_id: "roadmap",
+    )
+    expect(DiscussionBridgePresentationUrlHistory.where(content_binding_id: original_id).count).to eq(2)
+
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(native_materialization: true),
+         as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("outcome" => "resolved", "resource_id" => record.resource_id)
   end
 
   it "keeps the native publication unchanged when redirect verification fails" do
