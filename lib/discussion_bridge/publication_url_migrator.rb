@@ -6,15 +6,27 @@ module DiscussionBridge
   class PublicationUrlMigrator
     Result = Data.define(:record, :outcome, :redirect_status)
 
-    def self.call(user:, resource_id:, old_url:, new_url:, verifier: PublicationRedirectVerifier)
-      new(user: user, resource_id: resource_id, old_url: old_url, new_url: new_url, verifier: verifier).call
+    def self.call(user:, resource_id:, old_url:, new_url:, legacy_native_confirmation: false,
+                  platform_content_id: nil, verifier: PublicationRedirectVerifier)
+      new(
+        user: user,
+        resource_id: resource_id,
+        old_url: old_url,
+        new_url: new_url,
+        legacy_native_confirmation: legacy_native_confirmation,
+        platform_content_id: platform_content_id,
+        verifier: verifier,
+      ).call
     end
 
-    def initialize(user:, resource_id:, old_url:, new_url:, verifier:)
+    def initialize(user:, resource_id:, old_url:, new_url:, legacy_native_confirmation:,
+                   platform_content_id:, verifier:)
       @user = user
       @resource_id = resource_id
       @old_url = old_url
       @new_url = new_url
+      @legacy_native_confirmation = legacy_native_confirmation
+      @platform_content_id = platform_content_id
       @verifier = verifier
     end
 
@@ -64,7 +76,11 @@ module DiscussionBridge
             redirect_status: redirect_status,
             verified_at: Time.zone.now,
           )
-          binding.update!(canonical_url: new_canonical, canonical_url_digest: new_digest)
+          binding.update!(
+            canonical_url: new_canonical,
+            canonical_url_digest: new_digest,
+            native_materialization: true,
+          )
           record.touch
           outcome = "migrated"
         end
@@ -95,7 +111,10 @@ module DiscussionBridge
 
     def ensure_eligible!(record, binding, connection, old_url, new_url)
       raise ArgumentError, "publication is not healthy" unless record.state == "healthy"
-      raise ArgumentError, "native publication authority is required" unless binding.native_materialization
+      unless binding.native_materialization
+        raise ArgumentError, "legacy native publication confirmation is required" unless
+          @legacy_native_confirmation == true && @platform_content_id == binding.external_id
+      end
       raise ArgumentError, "connection is unavailable" unless
         connection.enabled && connection.allows_direction?("from_discourse") &&
           connection.allows_lane?(record.lane)

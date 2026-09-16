@@ -59,6 +59,17 @@ These are preparation patterns, not a claim that every hosting provider has
 been replayed. Do not rely on a configured rule without checking the HTTP
 result from outside the platform.
 
+## Older publications
+
+Records created before native-publication classification may instead show
+**Verify older publication and migrate URL**. The operator must verify that
+the new page is the same platform record and still displays this Discourse
+topic, then type the exact platform content ID and confirm that observation.
+The receiver also requires the same permanent-redirect proof. Only after all
+checks pass does it update the URL and mark the existing binding as native in
+one transaction. A failed check leaves both fields unchanged. Do not use
+**Edit presentation** as a shortcut for an actual page move.
+
 ## Failure and rollback
 
 Before the receiver accepts the migration, it still expects the old binding.

@@ -283,6 +283,83 @@ describe DiscussionBridge::PublisherController do
     expect(response.parsed_body).to include("outcome" => "resolved", "resource_id" => record.resource_id)
   end
 
+  it "requires exact staff confirmation before migrating an older native publication" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication,
+         as: :json
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: response.parsed_body.fetch("resource_id"))
+    binding = record.active_binding("presentation")
+    old_url = binding.canonical_url
+    new_url = "https://astro.example.com/new-roadmap/"
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: old_url, new_url: new_url).and_return(301)
+
+    [{}, { legacy_native_confirmation: true, platform_content_id: "wrong" }].each do |extra|
+      put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
+          params: { migration: { old_url: old_url, new_url: new_url }.merge(extra) },
+          as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body.fetch("errors")).to include("legacy native publication confirmation is required")
+      expect(binding.reload).to have_attributes(canonical_url: old_url, native_materialization: false)
+      expect(DiscussionBridgePresentationUrlHistory.count).to eq(0)
+    end
+
+    2.times do |attempt|
+      put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
+          params: {
+            migration: {
+              old_url: old_url,
+              new_url: new_url,
+              legacy_native_confirmation: true,
+              platform_content_id: binding.external_id,
+            },
+          },
+          as: :json
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to include(
+        "outcome" => attempt.zero? ? "migrated" : "already_current",
+        "resource_id" => record.resource_id,
+        "topic_id" => topic.id,
+        "canonical_url" => new_url,
+        "native_materialization" => true,
+      )
+    end
+    expect(binding.reload).to have_attributes(
+      canonical_url: new_url,
+      native_materialization: true,
+      external_id: "roadmap",
+    )
+    expect(record.reload.topic_id).to eq(topic.id)
+    expect(DiscussionBridgePresentationUrlHistory.count).to eq(1)
+  end
+
+  it "does not promote an older publication when redirect verification fails" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication,
+         as: :json
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: response.parsed_body.fetch("resource_id"))
+    binding = record.active_binding("presentation")
+    old_url = binding.canonical_url
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .and_raise(ArgumentError, "old publication URL does not return a permanent redirect")
+
+    put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
+        params: {
+          migration: {
+            old_url: old_url,
+            new_url: "https://astro.example.com/new-roadmap/",
+            legacy_native_confirmation: true,
+            platform_content_id: binding.external_id,
+          },
+        },
+        as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(binding.reload).to have_attributes(canonical_url: old_url, native_materialization: false)
+    expect(DiscussionBridgePresentationUrlHistory.count).to eq(0)
+  end
+
   it "keeps the native publication unchanged when redirect verification fails" do
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",

@@ -76,6 +76,9 @@ module ::DiscussionBridge
         resource_id: params.require(:resource_id),
         old_url: input.fetch(:old_url),
         new_url: input.fetch(:new_url),
+        legacy_native_confirmation: input[:legacy_native_confirmation] == true ||
+          input[:legacy_native_confirmation] == "true",
+        platform_content_id: input[:platform_content_id],
       )
       render json: publication_payload(result.record).merge(
         outcome: result.outcome,

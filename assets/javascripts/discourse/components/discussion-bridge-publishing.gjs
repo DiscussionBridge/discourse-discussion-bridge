@@ -26,8 +26,11 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked working = false;
   @tracked editingRecord = null;
   @tracked migrationMode = false;
+  @tracked legacyNativeConfirmed = false;
+  @tracked legacyPlatformContentId = "";
   @tracked correctedCanonicalUrl = "";
   @tracked correctedPresentationUrls = {};
+  @tracked migratedNativeResourceIds = {};
 
   @action
   updateTopicId(event) {
@@ -86,6 +89,8 @@ export default class DiscussionBridgePublishing extends Component {
   beginPresentationMigration(record) {
     this.editingRecord = record;
     this.migrationMode = true;
+    this.legacyNativeConfirmed = false;
+    this.legacyPlatformContentId = "";
     this.correctedCanonicalUrl = "";
     this.notice = "";
     this.noticeContext = "";
@@ -95,12 +100,24 @@ export default class DiscussionBridgePublishing extends Component {
   cancelPresentationCorrection() {
     this.editingRecord = null;
     this.migrationMode = false;
+    this.legacyNativeConfirmed = false;
+    this.legacyPlatformContentId = "";
     this.correctedCanonicalUrl = "";
   }
 
   @action
   updateCorrectedCanonicalUrl(event) {
     this.correctedCanonicalUrl = event.target.value;
+  }
+
+  @action
+  updateLegacyNativeConfirmed(event) {
+    this.legacyNativeConfirmed = event.target.checked;
+  }
+
+  @action
+  updateLegacyPlatformContentId(event) {
+    this.legacyPlatformContentId = event.target.value;
   }
 
   @action
@@ -147,6 +164,8 @@ export default class DiscussionBridgePublishing extends Component {
             migration: {
               old_url: this.presentationUrl(this.editingRecord),
               new_url: this.correctedCanonicalUrl,
+              legacy_native_confirmation: this.legacyNativeConfirmed,
+              platform_content_id: this.legacyPlatformContentId,
             },
           },
         }
@@ -156,6 +175,12 @@ export default class DiscussionBridgePublishing extends Component {
         ...this.correctedPresentationUrls,
         [result.resource_id]: result.canonical_url,
       };
+      if (result.native_materialization) {
+        this.migratedNativeResourceIds = {
+          ...this.migratedNativeResourceIds,
+          [result.resource_id]: true,
+        };
+      }
       this.notice = i18n("discussion_bridge.admin.publisher_presentation_migrated");
       this.noticeContext = "correction";
       this.cancelPresentationCorrection();
@@ -252,6 +277,13 @@ export default class DiscussionBridgePublishing extends Component {
   presentationUrl(record) {
     return (
       this.correctedPresentationUrls[record.resource_id] || record.canonical_url
+    );
+  }
+
+  nativePublication(record) {
+    return (
+      this.migratedNativeResourceIds[record.resource_id] ||
+      record.native_materialization
     );
   }
 
@@ -387,6 +419,9 @@ export default class DiscussionBridgePublishing extends Component {
 
       <section class="discussion-bridge-publishing__recent">
         <h3>{{i18n "discussion_bridge.admin.publisher_recent_activity"}}</h3>
+        <p><a href="/admin/plugins/discourse-discussion-bridge/bridge-records">{{i18n
+              "discussion_bridge.admin.publisher_all_records"
+            }}</a></p>
         {{#if (eq this.noticeContext "correction")}}
           <p class="discussion-bridge-publishing__notice" role="status"><strong
             >{{this.notice}}</strong>{{#if this.createdRecord}}
@@ -403,7 +438,7 @@ export default class DiscussionBridgePublishing extends Component {
                   "discussion_bridge.admin.actions"
                 }}</th></tr></thead>
           <tbody>{{#each @model.recent_records as |record|}}
-              <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small
+              <tr><td><a href={{record.topic_url}}>Topic {{record.topic_id}} · {{record.title}}</a><small
                   ><code>{{record.resource_id}}</code></small></td><td
                 >{{this.displayToken record.platform}}</td><td><a
                     href={{this.presentationUrl record}}
@@ -411,7 +446,7 @@ export default class DiscussionBridgePublishing extends Component {
                     class="discussion-bridge-status"
                     data-state={{record.state}}
                   >{{this.displayToken record.state}}</span></td><td>
-                  {{#if record.native_materialization}}
+                  {{#if (this.nativePublication record)}}
                     <DButton
                       @label="discussion_bridge.admin.publisher_migrate_presentation"
                       @action={{this.beginPresentationMigration}}
@@ -421,6 +456,11 @@ export default class DiscussionBridgePublishing extends Component {
                     <DButton
                       @label="discussion_bridge.admin.publisher_edit_presentation"
                       @action={{this.beginPresentationCorrection}}
+                      @actionParam={{record}}
+                    />
+                    <DButton
+                      @label="discussion_bridge.admin.publisher_migrate_legacy_presentation"
+                      @action={{this.beginPresentationMigration}}
                       @actionParam={{record}}
                     />
                   {{/if}}
@@ -437,6 +477,23 @@ export default class DiscussionBridgePublishing extends Component {
                         >
                           <h4>{{i18n "discussion_bridge.admin.publisher_migrate_presentation"}}</h4>
                           <p>{{i18n "discussion_bridge.admin.publisher_migrate_presentation_description"}}</p>
+                          {{#unless (this.nativePublication record)}}
+                            <p>{{i18n "discussion_bridge.admin.publisher_legacy_native_description"}}</p>
+                            <p><strong>{{i18n "discussion_bridge.admin.publisher_platform_content_id"}}</strong>
+                              <code>{{record.external_id}}</code></p>
+                            <label>{{i18n "discussion_bridge.admin.publisher_confirm_platform_content_id"}}<input
+                                required
+                                type="text"
+                                value={{this.legacyPlatformContentId}}
+                                {{on "input" this.updateLegacyPlatformContentId}}
+                              /></label>
+                            <label><input
+                                required
+                                type="checkbox"
+                                checked={{this.legacyNativeConfirmed}}
+                                {{on "change" this.updateLegacyNativeConfirmed}}
+                              />{{i18n "discussion_bridge.admin.publisher_confirm_legacy_native"}}</label>
+                          {{/unless}}
                           <p><strong>{{i18n "discussion_bridge.admin.publisher_old_presentation_url"}}</strong>
                             <code>{{this.presentationUrl record}}</code></p>
                           <label>{{i18n "discussion_bridge.admin.publisher_new_presentation_url"}}<input

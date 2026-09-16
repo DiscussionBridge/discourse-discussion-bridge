@@ -173,6 +173,9 @@ describe "DiscussionBridge native product administration" do
     expect(binding.bridge_record.topic_id).to eq(topic.id)
 
     within(".discussion-bridge-publishing__recent") do
+      expect(page).to have_content("Recent platform publications (latest 20)")
+      expect(page).to have_link("Browse all Bridge Records")
+      expect(page).to have_link("Topic #{topic.id} · From the forum")
       expect(page).to have_css("th", text: "Actions")
       click_button("Migrate publication URL")
       within(".discussion-bridge-publishing__correction-row") do
@@ -183,6 +186,36 @@ describe "DiscussionBridge native product administration" do
       end
     end
     expect(binding.reload.canonical_url).to eq("https://example.com/from-the-forum/")
+  end
+
+  it "offers an explicit verified cutover for older publications without native classification" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    topic = Fabricate(:topic, user: admin, category: category, title: "Older publication")
+    Fabricate(:post, topic: topic, user: admin, post_number: 1)
+    DiscussionBridge::FromDiscourseRecordCreator.call(
+      user: admin,
+      connection_id: @connection.id,
+      topic_id: topic.id,
+      external_id: "older-post",
+      canonical_url: "https://example.com/older-post/",
+    )
+    sign_in(admin)
+    visit("/")
+    page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
+
+    within(".discussion-bridge-publishing__recent") do
+      expect(page).to have_button("Verify older publication and migrate URL", wait: 30)
+      click_button("Verify older publication and migrate URL")
+      within(".discussion-bridge-publishing__correction-row") do
+        expect(page).to have_content("Platform content ID:")
+        expect(page).to have_content("older-post")
+        expect(page).to have_field("Type the platform content ID shown above")
+        expect(page).to have_unchecked_field(
+          "I verified the new page is this native platform publication and retains this Discourse topic.",
+        )
+        expect(page).to have_button("Verify redirect and migrate")
+      end
+    end
   end
 
   it "manages observed platform authors inside the selected connection" do
