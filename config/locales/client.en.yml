@@ -147,6 +147,7 @@ en:
         full_interactive_readiness: "In-page interaction readiness"
         full_interactive_ready: "Discourse full-app embedding and its sign-in flow are enabled."
         embeddable_host_missing: "Embeddable Host missing"
+        embed_host_ready: "Embed host ready"
         health_nav: "Overview"
         health_nav_description: "Review live DiscussionBridge readiness and operating status."
         operations_nav: "Bridge Records"

@@ -692,6 +692,14 @@
   }
 }
 
+.discussion-bridge-origin-readiness {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  margin-block: 0.2rem;
+}
+
 .discussion-bridge-create-from__topic-id {
   max-width: 14rem;
 }

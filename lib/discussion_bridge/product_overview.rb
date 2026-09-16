@@ -27,21 +27,13 @@ module DiscussionBridge
         },
       )
       blockers << "source_authors_unmapped" if held_unmapped_authors.exists?
-      embeddable_hosts = EmbeddableHost.pluck(:host)
       interactive_connection_status = connections.select do |connection|
         connection.enabled && connection.allows_direction?("to_discourse")
       end.map do |connection|
         {
           id: connection.id,
           name: connection.name,
-          origins: connection.allowed_origins.map do |origin|
-            host = URI.parse(origin).host
-            embeddable = embeddable_hosts.any? do |candidate|
-              candidate == host ||
-                (candidate.start_with?("*.") && host.end_with?(candidate.delete_prefix("*")))
-            end
-            { origin: origin, embeddable: embeddable }
-          end,
+          origins: EmbeddableOriginStatus.for_connection(connection),
         }
       end
       interactive_blockers = DiscussionBridge::FullInteractiveReadiness.blockers

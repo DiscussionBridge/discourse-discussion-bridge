@@ -92,6 +92,7 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("wordpress-discussion-bridge")
     expect(page).to have_content("0.2.0-alpha.20")
     expect(page).to have_content("Last seen")
+    expect(page).to have_content("Embeddable Host missing")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']")

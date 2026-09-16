@@ -79,6 +79,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/bridge_record_resolver"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
+  require_relative "lib/discussion_bridge/embeddable_origin_status"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"

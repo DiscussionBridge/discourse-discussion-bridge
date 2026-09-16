@@ -440,10 +440,24 @@ export default class DiscussionBridgeConnections extends Component {
                     (i18n "discussion_bridge.admin.connection_route")
                     (i18n "discussion_bridge.admin.forum_fallback")
                   }})</small></dd>
-              <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each
-                  connection.allowed_origins
-                  as |origin|
-                }}<code>{{origin}}</code>{{/each}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.origins"}}</dt>
+              <dd>
+                {{#each connection.origin_readiness as |origin|}}
+                  <span class="discussion-bridge-origin-readiness">
+                    <code>{{origin.origin}}</code>
+                    <span
+                      class="discussion-bridge-status"
+                      data-state={{if origin.embeddable "healthy" "attention"}}
+                    >
+                      {{if
+                        origin.embeddable
+                        (i18n "discussion_bridge.admin.embed_host_ready")
+                        (i18n "discussion_bridge.admin.embeddable_host_missing")
+                      }}
+                    </span>
+                  </span>
+                {{/each}}
+              </dd>
               <dt>{{i18n "discussion_bridge.admin.adapter_presence"}}</dt><dd
               ><span
                   class="discussion-bridge-status"

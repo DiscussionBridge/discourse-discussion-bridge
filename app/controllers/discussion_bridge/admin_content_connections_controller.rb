@@ -133,6 +133,7 @@ module DiscussionBridge
         unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
         enabled: connection.enabled,
         allowed_origins: connection.allowed_origins,
+        origin_readiness: EmbeddableOriginStatus.for_connection(connection),
         allowed_directions: connection.allowed_directions,
         allowed_lanes: connection.allowed_lanes,
         adapter_id: connection.adapter_id,
