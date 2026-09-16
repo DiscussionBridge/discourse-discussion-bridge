@@ -219,6 +219,20 @@ describe DiscussionBridge::PublisherController do
       redirect_status: 301,
     )
 
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: {
+          "X-DiscussionBridge-Connection" => @connection.public_id,
+          "X-DiscussionBridge-Secret" => @secret,
+        }
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("bridge_record", "bindings", 0, "url_migration")).to include(
+      "old_url" => old_url,
+      "new_url" => new_url,
+      "redirect_status" => 301,
+    )
+    sign_in(admin)
+
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
          params: publication(external_id: "different", canonical_url: old_url, native_materialization: true),
          as: :json
