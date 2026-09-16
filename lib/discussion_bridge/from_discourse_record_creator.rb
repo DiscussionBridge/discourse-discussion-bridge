@@ -56,6 +56,8 @@ module DiscussionBridge
         canonical_url_digest = Digest::SHA256.hexdigest(
           "#{connection.public_id}\n#{canonical.source_url}",
         )
+        raise ArgumentError, "publication URL is reserved by migration history" if
+          DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
         bindings = DiscussionBridgeContentBinding.lock.where(
           "identity_digest = :identity OR canonical_url_digest = :url",
           identity: identity_digest,

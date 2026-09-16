@@ -174,19 +174,15 @@ describe "DiscussionBridge native product administration" do
 
     within(".discussion-bridge-publishing__recent") do
       expect(page).to have_css("th", text: "Actions")
-      click_button("Edit presentation")
+      click_button("Migrate publication URL")
       within(".discussion-bridge-publishing__correction-row") do
-        fill_in("Presentation URL", with: "https://example.com/discussionbridge/from-the-forum/")
-        click_button("Save presentation URL")
+        expect(page).to have_content("Old URL:")
+        expect(page).to have_content("https://example.com/from-the-forum/")
+        expect(page).to have_button("Verify redirect and migrate")
+        fill_in("New platform URL", with: "https://example.com/discussionbridge/from-the-forum/")
       end
     end
-    expect(page).to have_content("Platform presentation URL corrected", wait: 30)
-    expect(page).to have_css(".discussion-bridge-publishing__recent .discussion-bridge-publishing__notice")
-    expect(page).to have_link(
-      "Main publication",
-      href: "https://example.com/discussionbridge/from-the-forum/",
-    )
-    expect(binding.reload.canonical_url).to eq("https://example.com/discussionbridge/from-the-forum/")
+    expect(binding.reload.canonical_url).to eq("https://example.com/from-the-forum/")
   end
 
   it "manages observed platform authors inside the selected connection" do

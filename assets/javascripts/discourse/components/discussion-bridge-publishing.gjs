@@ -25,6 +25,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked createdRecord = null;
   @tracked working = false;
   @tracked editingRecord = null;
+  @tracked migrationMode = false;
   @tracked correctedCanonicalUrl = "";
   @tracked correctedPresentationUrls = {};
 
@@ -75,7 +76,17 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   beginPresentationCorrection(record) {
     this.editingRecord = record;
+    this.migrationMode = false;
     this.correctedCanonicalUrl = this.presentationUrl(record);
+    this.notice = "";
+    this.noticeContext = "";
+  }
+
+  @action
+  beginPresentationMigration(record) {
+    this.editingRecord = record;
+    this.migrationMode = true;
+    this.correctedCanonicalUrl = "";
     this.notice = "";
     this.noticeContext = "";
   }
@@ -83,6 +94,7 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   cancelPresentationCorrection() {
     this.editingRecord = null;
+    this.migrationMode = false;
     this.correctedCanonicalUrl = "";
   }
 
@@ -112,6 +124,39 @@ export default class DiscussionBridgePublishing extends Component {
       this.notice = i18n(
         "discussion_bridge.admin.publisher_presentation_corrected"
       );
+      this.noticeContext = "correction";
+      this.cancelPresentationCorrection();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.working = false;
+    }
+  }
+
+  @action
+  async migratePresentation(event) {
+    event.preventDefault();
+    this.working = true;
+    this.notice = "";
+    try {
+      const result = await ajax(
+        `/discussion-bridge/v1/publisher/publications/${this.editingRecord.resource_id}/migrate-url.json`,
+        {
+          type: "PUT",
+          data: {
+            migration: {
+              old_url: this.presentationUrl(this.editingRecord),
+              new_url: this.correctedCanonicalUrl,
+            },
+          },
+        }
+      );
+      this.createdRecord = result;
+      this.correctedPresentationUrls = {
+        ...this.correctedPresentationUrls,
+        [result.resource_id]: result.canonical_url,
+      };
+      this.notice = i18n("discussion_bridge.admin.publisher_presentation_migrated");
       this.noticeContext = "correction";
       this.cancelPresentationCorrection();
     } catch (error) {
@@ -365,20 +410,58 @@ export default class DiscussionBridgePublishing extends Component {
                   >{{record.connection_name}}</a></td><td><span
                     class="discussion-bridge-status"
                     data-state={{record.state}}
-                  >{{this.displayToken record.state}}</span></td><td><DButton
-                    @label="discussion_bridge.admin.publisher_edit_presentation"
-                    @action={{this.beginPresentationCorrection}}
-                    @actionParam={{record}}
-                  /></td></tr>
+                  >{{this.displayToken record.state}}</span></td><td>
+                  {{#if record.native_materialization}}
+                    <DButton
+                      @label="discussion_bridge.admin.publisher_migrate_presentation"
+                      @action={{this.beginPresentationMigration}}
+                      @actionParam={{record}}
+                    />
+                  {{else}}
+                    <DButton
+                      @label="discussion_bridge.admin.publisher_edit_presentation"
+                      @action={{this.beginPresentationCorrection}}
+                      @actionParam={{record}}
+                    />
+                  {{/if}}
+                </td></tr>
               {{#if this.editingRecord}}
                 {{#if (eq record.resource_id this.editingRecord.resource_id)}}
                   <tr class="discussion-bridge-publishing__correction-row"><td
                       colspan="5"
                     >
-                      <form
-                        class="discussion-bridge-publishing__correction"
-                        {{on "submit" this.correctPresentation}}
-                      >
+                      {{#if this.migrationMode}}
+                        <form
+                          class="discussion-bridge-publishing__correction"
+                          {{on "submit" this.migratePresentation}}
+                        >
+                          <h4>{{i18n "discussion_bridge.admin.publisher_migrate_presentation"}}</h4>
+                          <p>{{i18n "discussion_bridge.admin.publisher_migrate_presentation_description"}}</p>
+                          <p><strong>{{i18n "discussion_bridge.admin.publisher_old_presentation_url"}}</strong>
+                            <code>{{this.presentationUrl record}}</code></p>
+                          <label>{{i18n "discussion_bridge.admin.publisher_new_presentation_url"}}<input
+                              required
+                              type="url"
+                              value={{this.correctedCanonicalUrl}}
+                              {{on "input" this.updateCorrectedCanonicalUrl}}
+                            /></label>
+                          <DButton
+                            @type="submit"
+                            @label="discussion_bridge.admin.publisher_verify_and_migrate"
+                            @disabled={{this.working}}
+                            class="btn-primary"
+                          />
+                          <DButton
+                            @label="discussion_bridge.admin.cancel"
+                            @action={{this.cancelPresentationCorrection}}
+                            @disabled={{this.working}}
+                          />
+                        </form>
+                      {{else}}
+                        <form
+                          class="discussion-bridge-publishing__correction"
+                          {{on "submit" this.correctPresentation}}
+                        >
                         <h4>{{i18n
                             "discussion_bridge.admin.publisher_edit_presentation"
                           }}</h4>
@@ -404,7 +487,8 @@ export default class DiscussionBridgePublishing extends Component {
                           @action={{this.cancelPresentationCorrection}}
                           @disabled={{this.working}}
                         />
-                      </form>
+                        </form>
+                      {{/if}}
                     </td></tr>
                 {{/if}}
               {{/if}}
