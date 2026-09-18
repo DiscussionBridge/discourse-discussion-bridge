@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "digest"
-require "set"
 
 module DiscussionBridge
   class SourceUrlProof
