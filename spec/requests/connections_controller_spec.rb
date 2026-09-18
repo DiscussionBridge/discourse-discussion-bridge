@@ -242,7 +242,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     # relying on the earlier cycle's ambiguous old URL.
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers,
          params: payload(external_id: "post-900", canonical_url: "https://example.com/articles/chain-0/",
-                         correlation_id: "delivery-chain"), as: :json
+                         correlation_id: "delivery-chain",
+                         title: "A separate source URL chain"), as: :json
     long_record = DiscussionBridgeBridgeRecord.last
     sign_in(admin)
     21.times do |index|
@@ -270,7 +271,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     second_url = "https://example.com/articles/another-guide/"
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers,
          params: payload(external_id: "post-483", canonical_url: second_url,
-                         correlation_id: "delivery-2"), as: :json
+                         correlation_id: "delivery-2",
+                         title: "Another controlled companion topic"), as: :json
     expect(response).to have_http_status(:created)
     second_topic_id = DiscussionBridgeBridgeRecord.last.topic_id
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)

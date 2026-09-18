@@ -177,11 +177,11 @@ describe "DiscussionBridge native product administration" do
       expect(page).to have_link("Browse all Bridge Records")
       expect(page).to have_link("Topic #{topic.id} · From the forum")
       expect(page).to have_css("th", text: "Actions")
-      click_button("Migrate publication URL")
+      click_button("Change publication URL")
       within(".discussion-bridge-publishing__correction-row") do
         expect(page).to have_content("Old URL:")
         expect(page).to have_content("https://example.com/from-the-forum/")
-        expect(page).to have_button("Verify redirect and migrate")
+        expect(page).to have_button("Verify redirect and change URL")
         fill_in("New platform URL", with: "https://example.com/discussionbridge/from-the-forum/")
       end
     end
@@ -204,8 +204,8 @@ describe "DiscussionBridge native product administration" do
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
     within(".discussion-bridge-publishing__recent") do
-      expect(page).to have_button("Verify older publication and migrate URL", wait: 30)
-      click_button("Verify older publication and migrate URL")
+      expect(page).to have_button("Verify older publication and change URL", wait: 30)
+      click_button("Verify older publication and change URL")
       within(".discussion-bridge-publishing__correction-row") do
         expect(page).to have_content("Platform content ID:")
         expect(page).to have_content("older-post")
@@ -213,7 +213,7 @@ describe "DiscussionBridge native product administration" do
         expect(page).to have_unchecked_field(
           "I verified the new page is this native platform publication and retains this Discourse topic.",
         )
-        expect(page).to have_button("Verify redirect and migrate")
+        expect(page).to have_button("Verify redirect and change URL")
       end
     end
   end
