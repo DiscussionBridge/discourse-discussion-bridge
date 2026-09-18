@@ -64,7 +64,8 @@ module DiscussionBridge
           raise ArgumentError, "destination URL is already bound or reserved" if
             DiscussionBridgeContentBinding.where(canonical_url_digest: new_digest).where.not(id: binding.id).exists? ||
               DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: new_digest)
-                .where.not(content_binding_id: binding.id).exists?
+                .where.not(content_binding_id: binding.id).exists? ||
+              DiscussionBridgeSourceUrlHistory.where(old_canonical_url_digest: new_digest).exists?
 
           DiscussionBridgePresentationUrlHistory.create!(
             bridge_record: record,

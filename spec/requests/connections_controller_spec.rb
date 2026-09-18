@@ -75,6 +75,216 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
   end
 
+  def source_migration(old_url:, new_url:, external_id: "post-482", confirmed: true)
+    { migration: { old_url: old_url, new_url: new_url,
+                   external_id: external_id, native_identity_confirmed: confirmed } }
+  end
+
+  it "migrates a To Discourse source URL without changing its record, topic, or external ID" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created)
+    record = DiscussionBridgeBridgeRecord.last
+    binding = record.active_binding("source")
+    original_binding_id = binding.id
+    original_topic_id = record.topic_id
+    original_topic_count = Topic.count
+    original_post_raw = record.topic.first_post.raw
+    old_url = binding.canonical_url
+    new_url = "https://example.com/articles/community-guide-moved/"
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: old_url, new_url: new_url).and_return(301)
+
+    sign_in(admin)
+    2.times do |attempt|
+      put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+          params: source_migration(old_url: old_url, new_url: new_url), as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(response.parsed_body).to include(
+        "outcome" => attempt.zero? ? "migrated" : "already_current",
+        "redirect_status" => 301,
+      )
+    end
+    expect(record.reload).to have_attributes(topic_id: original_topic_id, state: "healthy")
+    expect(record.topic.first_post.raw).to eq(original_post_raw)
+    expect(binding.reload).to have_attributes(
+      id: original_binding_id,
+      external_id: "post-482",
+      canonical_url: new_url,
+    )
+    expect(DiscussionBridgeSourceUrlHistory.count).to eq(1)
+    expect(DiscussionBridgeBridgeRecord.count).to eq(1)
+    expect(Topic.count).to eq(original_topic_count)
+
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("bridge_record", "bindings", 0, "url_migration")).to include(
+      "old_url" => old_url,
+      "new_url" => new_url,
+      "redirect_status" => 301,
+    )
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: headers, params: { from_url: old_url, to_url: new_url }
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("source_url_proof", "transition_count")).to eq(1)
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers, params: payload(canonical_url: new_url), as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("outcome" => "resolved", "topic_id" => original_topic_id)
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers, params: payload(external_id: "other-post"), as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body).to include("reason" => "retired_url_reserved")
+    expect(DiscussionBridgeBridgeRecord.count).to eq(1)
+
+    sign_in(admin)
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: new_url, new_url: old_url).and_return(308)
+    put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+        params: source_migration(old_url: new_url, new_url: old_url), as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("outcome" => "migrated", "redirect_status" => 308)
+    expect(binding.reload.canonical_url).to eq(old_url)
+    expect(DiscussionBridgeSourceUrlHistory.where(content_binding_id: original_binding_id).count).to eq(2)
+    expect(record.reload.topic_id).to eq(original_topic_id)
+  end
+
+  it "leaves a To Discourse source unchanged when redirect verification fails" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    old_url = record.active_binding("source").canonical_url
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .and_raise(ArgumentError, "old publication URL does not return a permanent redirect")
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+        params: source_migration(old_url: old_url, new_url: "https://example.com/articles/other/"), as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(record.reload.active_binding("source").canonical_url).to eq(old_url)
+    expect(DiscussionBridgeSourceUrlHistory.count).to eq(0)
+  end
+
+  it "requires staff confirmation of the existing native platform content ID" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    old_url = record.active_binding("source").canonical_url
+    new_url = "https://example.com/articles/community-guide-moved/"
+    sign_in(admin)
+    [source_migration(old_url: old_url, new_url: new_url, confirmed: false),
+     source_migration(old_url: old_url, new_url: new_url, external_id: "post-999")].each do |input|
+      put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+          params: input, as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+    expect(record.reload.active_binding("source").canonical_url).to eq(old_url)
+    expect(DiscussionBridgeSourceUrlHistory.count).to eq(0)
+  end
+
+  it "proves a bounded two-move source chain to an adapter that was offline" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    first = record.active_binding("source").canonical_url
+    second = "https://example.com/articles/community-guide-second/"
+    third = "https://example.com/articles/community-guide-third/"
+    sign_in(admin)
+    [[first, second], [second, third]].each do |old_url, new_url|
+      allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+        .with(old_url: old_url, new_url: new_url).and_return(301)
+      put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+          params: source_migration(old_url: old_url, new_url: new_url), as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+    history_ids = DiscussionBridgeSourceUrlHistory.order(:id).pluck(:id)
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: headers, params: { from_url: first, to_url: third }
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("source_url_proof", "verified")).to eq(true)
+    expect(response.parsed_body.dig("source_url_proof", "transition_count")).to eq(2)
+    expect(response.parsed_body.dig("source_url_proof", "topic_id")).to eq(record.topic_id)
+
+    other_connection, other_secret = DiscussionBridgeContentConnection.issue!(
+      name: "Separate WordPress", platform: "wordpress", allowed_origins: ["https://example.com"],
+      allowed_directions: %w[to_discourse], allowed_lanes: ["articles"],
+    )
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: { "X-DiscussionBridge-Connection" => other_connection.public_id,
+                   "X-DiscussionBridge-Secret" => other_secret },
+        params: { from_url: first, to_url: third }
+    expect(response).to have_http_status(:not_found)
+
+    DiscussionBridgeSourceUrlHistory.find(history_ids.first).delete
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: headers, params: { from_url: first, to_url: third }
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
+
+  it "refuses ambiguous or over-limit source URL ancestry" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    record = DiscussionBridgeBridgeRecord.last
+    first = record.active_binding("source").canonical_url
+    second = "https://example.com/articles/cycle-second/"
+    third = "https://example.com/articles/cycle-third/"
+    sign_in(admin)
+    [[first, second], [second, first], [first, third]].each do |old_url, new_url|
+      allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+        .with(old_url: old_url, new_url: new_url).and_return(301)
+      put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+          params: source_migration(old_url: old_url, new_url: new_url), as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: headers, params: { from_url: first, to_url: third }
+    expect(response).to have_http_status(:unprocessable_entity)
+
+    # A separate fresh record exercises the hard transition bound without
+    # relying on the earlier cycle's ambiguous old URL.
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers,
+         params: payload(external_id: "post-900", canonical_url: "https://example.com/articles/chain-0/",
+                         correlation_id: "delivery-chain"), as: :json
+    long_record = DiscussionBridgeBridgeRecord.last
+    sign_in(admin)
+    21.times do |index|
+      old_url = "https://example.com/articles/chain-#{index}/"
+      new_url = "https://example.com/articles/chain-#{index + 1}/"
+      allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+        .with(old_url: old_url, new_url: new_url).and_return(301)
+      put "/discussion-bridge/admin/bridge-records/#{long_record.id}/migrate-source-url.json",
+          params: source_migration(old_url: old_url, new_url: new_url,
+                                   external_id: "post-900"), as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{long_record.resource_id}/source-url-proof.json",
+        headers: headers,
+        params: { from_url: "https://example.com/articles/chain-0/",
+                  to_url: "https://example.com/articles/chain-21/" }
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
+
+  it "rejects a source URL move into another active source without changing either record" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    first_record = DiscussionBridgeBridgeRecord.last
+    first_url = first_record.active_binding("source").canonical_url
+    second_url = "https://example.com/articles/another-guide/"
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers,
+         params: payload(external_id: "post-483", canonical_url: second_url,
+                         correlation_id: "delivery-2"), as: :json
+    expect(response).to have_http_status(:created)
+    second_topic_id = DiscussionBridgeBridgeRecord.last.topic_id
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: first_url, new_url: second_url).and_return(301)
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/bridge-records/#{first_record.id}/migrate-source-url.json",
+        params: source_migration(old_url: first_url, new_url: second_url), as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(first_record.reload.active_binding("source").canonical_url).to eq(first_url)
+    expect(DiscussionBridgeBridgeRecord.last.topic_id).to eq(second_topic_id)
+    expect(DiscussionBridgeSourceUrlHistory.count).to eq(0)
+  end
+
   it "uses the forum-selected connection category instead of the forum fallback" do
     connection_category = Fabricate(:category)
     @connection.update!(default_category_id: connection_category.id)
@@ -115,6 +325,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     )
     expect(TopicEmbed.topic_id_for_embed(canonical_url)).to eq(embedded_topic.id)
     original_topic_count = Topic.count
+    original_post_raw = embedded_post.raw
 
     post "/discussion-bridge/v1/bridge-records/resolve.json",
          headers: headers,
@@ -144,6 +355,18 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "topic_id" => embedded_topic.id,
     )
     expect(Topic.count).to eq(original_topic_count)
+
+    new_url = "https://example.com/articles/community-guide-moved/"
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
+      .with(old_url: canonical_url, new_url: new_url).and_return(301)
+    sign_in(admin)
+    put "/discussion-bridge/admin/bridge-records/#{DiscussionBridgeBridgeRecord.last.id}/migrate-source-url.json",
+        params: source_migration(old_url: canonical_url, new_url: new_url), as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(TopicEmbed.topic_id_for_embed(new_url)).to eq(embedded_topic.id)
+    expect(TopicEmbed.topic_id_for_embed(canonical_url)).to be_nil
+    expect(Topic.count).to eq(original_topic_count)
+    expect(embedded_post.reload.raw).to eq(original_post_raw)
   end
 
   it "rejects adoption when Core does not attest the exact source and topic" do

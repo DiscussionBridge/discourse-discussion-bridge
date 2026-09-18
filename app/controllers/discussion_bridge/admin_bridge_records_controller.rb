@@ -90,7 +90,8 @@ module DiscussionBridge
         identity_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}")
         canonical_url_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}")
         raise ArgumentError, "target URL is reserved by publication history" if
-          DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
+          DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists? ||
+            DiscussionBridgeSourceUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
         matches = DiscussionBridgeContentBinding.lock.where(
           "identity_digest = :identity OR canonical_url_digest = :url",
           identity: identity_digest,
@@ -152,6 +153,29 @@ module DiscussionBridge
       end
       render json: { bridge_record: serialize(record.reload, detailed: true) }
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
+    end
+
+    def migrate_source_url
+      input = params.require(:migration)
+      record = DiscussionBridgeBridgeRecord.find(params[:id])
+      result = SourceUrlMigrator.call(
+        user: current_user,
+        resource_id: record.resource_id,
+        old_url: input.fetch(:old_url),
+        new_url: input.fetch(:new_url),
+        external_id: input.fetch(:external_id),
+        native_identity_confirmed: input[:native_identity_confirmed] == true ||
+          input[:native_identity_confirmed] == "true",
+      )
+      render json: {
+        bridge_record: serialize(result.record, detailed: true),
+        outcome: result.outcome,
+        redirect_status: result.redirect_status,
+      }
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique,
+           ActiveRecord::RecordNotFound, ArgumentError => error
       errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
       render json: { errors: errors }, status: :unprocessable_entity
     end

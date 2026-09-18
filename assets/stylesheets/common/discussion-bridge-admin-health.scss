@@ -156,6 +156,58 @@
   }
 }
 
+.discussion-bridge-operations {
+  &__source-url-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-block: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--primary-low);
+    border-radius: var(--d-border-radius);
+    background: var(--secondary);
+
+    h4,
+    p {
+      margin: 0;
+    }
+
+    code {
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      display: grid;
+      gap: 0.35rem;
+      max-width: 40rem;
+      font-weight: 600;
+    }
+
+    input {
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .discussion-bridge-operations__confirmation {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      max-width: none;
+      font-weight: normal;
+
+      input {
+        width: auto;
+        margin-block-start: 0.2rem;
+      }
+    }
+  }
+
+  &__notice {
+    padding: 0.75rem 1rem;
+    border-inline-start: 0.25rem solid var(--success);
+    background: var(--success-low, var(--primary-very-low));
+  }
+}
+
 .discussion-bridge-status,
 .discussion-bridge-direction,
 .discussion-bridge-platform {

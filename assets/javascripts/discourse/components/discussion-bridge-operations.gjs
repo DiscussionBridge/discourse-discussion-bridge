@@ -24,6 +24,10 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked migrationConnectionId = "";
   @tracked migrationExternalId = "";
   @tracked migrationUrl = "";
+  @tracked sourceNewUrl = "";
+  @tracked sourceNativeConfirmed = false;
+  @tracked sourceNotice = "";
+  @tracked sourceWorking = false;
 
   @action updateQuery(event) { this.query = event.target.value; }
   @action updateDirection(event) { this.direction = event.target.value; }
@@ -36,6 +40,8 @@ export default class DiscussionBridgeOperations extends Component {
   @action updateMigrationConnection(event) { this.migrationConnectionId = event.target.value; }
   @action updateMigrationExternal(event) { this.migrationExternalId = event.target.value; }
   @action updateMigrationUrl(event) { this.migrationUrl = event.target.value; }
+  @action updateSourceNewUrl(event) { this.sourceNewUrl = event.target.value; }
+  @action updateSourceNativeConfirmed(event) { this.sourceNativeConfirmed = event.target.checked; }
 
   get previousDisabled() { return this.args.model.pagination.page <= 1; }
   get nextDisabled() { return this.args.model.pagination.page >= this.args.model.pagination.pages; }
@@ -67,6 +73,9 @@ export default class DiscussionBridgeOperations extends Component {
     try {
       const result = await ajax(`/discussion-bridge/admin/bridge-records/${record.id}.json`);
       this.detail = result.bridge_record;
+      this.sourceNewUrl = "";
+      this.sourceNativeConfirmed = false;
+      this.sourceNotice = "";
     } catch (error) { popupAjaxError(error); }
   }
 
@@ -119,6 +128,34 @@ export default class DiscussionBridgeOperations extends Component {
       this.detail = result.bridge_record;
       this.router.refresh();
     } catch (error) { popupAjaxError(error); }
+  }
+
+  @action
+  async migrateSourceUrl(event) {
+    event.preventDefault();
+    this.sourceWorking = true;
+    this.sourceNotice = "";
+    try {
+      const result = await ajax(
+        `/discussion-bridge/admin/bridge-records/${this.detail.id}/migrate-source-url.json`,
+        {
+          type: "PUT",
+          data: {
+            migration: {
+              old_url: this.detail.active_binding.canonical_url,
+              new_url: this.sourceNewUrl,
+              external_id: this.detail.active_binding.external_id,
+              native_identity_confirmed: this.sourceNativeConfirmed,
+            },
+          },
+        }
+      );
+      this.detail = result.bridge_record;
+      this.sourceNewUrl = "";
+      this.sourceNativeConfirmed = false;
+      this.sourceNotice = i18n("discussion_bridge.admin.source_url_migrated");
+    } catch (error) { popupAjaxError(error); }
+    finally { this.sourceWorking = false; }
   }
 
   <template>
@@ -198,6 +235,21 @@ export default class DiscussionBridgeOperations extends Component {
             {{/each}}
           </ul>
           <p>{{i18n "discussion_bridge.admin.stable_record_message"}}</p>
+
+          {{#if (eq this.detail.direction "to_discourse")}}
+            {{#if (eq this.detail.state "healthy")}}
+              <form class="discussion-bridge-operations__source-url-form" {{on "submit" this.migrateSourceUrl}}>
+                <h4>{{i18n "discussion_bridge.admin.migrate_source_url"}}</h4>
+                <p>{{i18n "discussion_bridge.admin.migrate_source_url_description"}}</p>
+                <p><strong>{{i18n "discussion_bridge.admin.source_platform_id"}}</strong> <code>{{this.detail.active_binding.external_id}}</code></p>
+                <p><strong>{{i18n "discussion_bridge.admin.source_old_url"}}</strong> <code>{{this.detail.active_binding.canonical_url}}</code></p>
+                <label>{{i18n "discussion_bridge.admin.source_new_url"}}<input required type="url" value={{this.sourceNewUrl}} {{on "input" this.updateSourceNewUrl}} /></label>
+                <label class="discussion-bridge-operations__confirmation"><input required type="checkbox" checked={{this.sourceNativeConfirmed}} {{on "change" this.updateSourceNativeConfirmed}} />{{i18n "discussion_bridge.admin.source_native_confirmation"}}</label>
+                <DButton @type="submit" @disabled={{this.sourceWorking}} @label="discussion_bridge.admin.source_verify_and_migrate" class="btn-primary" />
+                {{#if this.sourceNotice}}<p role="status" class="discussion-bridge-operations__notice"><strong>{{this.sourceNotice}}</strong></p>{{/if}}
+              </form>
+            {{/if}}
+          {{/if}}
 
           <form {{on "submit" this.prepareMigration}}>
             <h4>{{i18n "discussion_bridge.admin.prepare_migration"}}</h4>

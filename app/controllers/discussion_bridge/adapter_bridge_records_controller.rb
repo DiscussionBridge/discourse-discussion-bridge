@@ -111,6 +111,32 @@ module DiscussionBridge
       render json: { bridge_record: adapter_record(record) }
     end
 
+    def source_url_proof
+      record = DiscussionBridgeBridgeRecord
+        .joins(:content_bindings)
+        .where(
+          discussion_bridge_content_bindings: {
+            content_connection_id: @content_connection.id,
+            role: "source",
+            state: "active",
+          },
+        )
+        .find_by!(resource_id: params[:resource_id])
+      unless record_within_connection_scope?(record)
+        render json: rejection("connection_scope_denied"), status: :forbidden
+        return
+      end
+      proof = SourceUrlProof.call(
+        connection: @content_connection,
+        record: record,
+        from_url: params.require(:from_url),
+        to_url: params.require(:to_url),
+      )
+      render json: { source_url_proof: proof }
+    rescue ActionController::ParameterMissing, ArgumentError
+      render json: rejection("invalid_source_url_proof"), status: :unprocessable_entity
+    end
+
     private
 
     def scoped_records
@@ -177,16 +203,17 @@ module DiscussionBridge
             external_id: binding.external_id,
             canonical_url: binding.canonical_url,
             native_materialization: binding.native_materialization,
-            url_migration: latest_presentation_url_migration(binding),
+            url_migration: latest_url_migration(binding),
           }
         end,
       }
     end
 
-    def latest_presentation_url_migration(binding)
-      return nil unless binding.role == "presentation" && binding.native_materialization
+    def latest_url_migration(binding)
+      return nil if binding.role == "presentation" && !binding.native_materialization
 
-      history = DiscussionBridgePresentationUrlHistory
+      history_class = binding.role == "source" ? DiscussionBridgeSourceUrlHistory : DiscussionBridgePresentationUrlHistory
+      history = history_class
         .where(content_binding_id: binding.id)
         .order(id: :desc)
         .first
