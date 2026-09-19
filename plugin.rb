@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.33"
+    VERSION = "0.2.0.alpha.34"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME

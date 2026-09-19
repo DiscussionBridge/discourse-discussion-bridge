@@ -91,8 +91,13 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     original_post_raw = record.topic.first_post.raw
     old_url = binding.canonical_url
     new_url = "https://example.com/articles/community-guide-moved/"
+    verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: old_url, new_url: new_url).and_return(301)
+      .with(old_url: old_url, new_url: new_url) do
+        verifier_calls += 1
+        raise ArgumentError, "network unavailable after committed transition" if verifier_calls > 1
+        301
+      end
 
     sign_in(admin)
     2.times do |attempt|
@@ -104,6 +109,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
         "redirect_status" => 301,
       )
     end
+    expect(verifier_calls).to eq(1)
     expect(record.reload).to have_attributes(topic_id: original_topic_id, state: "healthy")
     expect(record.topic.first_post.raw).to eq(original_post_raw)
     expect(binding.reload).to have_attributes(
@@ -138,12 +144,23 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(DiscussionBridgeBridgeRecord.count).to eq(1)
 
     sign_in(admin)
+    reverse_verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: new_url, new_url: old_url).and_return(308)
-    put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
-        params: source_migration(old_url: new_url, new_url: old_url), as: :json
-    expect(response).to have_http_status(:ok), response.body
-    expect(response.parsed_body).to include("outcome" => "migrated", "redirect_status" => 308)
+      .with(old_url: new_url, new_url: old_url) do
+        reverse_verifier_calls += 1
+        raise ArgumentError, "redirect changed after committed transition" if reverse_verifier_calls > 1
+        308
+      end
+    2.times do |attempt|
+      put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+          params: source_migration(old_url: new_url, new_url: old_url), as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(response.parsed_body).to include(
+        "outcome" => attempt.zero? ? "migrated" : "already_current",
+        "redirect_status" => 308,
+      )
+    end
+    expect(reverse_verifier_calls).to eq(1)
     expect(binding.reload.canonical_url).to eq(old_url)
     expect(DiscussionBridgeSourceUrlHistory.where(content_binding_id: original_binding_id).count).to eq(2)
     expect(record.reload.topic_id).to eq(original_topic_id)

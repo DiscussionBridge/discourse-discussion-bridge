@@ -34,6 +34,9 @@ module DiscussionBridge
       raise ArgumentError, "source URLs must differ" if old_canonical == new_canonical
       ensure_eligible!(record, binding, connection, old_canonical, new_canonical)
 
+      committed = committed_transition(record, binding, connection, old_canonical, new_canonical)
+      return committed if committed
+
       # The public route check is deliberately outside the transaction. The
       # connection, record, binding and URL ownership are rechecked under locks.
       redirect_status = @verifier.call(old_url: old_canonical, new_url: new_canonical)
@@ -49,6 +52,7 @@ module DiscussionBridge
         history = exact_history(binding, old_canonical, new_canonical)
         if binding.canonical_url == new_canonical && history
           outcome = "already_current"
+          redirect_status = history.redirect_status
         else
           raise ArgumentError, "old source URL no longer matches the active binding" unless
             binding.canonical_url == old_canonical
@@ -103,6 +107,22 @@ module DiscussionBridge
         old_canonical_url: old_url,
         new_canonical_url: new_url,
       )
+    end
+
+    def committed_transition(record, binding, connection, old_url, new_url)
+      result = nil
+      DiscussionBridgeBridgeRecord.transaction do
+        connection.lock!
+        record.lock!
+        binding.lock!
+        ensure_eligible!(record, binding, connection, old_url, new_url)
+        active_core_embed!(record.topic_id, binding.canonical_url)
+        history = exact_history(binding, old_url, new_url)
+        if binding.canonical_url == new_url && history
+          result = Result.new(record: record.reload, outcome: "already_current", redirect_status: history.redirect_status)
+        end
+      end
+      result
     end
 
     def ensure_eligible!(record, binding, connection, old_url, new_url)

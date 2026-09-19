@@ -187,8 +187,13 @@ describe DiscussionBridge::PublisherController do
     original_id = binding.id
     old_url = binding.canonical_url
     new_url = "https://astro.example.com/new-roadmap/"
+    verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: old_url, new_url: new_url).and_return(301)
+      .with(old_url: old_url, new_url: new_url) do
+        verifier_calls += 1
+        raise ArgumentError, "network unavailable after committed transition" if verifier_calls > 1
+        301
+      end
 
     2.times do |attempt|
       put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
@@ -203,6 +208,7 @@ describe DiscussionBridge::PublisherController do
         "redirect_status" => 301,
       )
     end
+    expect(verifier_calls).to eq(1)
 
     expect(record.reload).to have_attributes(state: "healthy", topic_id: topic.id)
     expect(record.active_binding("presentation")).to have_attributes(
@@ -254,8 +260,13 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeBridgeRecord.find_by!(resource_id: second_resource_id)
       .active_binding("presentation").canonical_url).to eq("https://astro.example.com/second/")
 
+    reverse_verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: new_url, new_url: old_url).and_return(308)
+      .with(old_url: new_url, new_url: old_url) do
+        reverse_verifier_calls += 1
+        raise ArgumentError, "redirect changed after committed transition" if reverse_verifier_calls > 1
+        308
+      end
     2.times do |attempt|
       put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
           params: { migration: { old_url: new_url, new_url: old_url } },
@@ -269,6 +280,7 @@ describe DiscussionBridge::PublisherController do
         "redirect_status" => 308,
       )
     end
+    expect(reverse_verifier_calls).to eq(1)
     expect(record.reload.active_binding("presentation")).to have_attributes(
       id: original_id,
       canonical_url: old_url,
