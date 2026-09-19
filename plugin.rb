@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.32
+# version: 0.2.0.alpha.33
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -50,7 +50,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.32"
+    VERSION = "0.2.0.alpha.34"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -81,6 +81,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
   require_relative "lib/discussion_bridge/publication_redirect_verifier"
   require_relative "lib/discussion_bridge/publication_url_migrator"
+  require_relative "lib/discussion_bridge/source_url_migrator"
+  require_relative "lib/discussion_bridge/source_url_proof"
   require_relative "lib/discussion_bridge/embeddable_origin_status"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
@@ -90,6 +92,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_bridge_record"
   require_relative "app/models/discussion_bridge_content_binding"
   require_relative "app/models/discussion_bridge_presentation_url_history"
+  require_relative "app/models/discussion_bridge_source_url_history"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
@@ -309,6 +312,7 @@ after_initialize do
     post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
     get "/v1/bridge-records" => "adapter_bridge_records#index"
     get "/v1/bridge-records/:resource_id" => "adapter_bridge_records#show"
+    get "/v1/bridge-records/:resource_id/source-url-proof" => "adapter_bridge_records#source_url_proof"
     get "/admin/health" => "health#show"
     get "/admin/support-bundle" => "health#support_bundle"
     get "/admin/content-connections" => "admin_content_connections#index"
@@ -321,6 +325,7 @@ after_initialize do
     get "/admin/bridge-records/:id" => "admin_bridge_records#show"
     post "/admin/bridge-records/:id/migrations" => "admin_bridge_records#prepare_migration"
     post "/admin/bridge-records/:id/migrations/:binding_id/apply" => "admin_bridge_records#apply_migration"
+    put "/admin/bridge-records/:id/migrate-source-url" => "admin_bridge_records#migrate_source_url"
     get "/admin/reconciliation" => "reconciliation#index"
     get "/admin/reconciliation/report" => "reconciliation#report"
     get "/admin/publishing" => "publisher#overview"

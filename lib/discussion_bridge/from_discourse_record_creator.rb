@@ -64,10 +64,14 @@ module DiscussionBridge
         retired_url = DiscussionBridgePresentationUrlHistory.where(
           old_canonical_url_digest: canonical_url_digest,
         )
-        if retired_url.exists?
+        retired_source_url = DiscussionBridgeSourceUrlHistory.where(
+          old_canonical_url_digest: canonical_url_digest,
+        )
+        if retired_url.exists? || retired_source_url.exists?
           current_owner = bindings.one? && bindings.first.state == "active" &&
             bindings.first.canonical_url_digest == canonical_url_digest &&
-            !retired_url.where.not(content_binding_id: bindings.first.id).exists?
+            !retired_url.where.not(content_binding_id: bindings.first.id).exists? &&
+            !retired_source_url.exists?
           raise ArgumentError, "publication URL is reserved by migration history" unless current_owner
         end
 

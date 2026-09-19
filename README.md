@@ -36,7 +36,9 @@ A To Discourse migration prepares a replacement source binding, preserves the
 resource and topic, then makes the old binding historical when an administrator
 applies it. A native From Discourse publication URL move instead verifies a
 permanent redirect and changes the same presentation binding in place; see
-[Publication URL migration](PUBLICATION_URL_MIGRATION.md).
+[Publication URL change](PUBLICATION_URL_MIGRATION.md). A one-item To
+Discourse slug or path change also requires a verified redirect, but keeps
+the same source binding; see [Source URL change](SOURCE_URL_MIGRATION.md).
 
 ## Native administration
 
