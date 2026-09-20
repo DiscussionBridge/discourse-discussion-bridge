@@ -34,6 +34,15 @@ describe DiscussionBridge::PublisherController do
     payload
   end
 
+  def adapter_headers(connection: @connection, secret: @secret)
+    {
+      "X-DiscussionBridge-Connection" => connection.public_id,
+      "X-DiscussionBridge-Secret" => secret,
+      "X-DiscussionBridge-Adapter" => "#{connection.platform}-official",
+      "X-DiscussionBridge-Adapter-Version" => "1.0.0",
+    }
+  end
+
   it "requires a staff session" do
     sign_in(user)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
@@ -122,10 +131,7 @@ describe DiscussionBridge::PublisherController do
 
     sign_out
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
-        headers: {
-          "X-DiscussionBridge-Connection" => @connection.public_id,
-          "X-DiscussionBridge-Secret" => @secret,
-        }
+        headers: adapter_headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
   end
@@ -227,10 +233,7 @@ describe DiscussionBridge::PublisherController do
 
     sign_out
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
-        headers: {
-          "X-DiscussionBridge-Connection" => @connection.public_id,
-          "X-DiscussionBridge-Secret" => @secret,
-        }
+        headers: adapter_headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "bindings", 0, "url_migration")).to include(
       "old_url" => old_url,
@@ -448,10 +451,7 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeBridgeRecord.last.lane).to eq("statamic-demo")
 
     sign_out
-    headers = {
-      "X-DiscussionBridge-Connection" => scoped.public_id,
-      "X-DiscussionBridge-Secret" => secret,
-    }
+    headers = adapter_headers(connection: scoped, secret: secret)
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)
     get "/discussion-bridge/v1/bridge-records.json", headers: headers

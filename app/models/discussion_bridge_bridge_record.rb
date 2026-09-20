@@ -5,6 +5,9 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
 
   DIRECTIONS = %w[to_discourse from_discourse].freeze
   STATES = %w[reserved healthy migration attention failed].freeze
+  DESTINATION_STATES = %w[pending healthy held attention failed].freeze
+  DELIVERY_OUTCOMES = %w[created updated unchanged held unpublished failed].freeze
+  PUBLICATION_PROGRAMS = %w[legacy forum_sync_pending forum_sync].freeze
 
   belongs_to :topic, optional: true
   belongs_to :effective_actor, class_name: "User", optional: true
@@ -22,6 +25,18 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
   validates :title, length: { maximum: DiscussionBridge::ConnectionRequest::MAX_TITLE_BYTES }
   validates :primary_source_author_id, length: { maximum: 255 }, allow_nil: true
   validates :reservation_token, length: { is: 64 }, allow_nil: true
+  validates :destination_state, inclusion: { in: DESTINATION_STATES }, allow_nil: true
+  validates :last_delivery_outcome, inclusion: { in: DELIVERY_OUTCOMES }, allow_nil: true
+  validates :publication_program, inclusion: { in: PUBLICATION_PROGRAMS }
+  validates :acknowledged_source_revision, length: { maximum: 128 }, allow_nil: true
+  validates :acknowledged_publication_revision, length: { is: 64 }, allow_nil: true
+  validates :acknowledged_mapping_revision, length: { is: 64 }, allow_nil: true
+  validates :attempted_publication_revision, length: { is: 64 }, allow_nil: true
+  validates :attempted_mapping_revision, length: { is: 64 }, allow_nil: true
+  validates :pending_publication_revision, length: { is: 64 }, allow_nil: true
+  validates :pending_mapping_revision, length: { is: 64 }, allow_nil: true
+  validates :last_delivery_error_code, length: { maximum: 64 }, allow_nil: true
+  validates :last_delivery_error_detail, length: { maximum: 1000 }, allow_nil: true
 
   def active_binding(role)
     content_bindings.find_by(role: role, state: "active")

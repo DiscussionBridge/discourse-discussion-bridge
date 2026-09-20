@@ -12,11 +12,27 @@ module DiscussionBridge
     def self.capture(relation)
       rows = relation.reorder("discussion_bridge_bridge_records.id ASC").pluck(
         "discussion_bridge_bridge_records.id",
+        "discussion_bridge_bridge_records.direction",
+        "discussion_bridge_bridge_records.state",
+        "discussion_bridge_bridge_records.lane",
+        "discussion_bridge_bridge_records.publication_program",
         "discussion_bridge_bridge_records.updated_at",
         "discussion_bridge_content_bindings.id",
         "discussion_bridge_content_bindings.updated_at",
       )
-      canonical = rows.map { |row| row.map { |value| value.respond_to?(:utc) ? value.utc.iso8601(6) : value.to_s }.join(":" ) }.join("\n")
+      source_rows = relation.reorder("discussion_bridge_bridge_records.id ASC")
+        .joins(topic: :first_post).pluck(
+          "discussion_bridge_bridge_records.id",
+          "posts.id",
+          "posts.version",
+          "posts.updated_at",
+          "topics.title",
+          "topics.visible",
+          "topics.category_id",
+        )
+      canonical = (rows + source_rows).map do |row|
+        row.map { |value| value.respond_to?(:utc) ? value.utc.iso8601(6) : value.to_s }.join(":")
+      end.join("\n")
       Snapshot.new(digest: Digest::SHA256.hexdigest(canonical), total: rows.map(&:first).uniq.length)
     end
 

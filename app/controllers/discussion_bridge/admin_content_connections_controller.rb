@@ -13,6 +13,8 @@ module DiscussionBridge
         categories: Category.order(:name, :id).pluck(:id, :name).map do |id, name|
           { id: id, id_string: id.to_s, name: name }
         end,
+        publication_categories: publication_categories,
+        publication_tags: publication_tags(connections),
         fallback_category: fallback_category,
       }
     end
@@ -27,7 +29,21 @@ module DiscussionBridge
 
     def update
       connection = DiscussionBridgeContentConnection.find(params[:id])
-      connection.update!(connection_params)
+      attributes = connection_params
+      requested_mapping = params.require(:content_connection)[:destination_mapping]
+      connection.with_lock do
+        connection.reload
+        prior_mapping_revision = connection.destination_mapping_revision
+        if requested_mapping
+          result = DestinationMapping.call(requested_mapping, connection: connection)
+          attributes[:destination_mapping] = result.mapping
+          attributes[:destination_mapping_revision] = result.revision
+          attributes[:destination_mapping_updated_at] = Time.zone.now
+        end
+        connection.update!(attributes)
+        mapping_changed = requested_mapping && prior_mapping_revision != connection.destination_mapping_revision
+        connection.mark_from_discourse_publications_pending! if mapping_changed
+      end
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -36,6 +52,69 @@ module DiscussionBridge
     def rotate_secret
       connection = DiscussionBridgeContentConnection.find(params[:id])
       render json: { content_connection: serialize(connection), secret: connection.rotate_secret! }
+    end
+
+    def request_catalog_refresh
+      connection = DiscussionBridgeContentConnection.find(params[:id])
+      connection.update!(platform_catalog_refresh_requested_at: Time.zone.now)
+      render json: { content_connection: serialize(connection) }
+    end
+
+    def search_tags
+      query = params[:q].to_s.strip
+      raise Discourse::InvalidParameters.new(:q) if query.bytesize > 100
+      page = Integer(params[:page].presence || 1, exception: false)
+      raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, 100)
+      relation = Tag.order(:name, :id)
+      if query.present?
+        relation = relation.where(
+          "name ILIKE ?",
+          "%#{ActiveRecord::Base.sanitize_sql_like(query)}%",
+        )
+      end
+      rows = relation.offset((page - 1) * 50).limit(51).pluck(:id, :name)
+      render json: {
+        tags: rows.first(50).map { |id, name| { id: id, name: name } },
+        page: page,
+        more: rows.length > 50,
+      }
+    end
+
+    def publication_preview
+      connection = DiscussionBridgeContentConnection.find(params[:id])
+      topics = PublicationTopicScope.relation(connection).includes(:category, :tags, :first_post)
+        .order(id: :asc).limit(10_001).to_a
+      truncated = topics.length > 10_000
+      topics = topics.first(10_000)
+      grouped = Hash.new(0)
+      held_samples = []
+      ready = 0
+      topics.each do |topic|
+        destination = TopicPublicationState.for_topic(connection: connection, topic: topic).destination
+        if destination["state"] == "ready"
+          ready += 1
+        else
+          Array(destination["reasons"]).each { |reason| grouped[reason] += 1 }
+          if held_samples.length < 20
+            held_samples << {
+              topic_id: topic.id,
+              topic_url: topic.url,
+              title: topic.title,
+              reasons: destination["reasons"],
+            }
+          end
+        end
+      end
+      render json: {
+        total: topics.length,
+        ready: ready,
+        held: topics.length - ready,
+        held_reasons: grouped.sort.to_h,
+        held_samples: held_samples,
+        truncated: truncated,
+        mapping_state: connection.destination_mapping_current? ? "current" : "attention",
+        policy_revision: TopicPublicationState.policy_revision(connection),
+      }
     end
 
     def update_author
@@ -62,6 +141,10 @@ module DiscussionBridge
         :generate_topic_toc,
         :include_source_in_published_url,
         :publication_source_path,
+        :forum_publication_enabled,
+        :publication_include_unlisted,
+        :publication_category_mode,
+        :publication_tag_mode,
         :default_category_id,
         :adapter_id,
         :adapter_version,
@@ -69,6 +152,10 @@ module DiscussionBridge
         allowed_origins: [],
         allowed_directions: [],
         allowed_lanes: [],
+        publication_category_ids: [],
+        publication_excluded_category_ids: [],
+        publication_tag_ids: [],
+        publication_excluded_tag_ids: [],
       ).to_h.symbolize_keys
       if raw.key?(:author_username)
         username = raw.delete(:author_username).to_s.strip
@@ -87,6 +174,16 @@ module DiscussionBridge
           raw[:include_source_in_published_url],
         )
         raw[:publication_source_path] = nil unless raw[:include_source_in_published_url]
+      end
+      %i[forum_publication_enabled publication_include_unlisted].each do |key|
+        raw[key] = ActiveModel::Type::Boolean.new.cast(raw[key]) if raw.key?(key)
+      end
+      %i[
+        publication_category_ids publication_excluded_category_ids
+        publication_tag_ids publication_excluded_tag_ids
+      ].each do |key|
+        next unless raw.key?(key)
+        raw[key] = Array(raw[key]).map { |value| Integer(value.to_s, 10) }.uniq
       end
       raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
@@ -124,6 +221,25 @@ module DiscussionBridge
         generate_topic_toc: connection.generate_topic_toc,
         include_source_in_published_url: connection.include_source_in_published_url,
         publication_source_path: connection.publication_source_path,
+        forum_publication_enabled: connection.forum_publication_enabled,
+        publication_include_unlisted: connection.publication_include_unlisted,
+        publication_category_mode: connection.publication_category_mode,
+        publication_tag_mode: connection.publication_tag_mode,
+        publication_category_ids: connection.publication_category_ids,
+        publication_excluded_category_ids: connection.publication_excluded_category_ids,
+        publication_tag_ids: connection.publication_tag_ids,
+        publication_excluded_tag_ids: connection.publication_excluded_tag_ids,
+        platform_catalog: connection.platform_catalog,
+        platform_catalog_revision: connection.platform_catalog_revision,
+        platform_catalog_display_revision: connection.platform_catalog_display_revision,
+        platform_catalog_adapter_id: connection.platform_catalog_adapter_id,
+        platform_catalog_adapter_version: connection.platform_catalog_adapter_version,
+        platform_catalog_observed_at: connection.platform_catalog_observed_at,
+        platform_catalog_refresh_requested_at: connection.platform_catalog_refresh_requested_at,
+        destination_mapping: connection.destination_mapping,
+        destination_mapping_revision: connection.destination_mapping_revision,
+        destination_mapping_updated_at: connection.destination_mapping_updated_at,
+        destination_mapping_state: connection.destination_mapping_current? ? "current" : "attention",
         default_category_id: connection.default_category_id,
         category_route: category_route(connection),
         source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|
@@ -166,6 +282,32 @@ module DiscussionBridge
     def fallback_category
       category = Category.find_by(id: SiteSetting.discussion_bridge_effective_category_id)
       { id: category&.id, name: category&.name }
+    end
+
+    def publication_categories
+      categories = Category.where(read_restricted: false).order(:name, :id).to_a
+      by_id = categories.index_by(&:id)
+      categories.map do |category|
+        names = []
+        cursor = category
+        visited = {}
+        while cursor && !visited[cursor.id]
+          visited[cursor.id] = true
+          names.unshift(cursor.name)
+          cursor = by_id[cursor.parent_category_id]
+        end
+        { id: category.id, name: category.name, slug: category.slug, path: names.join(" / ") }
+      end.sort_by { |category| [category[:path].downcase, category[:id]] }
+    end
+
+    def publication_tags(connections)
+      selected = connections.flat_map do |connection|
+        Array(connection.publication_tag_ids) + Array(connection.publication_excluded_tag_ids) +
+          Array(connection.destination_mapping["tag_mappings"]).map { |item| item["source_tag_id"] }
+      end.uniq
+      initial = Tag.order(:name, :id).limit(100).pluck(:id)
+      Tag.where(id: (selected + initial).uniq).order(:name, :id)
+        .pluck(:id, :name).map { |id, name| { id: id, name: name } }
     end
 
     def category_route(connection)

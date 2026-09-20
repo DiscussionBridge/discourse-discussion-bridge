@@ -10,6 +10,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   PUBLIC_ID_PATTERN = /\Adbc_[a-z0-9]{24}\z/
   MAX_ORIGINS = 50
   MAX_LANES = 50
+  MAX_PUBLICATION_CATEGORY_IDS = 100
+  MAX_PUBLICATION_TAG_IDS = 500
+  PUBLICATION_CATEGORY_MODES = %w[only_selected all_except_selected].freeze
+  PUBLICATION_TAG_MODES = %w[all only_selected all_except_selected].freeze
   AUTHORSHIP_MODES = %w[fixed mapped].freeze
   UNMAPPED_AUTHOR_POLICIES = %w[fallback hold].freeze
   PUBLICATION_SOURCE_PATH_PATTERN = /\A[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*\z/
@@ -32,11 +36,14 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validates :authorship_mode, inclusion: { in: AUTHORSHIP_MODES }
   validates :unmapped_author_policy, inclusion: { in: UNMAPPED_AUTHOR_POLICIES }
   validates :secret_digest, length: { is: 64 }
+  validates :publication_category_mode, inclusion: { in: PUBLICATION_CATEGORY_MODES }
+  validates :publication_tag_mode, inclusion: { in: PUBLICATION_TAG_MODES }
   validates :adapter_id, :adapter_version, length: { maximum: 100 }, allow_nil: true
   validate :scopes_are_valid
   validate :author_user_is_usable
   validate :default_category_is_available
   validate :publication_path_is_valid
+  validate :publication_scope_is_valid
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -91,7 +98,76 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
     false
   end
 
+  def destination_mapping_current?
+    destination_mapping_revision.present? && platform_catalog_revision.present? &&
+      destination_mapping["catalog_revision"] == platform_catalog_revision &&
+      platform_catalog_adapter_id == adapter_id &&
+      platform_catalog_adapter_version == adapter_version
+  end
+
+  def mark_from_discourse_publications_pending!
+    DiscussionBridgeBridgeRecord.joins(:content_bindings)
+      .where(direction: "from_discourse")
+      .where(publication_program: %w[forum_sync_pending forum_sync])
+      .where(discussion_bridge_content_bindings: {
+        content_connection_id: id, role: "presentation", state: "active",
+      }).update_all(
+        destination_state: "pending",
+        pending_publication_revision: nil,
+        pending_mapping_revision: destination_mapping_revision,
+        pending_destination: {},
+        updated_at: Time.zone.now,
+      )
+  end
+
   private
+
+  def publication_scope_is_valid
+    included = Array(publication_category_ids)
+    excluded = Array(publication_excluded_category_ids)
+    valid = ->(values, maximum) do
+      values.length <= maximum && values.uniq == values &&
+        values.all? { |value| value.is_a?(Integer) && value.positive? }
+    end
+    errors.add(:publication_category_ids, "is invalid") unless
+      valid.call(included, MAX_PUBLICATION_CATEGORY_IDS)
+    errors.add(:publication_excluded_category_ids, "is invalid") unless
+      valid.call(excluded, MAX_PUBLICATION_CATEGORY_IDS)
+    errors.add(:publication_category_ids, "overlaps excluded categories") if (included & excluded).any?
+    configured = (included + excluded).uniq
+    public_count = Category.where(id: configured, read_restricted: false).count
+    errors.add(:publication_category_ids, "must identify existing public categories") unless
+      public_count == configured.length
+    if publication_category_mode == "only_selected"
+      errors.add(:publication_category_ids, "must select at least one category") if included.empty?
+      errors.add(:publication_excluded_category_ids, "must be empty in only-selected mode") if excluded.any?
+    elsif included.any?
+      errors.add(:publication_category_ids, "must be empty in all-except-selected mode")
+    end
+
+    included_tags = Array(publication_tag_ids)
+    excluded_tags = Array(publication_excluded_tag_ids)
+    errors.add(:publication_tag_ids, "is invalid") unless
+      valid.call(included_tags, MAX_PUBLICATION_TAG_IDS)
+    errors.add(:publication_excluded_tag_ids, "is invalid") unless
+      valid.call(excluded_tags, MAX_PUBLICATION_TAG_IDS)
+    errors.add(:publication_tag_ids, "overlaps excluded tags") if
+      (included_tags & excluded_tags).any?
+    configured_tags = (included_tags + excluded_tags).uniq
+    errors.add(:publication_tag_ids, "must identify existing tags") unless
+      Tag.where(id: configured_tags).count == configured_tags.length
+    case publication_tag_mode
+    when "all"
+      errors.add(:publication_tag_ids, "must be empty in all-tags mode") if included_tags.any?
+      errors.add(:publication_excluded_tag_ids, "must be empty in all-tags mode") if excluded_tags.any?
+    when "only_selected"
+      errors.add(:publication_tag_ids, "must select at least one tag") if included_tags.empty?
+      errors.add(:publication_excluded_tag_ids, "must be empty in only-selected mode") if excluded_tags.any?
+    when "all_except_selected"
+      errors.add(:publication_tag_ids, "must be empty in all-except-selected mode") if
+        included_tags.any?
+    end
+  end
 
   def publication_path_is_valid
     path = publication_source_path.to_s

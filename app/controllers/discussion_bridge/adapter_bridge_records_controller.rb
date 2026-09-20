@@ -137,7 +137,132 @@ module DiscussionBridge
       render json: rejection("invalid_source_url_proof"), status: :unprocessable_entity
     end
 
+    def acknowledge
+      input = params.require(:acknowledgement)
+      outcome = input.fetch(:outcome).to_s
+      raise ArgumentError, "invalid outcome" if DiscussionBridgeBridgeRecord::DELIVERY_OUTCOMES.exclude?(outcome)
+      error_code = input[:error_code].to_s.presence
+      error_detail = input[:error_detail].to_s.presence
+      raise ArgumentError, "error code is required" if outcome == "failed" && error_code.nil?
+      if outcome != "failed" && (error_code || error_detail)
+        raise ArgumentError, "successful acknowledgement cannot include an error"
+      end
+      raise ArgumentError, "invalid error code" if error_code&.bytesize.to_i > 64
+      raise ArgumentError, "invalid error detail" if error_detail&.bytesize.to_i > 1000
+      exact_retry = false
+      record = nil
+      DiscussionBridgeBridgeRecord.transaction do
+        @content_connection = DiscussionBridgeContentConnection.lock.find(@content_connection.id)
+        record = DiscussionBridgeBridgeRecord.joins(:content_bindings).lock
+          .where(discussion_bridge_content_bindings: {
+            content_connection_id: @content_connection.id, role: "presentation", state: "active",
+          }).find_by!(resource_id: params[:resource_id], direction: "from_discourse")
+        topic = record.topic
+        topic&.lock!
+        topic&.first_post&.lock!
+        topic&.reload
+        topic&.association(:tags)&.reload
+        publication = TopicPublicationState.for_revocation(
+          connection: @content_connection,
+          record: record,
+        )
+        raise ArgumentError, "publication revision changed" unless
+          input.fetch(:publication_revision) == publication.publication_revision
+        eligible = publication.eligibility.fetch(:eligible)
+        if eligible
+          ready = publication.destination.fetch("state") == "ready"
+          allowed = ready ? %w[created updated unchanged failed] : %w[held failed]
+          raise ArgumentError, "invalid delivery outcome" if allowed.exclude?(outcome)
+          raise ArgumentError, "source revision changed" unless
+            input.fetch(:source_revision) == publication.source_revision
+          raise ArgumentError, "mapping revision changed" unless
+            input.fetch(:mapping_revision) == publication.destination.fetch("mapping_revision")
+          raise ArgumentError, "destination plan changed" unless
+            TopicPublicationState.destination_matches?(input.fetch(:destination), publication.destination)
+        elsif !%w[held unpublished failed].include?(outcome)
+          raise ArgumentError, "ineligible publication must be held or unpublished"
+        end
+        binding = record.active_binding("presentation")
+        native_destination = input.fetch(:native_destination)
+        raise ArgumentError, "native destination changed" unless
+          native_destination[:external_id] == binding&.external_id &&
+          native_destination[:canonical_url] == binding&.canonical_url
+
+        destination_state = if outcome == "failed"
+          "failed"
+        elsif %w[held unpublished].include?(outcome)
+          "held"
+        else
+          "healthy"
+        end
+        applied_destination = eligible ? publication.destination : {
+          "state" => "held",
+          "reasons" => [publication.eligibility.fetch(:reason)],
+        }
+        exact_retry = record.last_delivery_outcome == outcome &&
+          record.destination_state == destination_state &&
+          record.last_delivery_error_code == error_code && record.last_delivery_error_detail == error_detail &&
+          record.attempted_publication_revision == publication.publication_revision &&
+          record.attempted_mapping_revision.to_s == publication.destination["mapping_revision"].to_s &&
+          TopicPublicationState.destination_matches?(record.attempted_destination, applied_destination) &&
+          (outcome == "failed" || record.acknowledged_publication_revision == publication.publication_revision)
+        unless exact_retry
+          attributes = {
+            destination_state: destination_state,
+            acknowledged_at: Time.zone.now,
+            last_delivery_outcome: outcome,
+            last_delivery_attempt_at: Time.zone.now,
+            delivery_attempt_count: record.delivery_attempt_count + 1,
+            last_delivery_error_code: error_code,
+            last_delivery_error_detail: error_detail,
+            attempted_publication_revision: publication.publication_revision,
+            attempted_mapping_revision: publication.destination["mapping_revision"],
+            attempted_destination: applied_destination,
+          }
+          unless outcome == "failed"
+            attributes.merge!(
+              acknowledged_source_revision: publication.source_revision,
+              acknowledged_publication_revision: publication.publication_revision,
+              acknowledged_mapping_revision: publication.destination["mapping_revision"],
+              acknowledged_destination: applied_destination,
+              pending_publication_revision: nil,
+              pending_mapping_revision: nil,
+              pending_destination: {},
+            )
+            attributes[:publication_program] = "forum_sync" if
+              record.publication_program == "forum_sync_pending"
+          end
+          record.update!(attributes)
+        end
+      end
+      render json: {
+        outcome: exact_retry ? "resolved" : "acknowledged",
+        resource_id: record.resource_id,
+        destination_state: record.destination_state,
+        acknowledged_source_revision: record.acknowledged_source_revision,
+        acknowledged_publication_revision: record.acknowledged_publication_revision,
+        acknowledged_mapping_revision: record.acknowledged_mapping_revision,
+        delivery_attempt_count: record.delivery_attempt_count,
+      }
+    rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid,
+           ActiveRecord::RecordNotFound, ArgumentError => error
+      render json: {
+        outcome: "rejected", reason: acknowledgement_reason(error), errors: [error.message],
+      }, status: :unprocessable_entity
+    end
+
     private
+
+    def acknowledgement_reason(error)
+      {
+        "publication revision changed" => "publication_revision_changed",
+        "source revision changed" => "source_revision_changed",
+        "mapping revision changed" => "destination_mapping_changed",
+        "destination plan changed" => "destination_plan_changed",
+        "native destination changed" => "native_destination_changed",
+        "invalid delivery outcome" => "invalid_delivery_outcome",
+      }.fetch(error.message, "invalid_acknowledgement")
+    end
 
     def scoped_records
       records = DiscussionBridgeBridgeRecord
@@ -169,7 +294,8 @@ module DiscussionBridge
     end
 
     def authenticate_connection
-      @content_connection = ContentConnectionAuthenticator.call(request)
+      identity = action_name == "acknowledge" ? :catalog : :claim
+      @content_connection = ContentConnectionAuthenticator.call(request, identity: identity)
       render json: rejection("unauthorized"), status: :unauthorized unless @content_connection
     end
 
@@ -196,6 +322,23 @@ module DiscussionBridge
         primary_source_author_id: record.primary_source_author_id,
         content_html: record.direction == "from_discourse" ? first_post&.cooked : nil,
         source: record.direction == "from_discourse" ? discourse_source(topic, first_post) : nil,
+        delivery: record.direction == "from_discourse" ? {
+          state: record.destination_state,
+          acknowledged_source_revision: record.acknowledged_source_revision,
+          acknowledged_publication_revision: record.acknowledged_publication_revision,
+          acknowledged_mapping_revision: record.acknowledged_mapping_revision,
+          acknowledged_destination: record.acknowledged_destination,
+          pending_publication_revision: record.pending_publication_revision,
+          pending_mapping_revision: record.pending_mapping_revision,
+          pending_destination: record.pending_destination,
+          acknowledged_at: record.acknowledged_at&.iso8601(6),
+          last_outcome: record.last_delivery_outcome,
+          publication_program: record.publication_program,
+          attempt_count: record.delivery_attempt_count,
+          last_attempt_at: record.last_delivery_attempt_at&.iso8601(6),
+          last_error_code: record.last_delivery_error_code,
+          last_error_detail: record.last_delivery_error_detail,
+        } : nil,
         bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
           {
             role: binding.role,

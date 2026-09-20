@@ -226,7 +226,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     )
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
         headers: { "X-DiscussionBridge-Connection" => other_connection.public_id,
-                   "X-DiscussionBridge-Secret" => other_secret },
+                   "X-DiscussionBridge-Secret" => other_secret,
+                   "X-DiscussionBridge-Adapter" => "wordpress-official",
+                   "X-DiscussionBridge-Adapter-Version" => "1.0.0" },
         params: { from_url: first, to_url: third }
     expect(response).to have_http_status(:not_found)
 
@@ -885,6 +887,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
         headers: {
           "X-DiscussionBridge-Connection" => target.public_id,
           "X-DiscussionBridge-Secret" => target_secret,
+          "X-DiscussionBridge-Adapter" => "statamic-official",
+          "X-DiscussionBridge-Adapter-Version" => "1.0.0",
         }
     expect(response).to have_http_status(:ok)
   end
