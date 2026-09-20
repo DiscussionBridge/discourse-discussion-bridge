@@ -157,6 +157,10 @@ module DiscussionBridge
           pending_destination: state.destination,
         )
       end
+      PublicationWorkQueue.reconcile_topic!(
+        topic_id: result.record.topic_id,
+        connection: @content_connection,
+      )
       render json: record_payload(result.record).merge(outcome: result.outcome),
              status: result.outcome == "created" ? :created : :ok
     rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid,
@@ -178,6 +182,7 @@ module DiscussionBridge
         title: source.fetch("title"),
         source_revision: PublicationTopicScope.revision(topic),
         content_bytes: post.cooked.to_s.bytesize,
+        source_created_at: topic.created_at&.iso8601(6),
         source_updated_at: post.updated_at&.iso8601(6),
         category: topic.category && {
           id: topic.category.id, slug: topic.category.slug, name: topic.category.name,

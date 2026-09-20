@@ -114,6 +114,7 @@ describe DiscussionBridge::AdapterSourceTopicsController do
     expect(item).to include(
       "title" => topic.title,
       "source_revision" => "post:#{first_post.id}:version:#{first_post.version}",
+      "source_created_at" => topic.created_at.iso8601(6),
       "publication" => nil,
     )
     expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse")).to be_empty
@@ -177,6 +178,61 @@ describe DiscussionBridge::AdapterSourceTopicsController do
       "outcome" => "resolved",
       "destination_state" => "healthy",
       "delivery_attempt_count" => 1,
+    )
+    work = DiscussionBridgePublicationWorkItem.find_by!(
+      content_connection_id: @connection.id,
+      topic_id: topic.id,
+    )
+    expect(work).to have_attributes(
+      action: "publish",
+      state: "current",
+      bridge_record_id: DiscussionBridgeBridgeRecord.find_by!(resource_id: resource_id).id,
+      attempt_count: 1,
+    )
+  end
+
+  it "queues source changes and priority withdrawals per connection" do
+    DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+      topic_id: topic.id,
+      connection: @connection,
+    )
+    work = DiscussionBridgePublicationWorkItem.find_by!(
+      content_connection_id: @connection.id,
+      topic_id: topic.id,
+    )
+    expect(work).to have_attributes(
+      action: "publish",
+      state: "queued",
+      reason: "new_publication",
+    )
+
+    topic.update!(visible: false)
+    DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+      topic_id: topic.id,
+      connection: @connection,
+    )
+    expect(work.reload).to have_attributes(
+      action: "publish",
+      state: "held",
+      reason: "topic_unlisted",
+    )
+
+    topic.update!(visible: true)
+    revision = DiscussionBridge::PublicationTopicScope.revision(topic)
+    post "/discussion-bridge/v1/source-topics/#{topic.id}/resolve.json",
+         params: publication(revision, origin: "https://obbba-wordpress.example.com"),
+         headers: headers, as: :json
+    expect(response).to have_http_status(:created), response.body
+
+    topic.update!(visible: false)
+    DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+      topic_id: topic.id,
+      connection: @connection,
+    )
+    expect(work.reload).to have_attributes(
+      action: "unpublish",
+      state: "queued",
+      reason: "topic_unlisted",
     )
   end
 
@@ -627,5 +683,129 @@ describe DiscussionBridge::AdapterSourceTopicsController do
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: resource_id)
     expect(record.destination_state).to eq("pending")
     expect(record.acknowledged_mapping_revision).not_to eq(@connection.reload.destination_mapping_revision)
+  end
+
+  it "atomically leases queued publication work and requires the lease for acknowledgement" do
+    DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+      topic_id: topic.id,
+      connection: @connection,
+    )
+
+    post "/discussion-bridge/v1/publication-work/claim.json",
+         params: { lease_seconds: 3600 }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:ok)
+    work = response.parsed_body.fetch("publication_work")
+    expect(work).to include(
+      "topic_id" => topic.id,
+      "action" => "publish",
+      "reason" => "new_publication",
+      "source_revision" => DiscussionBridge::PublicationTopicScope.revision(topic),
+    )
+    expect(work.fetch("lease_token")).to match(/\A[0-9a-f]{64}\z/)
+    expect(Time.zone.parse(work.fetch("lease_expires_at"))).to be > 50.minutes.from_now
+
+    post "/discussion-bridge/v1/publication-work/claim.json", headers: headers, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("publication_work")).to be_nil
+
+    revision = DiscussionBridge::PublicationTopicScope.revision(topic)
+    post "/discussion-bridge/v1/source-topics/#{topic.id}/resolve.json",
+         params: publication(revision, origin: "https://obbba-wordpress.example.com"),
+         headers: headers, as: :json
+    expect(response).to have_http_status(:created), response.body
+    resource_id = response.parsed_body.fetch("resource_id")
+    state = DiscussionBridge::TopicPublicationState.for_topic(
+      connection: @connection.reload,
+      topic: topic.reload,
+    )
+
+    put "/discussion-bridge/v1/bridge-records/#{resource_id}/acknowledgement.json",
+        params: { acknowledgement: {
+          source_revision: state.source_revision,
+          publication_revision: state.publication_revision,
+          mapping_revision: @connection.destination_mapping_revision,
+          destination: state.destination,
+          native_destination: {
+            external_id: "topic-#{topic.id}",
+            canonical_url: "https://obbba-wordpress.example.com/topic-#{topic.id}/",
+          },
+          outcome: "created",
+        } }, headers: headers, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body).to include("reason" => "invalid_publication_lease")
+
+    put "/discussion-bridge/v1/bridge-records/#{resource_id}/acknowledgement.json",
+        params: { acknowledgement: {
+          lease_token: work.fetch("lease_token"),
+          source_revision: state.source_revision,
+          publication_revision: state.publication_revision,
+          mapping_revision: @connection.destination_mapping_revision,
+          destination: state.destination,
+          native_destination: {
+            external_id: "topic-#{topic.id}",
+            canonical_url: "https://obbba-wordpress.example.com/topic-#{topic.id}/",
+          },
+          outcome: "created",
+        } }, headers: headers, as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(DiscussionBridgePublicationWorkItem.find_by!(topic_id: topic.id).state).to eq("current")
+  end
+
+  it "records bounded adapter failures against the exact publication lease" do
+    DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+      topic_id: topic.id,
+      connection: @connection,
+    )
+
+    3.times do |index|
+      post "/discussion-bridge/v1/publication-work/claim.json", headers: headers, as: :json
+      work = response.parsed_body.fetch("publication_work")
+      expect(work.fetch("attempt_count")).to eq(index + 1)
+
+      put "/discussion-bridge/v1/publication-work/failure.json",
+          params: { publication_work_failure: {
+            lease_token: work.fetch("lease_token"),
+            error_code: "wordpress_delivery_failed",
+            error_detail: "Native publication did not complete.",
+          } }, headers: headers, as: :json
+      expect(response).to have_http_status(:ok), response.body
+      item = DiscussionBridgePublicationWorkItem.find_by!(topic_id: topic.id)
+      expect(item.state).to eq(index == 2 ? "failed" : "retrying")
+      expect(item.last_error_code).to eq("wordpress_delivery_failed")
+      item.update!(available_at: 1.minute.ago) unless index == 2
+    end
+
+    post "/discussion-bridge/v1/publication-work/claim.json", headers: headers, as: :json
+    expect(response.parsed_body.fetch("publication_work")).to be_nil
+  end
+
+  it "notifies configured operator groups once when publication needs attention" do
+    SiteSetting.discussion_bridge_attention_groups = Group::AUTO_GROUPS[:admins].to_s
+    first_post.update_columns(cooked: "<p>content exceeds the platform limit</p>")
+    configure_destination(
+      @connection,
+      "pages",
+      limits: { "content_bytes" => 10, "title_bytes" => 1_000, "slug_bytes" => 255 },
+    )
+
+    2.times do
+      DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+        topic_id: topic.id,
+        connection: @connection.reload,
+      )
+    end
+
+    item = DiscussionBridgePublicationWorkItem.find_by!(topic_id: topic.id)
+    expect(item).to have_attributes(state: "attention", reason: "source_content_too_large")
+    notifications = Notification.where(
+      user: admin,
+      notification_type: Notification.types[:custom],
+    )
+    expect(notifications.count).to eq(1)
+    expect(JSON.parse(notifications.first.data)).to include(
+      "title" => "discussion_bridge.notification.attention_title",
+      "discussion_bridge_connection_id" => @connection.public_id,
+    )
   end
 end

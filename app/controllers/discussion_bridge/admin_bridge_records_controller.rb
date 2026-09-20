@@ -13,7 +13,11 @@ module DiscussionBridge
       page = Integer(params[:page].presence || 1, exception: false)
       raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
 
-      scope = DiscussionBridgeBridgeRecord.includes(:topic, content_bindings: :content_connection)
+      scope = DiscussionBridgeBridgeRecord.includes(
+        :topic,
+        :publication_work_items,
+        content_bindings: :content_connection,
+      )
       scope = scope.where(direction: params[:direction]) if DiscussionBridgeBridgeRecord::DIRECTIONS.include?(params[:direction])
       scope = scope.where(state: params[:state]) if DiscussionBridgeBridgeRecord::STATES.include?(params[:state])
       if params[:connection_id].present?
@@ -185,6 +189,10 @@ module DiscussionBridge
     def serialize(record, detailed: false)
       bindings = record.content_bindings.sort_by { |binding| [binding.role, binding.created_at, binding.id] }
       active = bindings.select { |binding| binding.state == "active" }
+      active_connection_id = active.first&.content_connection_id
+      work = record.publication_work_items.find do |item|
+        item.content_connection_id == active_connection_id
+      end
       payload = {
         id: record.id,
         resource_id: record.resource_id,
@@ -199,6 +207,8 @@ module DiscussionBridge
         primary_source_author_id: record.primary_source_author_id,
         connection_names: active.map { |binding| binding.content_connection.name },
         active_binding: active.first && binding_payload(active.first),
+        publication_work: work && publication_work_payload(work),
+        operational_state: work&.state || record.destination_state || record.state,
         updated_at: record.updated_at,
       }
       payload[:bindings] = bindings.map { |binding| binding_payload(binding) } if detailed
@@ -220,6 +230,23 @@ module DiscussionBridge
         },
         activated_at: binding.activated_at,
         retired_at: binding.retired_at,
+      }
+    end
+
+    def publication_work_payload(item)
+      {
+        action: item.action,
+        state: item.state,
+        reason: item.reason,
+        source_revision: item.source_revision,
+        publication_revision: item.publication_revision,
+        attempt_count: item.attempt_count,
+        available_at: item.available_at,
+        claimed_at: item.claimed_at,
+        lease_expires_at: item.lease_expires_at,
+        completed_at: item.completed_at,
+        last_error_code: item.last_error_code,
+        last_error_detail: item.last_error_detail,
       }
     end
   end

@@ -1,5 +1,6 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
+import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -197,6 +198,11 @@ export default class DiscussionBridgePublishing extends Component {
     );
   }
 
+  get queueAttention() {
+    const work = this.args.model.metrics.publication_work || {};
+    return (work.attention || 0) + (work.failed || 0);
+  }
+
   get selectedLanes() {
     return this.selectedConnection?.allowed_lanes || [];
   }
@@ -218,6 +224,24 @@ export default class DiscussionBridgePublishing extends Component {
         .href;
     } catch {
       return "";
+    }
+  }
+
+  @action
+  async retryPublicationWork(item) {
+    this.working = true;
+    this.notice = "";
+    try {
+      await ajax(
+        `/discussion-bridge/admin/publishing/work/${item.id}/retry.json`,
+        { type: "POST" }
+      );
+      this.notice = i18n("discussion_bridge.admin.publication_retry_queued");
+      await this.router.refresh();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.working = false;
     }
   }
 
@@ -320,6 +344,9 @@ export default class DiscussionBridgePublishing extends Component {
               "discussion_bridge.admin.publisher_connected_platforms"
             }}</span><strong
           >{{@model.metrics.connected_platforms}}</strong></article>
+        <article><span>{{i18n
+              "discussion_bridge.admin.publisher_queue_attention"
+            }}</span><strong>{{this.queueAttention}}</strong></article>
       </div>
 
       {{#if @model.product.blockers.length}}
@@ -445,8 +472,10 @@ export default class DiscussionBridgePublishing extends Component {
                     href={{this.presentationUrl record}}
                   >{{record.connection_name}}</a></td><td><span
                     class="discussion-bridge-status"
-                    data-state={{record.state}}
-                  >{{this.displayToken record.state}}</span></td><td>
+                    data-state={{record.delivery_state}}
+                  >{{this.displayToken record.delivery_state}}</span>{{#if
+                    record.delivery_reason
+                  }}<small>{{this.displayToken record.delivery_reason}}</small>{{/if}}</td><td>
                   {{#if (this.nativePublication record)}}
                     <DButton
                       @label="discussion_bridge.admin.publisher_migrate_presentation"
@@ -553,6 +582,33 @@ export default class DiscussionBridgePublishing extends Component {
             {{else}}<tr><td colspan="5">{{i18n
                     "discussion_bridge.admin.publisher_no_activity"
                   }}</td></tr>{{/each}}</tbody>
+        </table>
+      </section>
+
+      <section class="discussion-bridge-publishing__recent">
+        <h3>{{i18n "discussion_bridge.admin.publication_queue"}}</h3>
+        <p>{{i18n "discussion_bridge.admin.publication_queue_description"}}</p>
+        <table>
+          <thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.connection"}}</th><th>{{i18n "discussion_bridge.admin.action"}}</th><th>{{i18n "discussion_bridge.admin.status"}}</th><th>{{i18n "discussion_bridge.admin.reason"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
+          <tbody>
+            {{#each @model.publication_work as |item|}}
+              <tr>
+                <td><a href={{item.topic_url}}>Topic {{item.topic_id}} · {{item.title}}</a></td>
+                <td>{{item.connection_name}} · {{this.displayToken item.platform}}</td>
+                <td>{{this.displayToken item.action}}</td>
+                <td><span class="discussion-bridge-status" data-state={{item.state}}>{{this.displayToken item.state}}</span></td>
+                <td>{{this.displayToken item.reason}}{{#if item.last_error_detail}}<small>{{item.last_error_detail}}</small>{{/if}}</td>
+                <td>{{#if (eq item.state "failed")}}<DButton
+                    @label="discussion_bridge.admin.retry_publication"
+                    @action={{fn this.retryPublicationWork item}}
+                    @disabled={{this.working}}
+                    class="btn-small"
+                  />{{/if}}</td>
+              </tr>
+            {{else}}
+              <tr><td colspan="6">{{i18n "discussion_bridge.admin.publication_queue_empty"}}</td></tr>
+            {{/each}}
+          </tbody>
         </table>
       </section>
     </section>

@@ -43,3 +43,11 @@ plugins:
   discussion_bridge_publisher_enabled:
     default: false
     client: false
+  discussion_bridge_attention_groups:
+    type: group_list
+    list_type: compact
+    default: "1|2"
+    allow_any: false
+    client: false
+    refresh: true
+    area: "group_permissions"

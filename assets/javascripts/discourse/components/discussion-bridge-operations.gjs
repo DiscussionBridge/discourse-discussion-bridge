@@ -3,15 +3,16 @@ import { tracked } from "@glimmer/tracking";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
-import { eq } from "truth-helpers";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import { eq } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgeOperations extends Component {
   @service router;
+
   @tracked query = "";
   @tracked direction = "";
   @tracked state = "";
@@ -29,19 +30,44 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked sourceNotice = "";
   @tracked sourceWorking = false;
 
-  @action updateQuery(event) { this.query = event.target.value; }
-  @action updateDirection(event) { this.direction = event.target.value; }
-  @action updateState(event) { this.state = event.target.value; }
-  @action updateConnection(event) { this.connectionId = event.target.value; }
-  @action updateFromConnection(event) { this.fromConnectionId = event.target.value; }
-  @action updateFromTopic(event) { this.fromTopicId = event.target.value; }
-  @action updateFromExternal(event) { this.fromExternalId = event.target.value; }
-  @action updateFromUrl(event) { this.fromUrl = event.target.value; }
-  @action updateMigrationConnection(event) { this.migrationConnectionId = event.target.value; }
-  @action updateMigrationExternal(event) { this.migrationExternalId = event.target.value; }
-  @action updateMigrationUrl(event) { this.migrationUrl = event.target.value; }
-  @action updateSourceNewUrl(event) { this.sourceNewUrl = event.target.value; }
-  @action updateSourceNativeConfirmed(event) { this.sourceNativeConfirmed = event.target.checked; }
+  @action
+  updateQuery(event) { this.query = event.target.value; }
+
+  @action
+  updateDirection(event) { this.direction = event.target.value; }
+
+  @action
+  updateState(event) { this.state = event.target.value; }
+
+  @action
+  updateConnection(event) { this.connectionId = event.target.value; }
+
+  @action
+  updateFromConnection(event) { this.fromConnectionId = event.target.value; }
+
+  @action
+  updateFromTopic(event) { this.fromTopicId = event.target.value; }
+
+  @action
+  updateFromExternal(event) { this.fromExternalId = event.target.value; }
+
+  @action
+  updateFromUrl(event) { this.fromUrl = event.target.value; }
+
+  @action
+  updateMigrationConnection(event) { this.migrationConnectionId = event.target.value; }
+
+  @action
+  updateMigrationExternal(event) { this.migrationExternalId = event.target.value; }
+
+  @action
+  updateMigrationUrl(event) { this.migrationUrl = event.target.value; }
+
+  @action
+  updateSourceNewUrl(event) { this.sourceNewUrl = event.target.value; }
+
+  @action
+  updateSourceNativeConfirmed(event) { this.sourceNativeConfirmed = event.target.checked; }
 
   get previousDisabled() { return this.args.model.pagination.page <= 1; }
   get nextDisabled() { return this.args.model.pagination.page >= this.args.model.pagination.pages; }
@@ -53,8 +79,11 @@ export default class DiscussionBridgeOperations extends Component {
     this.transition(1);
   }
 
-  @action previousPage() { this.transition(this.args.model.pagination.page - 1); }
-  @action nextPage() { this.transition(this.args.model.pagination.page + 1); }
+  @action
+  previousPage() { this.transition(this.args.model.pagination.page - 1); }
+
+  @action
+  nextPage() { this.transition(this.args.model.pagination.page + 1); }
 
   transition(page) {
     this.router.transitionTo("adminPlugins.show.discussion-bridge-operations", {
@@ -206,7 +235,7 @@ export default class DiscussionBridgeOperations extends Component {
                 <td>{{record.connection_names}}</td>
                 <td><span class="discussion-bridge-direction" data-direction={{record.direction}}>{{this.displayToken record.direction}}</span></td>
                 <td>{{#if record.topic_id}}<a href="/t/{{record.topic_id}}">Topic {{record.topic_id}} · {{record.reply_count}} replies</a>{{else}}—{{/if}}</td>
-                <td><span class="discussion-bridge-status" data-state={{record.state}}>{{this.displayToken record.state}}</span></td>
+                <td><span class="discussion-bridge-status" data-state={{record.operational_state}}>{{this.displayToken record.operational_state}}</span></td>
                 <td><DButton @label="discussion_bridge.admin.view" @action={{this.showRecord}} @actionParam={{record}} class="btn-primary" /></td>
               </tr>
             {{else}}<tr><td colspan="6">{{i18n "discussion_bridge.admin.no_records"}}</td></tr>{{/each}}
@@ -226,6 +255,12 @@ export default class DiscussionBridgeOperations extends Component {
           <p><strong>{{i18n "discussion_bridge.admin.content_direction"}}:</strong> {{this.displayToken this.detail.direction}}</p>
           <p><strong>{{i18n "discussion_bridge.admin.discussion"}}:</strong> <a href={{this.detail.topic_url}}>Topic {{this.detail.topic_id}}</a></p>
           <p><code>{{this.detail.resource_id}}</code></p>
+          {{#if this.detail.publication_work}}
+            <h4>{{i18n "discussion_bridge.admin.publication_status"}}</h4>
+            <p><strong>{{this.displayToken this.detail.publication_work.state}}</strong> · {{this.displayToken this.detail.publication_work.action}}</p>
+            {{#if this.detail.publication_work.reason}}<p>{{i18n "discussion_bridge.admin.reason"}}: <code>{{this.detail.publication_work.reason}}</code></p>{{/if}}
+            {{#if this.detail.publication_work.last_error_detail}}<p>{{this.detail.publication_work.last_error_detail}}</p>{{/if}}
+          {{/if}}
           <h4>{{i18n "discussion_bridge.admin.bindings"}}</h4>
           <ul>
             {{#each this.detail.bindings as |binding|}}

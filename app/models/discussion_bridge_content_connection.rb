@@ -27,6 +27,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            class_name: "DiscussionBridgeSourceAuthor",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
+  has_many :publication_work_items,
+           class_name: "DiscussionBridgePublicationWorkItem",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true
@@ -118,6 +122,16 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
         pending_destination: {},
         updated_at: Time.zone.now,
       )
+    publication_work_items.update_all(
+      state: "queued",
+      reason: "mapping_changed",
+      available_at: Time.zone.now,
+      lease_token: nil,
+      claimed_at: nil,
+      lease_expires_at: nil,
+      completed_at: nil,
+      updated_at: Time.zone.now,
+    )
   end
 
   private

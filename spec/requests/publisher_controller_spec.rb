@@ -517,4 +517,43 @@ describe DiscussionBridge::PublisherController do
     expect(response.parsed_body.dig("connections", 0, "allowed_lanes")).to eq([])
     expect(response.body).not_to include("X-DiscussionBridge-Secret")
   end
+
+  it "lets staff requeue an exhausted publication and notifies operators when attention clears" do
+    SiteSetting.discussion_bridge_attention_groups = Group::AUTO_GROUPS[:admins].to_s
+    @connection.update!(forum_publication_enabled: true)
+    work = DiscussionBridgePublicationWorkItem.create!(
+      content_connection: @connection,
+      topic_id: topic.id,
+      action: "publish",
+      state: "failed",
+      reason: "delivery_failed",
+      source_revision: "post:#{first_post.id}:version:#{first_post.version}",
+      publication_revision: "a" * 64,
+      policy_revision: "b" * 64,
+      attempt_count: 3,
+      last_error_code: "adapter_failed",
+      last_error_detail: "The destination rejected the update.",
+    )
+    @connection.update!(
+      publication_attention_fingerprint: "c" * 64,
+      publication_attention_notified_at: 2.hours.ago,
+    )
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/publishing/work/#{work.id}/retry.json", as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("outcome" => "queued")
+    expect(work.reload).to have_attributes(
+      state: "queued",
+      reason: "operator_retry",
+      attempt_count: 0,
+      last_error_code: nil,
+      last_error_detail: nil,
+    )
+    expect(@connection.reload.publication_attention_fingerprint).to be_nil
+    expect(Notification.where(user: admin).order(:id).last.data).to include(
+      "discussion_bridge.notification.resolved_title",
+    )
+  end
 end

@@ -98,8 +98,15 @@ after_initialize do
   require_relative "app/models/discussion_bridge_content_binding"
   require_relative "app/models/discussion_bridge_presentation_url_history"
   require_relative "app/models/discussion_bridge_source_url_history"
+  require_relative "app/models/discussion_bridge_publication_work_item"
+  require_relative "lib/discussion_bridge/publication_work_queue"
+  require_relative "lib/discussion_bridge/publication_attention_notifier"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_topic"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_connection"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_category"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
+  require_relative "app/controllers/discussion_bridge/adapter_publication_work_controller"
   require_relative "app/controllers/discussion_bridge/adapter_platform_catalog_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
@@ -315,6 +322,30 @@ after_initialize do
   TopicsController.prepend(DiscussionBridge::TopicControllerFullInteractiveGuard) unless
     TopicsController < DiscussionBridge::TopicControllerFullInteractiveGuard
 
+  queue_publication_topic = lambda do |topic_id|
+    Jobs.enqueue(:discussion_bridge_reconcile_publication_topic, topic_id: topic_id) if
+      topic_id.present?
+  end
+  on(:topic_created) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:post_edited) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:topic_tags_changed) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_status_updated) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_trashed) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_recovered) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:post_destroyed) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:post_recovered) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:category_updated) do |category|
+    if category.is_a?(Category)
+      Jobs.enqueue(:discussion_bridge_reconcile_publication_category, category_id: category.id)
+    end
+  end
+
   DiscussionBridge::Engine.routes.draw do
     post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
     get "/v1/bridge-records" => "adapter_bridge_records#index"
@@ -326,6 +357,8 @@ after_initialize do
     get "/v1/source-revocations/:resource_id" => "adapter_source_topics#revocation"
     get "/v1/source-topics/:topic_id" => "adapter_source_topics#show"
     post "/v1/source-topics/:topic_id/resolve" => "adapter_source_topics#resolve"
+    post "/v1/publication-work/claim" => "adapter_publication_work#claim"
+    put "/v1/publication-work/failure" => "adapter_publication_work#fail"
     get "/v1/platform-catalog" => "adapter_platform_catalog#show"
     put "/v1/platform-catalog" => "adapter_platform_catalog#update"
     get "/admin/health" => "health#show"
@@ -347,6 +380,7 @@ after_initialize do
     get "/admin/reconciliation" => "reconciliation#index"
     get "/admin/reconciliation/report" => "reconciliation#report"
     get "/admin/publishing" => "publisher#overview"
+    post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
     put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"

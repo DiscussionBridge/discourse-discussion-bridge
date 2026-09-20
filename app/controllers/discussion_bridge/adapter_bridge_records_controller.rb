@@ -151,12 +151,14 @@ module DiscussionBridge
       raise ArgumentError, "invalid error detail" if error_detail&.bytesize.to_i > 1000
       exact_retry = false
       record = nil
+      publication = nil
       DiscussionBridgeBridgeRecord.transaction do
         @content_connection = DiscussionBridgeContentConnection.lock.find(@content_connection.id)
         record = DiscussionBridgeBridgeRecord.joins(:content_bindings).lock
           .where(discussion_bridge_content_bindings: {
             content_connection_id: @content_connection.id, role: "presentation", state: "active",
           }).find_by!(resource_id: params[:resource_id], direction: "from_discourse")
+        validate_publication_lease!(record, input[:lease_token])
         topic = record.topic
         topic&.lock!
         topic&.first_post&.lock!
@@ -234,6 +236,14 @@ module DiscussionBridge
           end
           record.update!(attributes)
         end
+        PublicationWorkQueue.acknowledge!(
+          connection: @content_connection,
+          record: record,
+          publication: publication,
+          outcome: outcome,
+          error_code: error_code,
+          error_detail: error_detail,
+        )
       end
       render json: {
         outcome: exact_retry ? "resolved" : "acknowledged",
@@ -253,6 +263,16 @@ module DiscussionBridge
 
     private
 
+    def validate_publication_lease!(record, supplied_token)
+      item = @content_connection.publication_work_items.lock.find_by(topic_id: record.topic_id)
+      return if item.nil? || item.state != "claimed"
+
+      valid = supplied_token.is_a?(String) && supplied_token.bytesize == 64 &&
+        item.lease_token.is_a?(String) && item.lease_expires_at&.future? &&
+        ActiveSupport::SecurityUtils.secure_compare(item.lease_token, supplied_token)
+      raise ArgumentError, "invalid publication lease" unless valid
+    end
+
     def acknowledgement_reason(error)
       {
         "publication revision changed" => "publication_revision_changed",
@@ -260,6 +280,7 @@ module DiscussionBridge
         "mapping revision changed" => "destination_mapping_changed",
         "destination plan changed" => "destination_plan_changed",
         "native destination changed" => "native_destination_changed",
+        "invalid publication lease" => "invalid_publication_lease",
         "invalid delivery outcome" => "invalid_delivery_outcome",
       }.fetch(error.message, "invalid_acknowledgement")
     end

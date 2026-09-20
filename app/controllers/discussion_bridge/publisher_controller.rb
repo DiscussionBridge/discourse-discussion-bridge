@@ -8,6 +8,7 @@ module ::DiscussionBridge
 
     def overview
       connections = available_connections
+      work_counts = DiscussionBridgePublicationWorkItem.group(:state).count
       render json: {
         product: {
           name: "DiscussionBridge",
@@ -20,8 +21,12 @@ module ::DiscussionBridge
           published_topics: from_discourse_records.distinct.count(:topic_id),
           presentations: from_discourse_records.count,
           connected_platforms: connections.map(&:platform).uniq.count,
+          publication_work: DiscussionBridgePublicationWorkItem::STATES.index_with do |state|
+            work_counts.fetch(state, 0)
+          end,
         },
         recent_records: recent_records,
+        publication_work: recent_publication_work,
       }
     end
 
@@ -90,6 +95,36 @@ module ::DiscussionBridge
       render json: { errors: errors }, status: :unprocessable_entity
     end
 
+    def retry_publication_work
+      item = DiscussionBridgePublicationWorkItem.includes(:content_connection).find(params.require(:id))
+      raise ArgumentError, "publication work is not retryable" unless item.state == "failed"
+      raise ArgumentError, "publication connection is unavailable" unless
+        DiscussionBridge::PublicationWorkQueue.publication_connection?(item.content_connection)
+
+      item.with_lock do
+        raise ArgumentError, "publication work is not retryable" unless item.state == "failed"
+        item.update!(
+          state: "queued",
+          reason: "operator_retry",
+          attempt_count: 0,
+          available_at: Time.zone.now,
+          claimed_at: nil,
+          lease_token: nil,
+          lease_expires_at: nil,
+          completed_at: nil,
+          last_error_code: nil,
+          last_error_detail: nil,
+        )
+      end
+      DiscussionBridge::PublicationAttentionNotifier.call(item.content_connection)
+      render json: {
+        outcome: "queued",
+        publication_work: recent_publication_work.find { |row| row[:id] == item.id },
+      }
+    rescue ActiveRecord::RecordNotFound, ArgumentError => error
+      render json: { errors: [error.message] }, status: :unprocessable_entity
+    end
+
     private
 
     def available_connections
@@ -108,6 +143,10 @@ module ::DiscussionBridge
       blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
       blockers << "from_discourse_connection" if connections.empty?
+      blockers << "publication_work_attention" if
+        DiscussionBridgePublicationWorkItem.where(
+          state: DiscussionBridgePublicationWorkItem::ATTENTION_STATES,
+        ).exists?
       blockers
     end
 
@@ -127,6 +166,9 @@ module ::DiscussionBridge
 
     def publication_payload(record)
       binding = record.active_binding("presentation")
+      work = binding && record.publication_work_items.find_by(
+        content_connection_id: binding.content_connection_id,
+      )
       {
         resource_id: record.resource_id,
         state: record.state,
@@ -140,12 +182,42 @@ module ::DiscussionBridge
         canonical_url: binding&.canonical_url,
         lane: record.lane,
         native_materialization: binding&.native_materialization || false,
+        delivery_state: work&.state || record.destination_state,
+        delivery_reason: work&.reason || record.last_delivery_error_code,
+        delivery_attempt_count: work&.attempt_count || record.delivery_attempt_count,
+        last_delivery_attempt_at: record.last_delivery_attempt_at,
       }
     end
 
     def recent_records
-      from_discourse_records.includes(:topic, content_bindings: :content_connection)
+      from_discourse_records.includes(:topic, :publication_work_items, content_bindings: :content_connection)
         .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
+    end
+
+    def recent_publication_work
+      DiscussionBridgePublicationWorkItem.includes(:content_connection, bridge_record: :topic)
+        .order(updated_at: :desc, id: :desc).limit(50).map do |item|
+        record = item.bridge_record
+        {
+          id: item.id,
+          topic_id: item.topic_id,
+          topic_url: record&.topic&.url || "/t/#{item.topic_id}",
+          title: record&.title || Topic.with_deleted.where(id: item.topic_id).pick(:title),
+          connection_name: item.content_connection.name,
+          platform: item.content_connection.platform,
+          action: item.action,
+          state: item.state,
+          reason: item.reason,
+          attempt_count: item.attempt_count,
+          available_at: item.available_at,
+          claimed_at: item.claimed_at,
+          lease_expires_at: item.lease_expires_at,
+          completed_at: item.completed_at,
+          last_error_code: item.last_error_code,
+          last_error_detail: item.last_error_detail,
+          canonical_url: record&.active_binding("presentation")&.canonical_url,
+        }
+      end
     end
 
     def native_materialization(value)

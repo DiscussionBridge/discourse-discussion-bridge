@@ -220,7 +220,9 @@
   text-transform: capitalize;
 }
 
-.discussion-bridge-status[data-state="healthy"] {
+.discussion-bridge-status[data-state="healthy"],
+.discussion-bridge-status[data-state="current"],
+.discussion-bridge-status[data-state="unpublished"] {
   color: var(--success);
   background: var(--success-low, var(--primary-low));
 }
@@ -239,6 +241,14 @@
 .discussion-bridge-status[data-state="failed"] {
   color: var(--danger);
   background: var(--danger-low, var(--primary-low));
+}
+
+.discussion-bridge-status[data-state="queued"],
+.discussion-bridge-status[data-state="claimed"],
+.discussion-bridge-status[data-state="retrying"],
+.discussion-bridge-status[data-state="held"] {
+  color: var(--tertiary);
+  background: var(--tertiary-low, var(--primary-low));
 }
 
 .discussion-bridge-direction-cards,

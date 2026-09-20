@@ -22,6 +22,7 @@ module DiscussionBridge
     def create
       attributes = connection_params
       connection, secret = DiscussionBridgeContentConnection.issue!(attributes)
+      enqueue_publication_reconciliation(connection)
       render json: { content_connection: serialize(connection), secret: secret }, status: :created
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -44,6 +45,7 @@ module DiscussionBridge
         mapping_changed = requested_mapping && prior_mapping_revision != connection.destination_mapping_revision
         connection.mark_from_discourse_publications_pending! if mapping_changed
       end
+      enqueue_publication_reconciliation(connection)
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -131,6 +133,13 @@ module DiscussionBridge
 
     private
 
+    def enqueue_publication_reconciliation(connection)
+      Jobs.enqueue(
+        :discussion_bridge_reconcile_publication_connection,
+        connection_id: connection.id,
+      )
+    end
+
     def connection_params
       raw = params.require(:content_connection).permit(
         :name,
@@ -209,6 +218,8 @@ module DiscussionBridge
           discussion_bridge_content_bindings: { content_connection_id: connection.id },
           state: %w[attention failed migration],
         ).distinct.count
+      work_counts = connection.publication_work_items.group(:state).count
+      publication_attention = work_counts.slice(*DiscussionBridgePublicationWorkItem::ATTENTION_STATES).values.sum
       {
         id: connection.id,
         public_id: connection.public_id,
@@ -256,8 +267,11 @@ module DiscussionBridge
         adapter_version: connection.adapter_version,
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
-        attention_count: attention_records,
-        health: if !connection.enabled || attention_records.positive?
+        attention_count: attention_records + publication_attention,
+        publication_work: DiscussionBridgePublicationWorkItem::STATES.index_with do |state|
+          work_counts.fetch(state, 0)
+        end,
+        health: if !connection.enabled || attention_records.positive? || publication_attention.positive?
                   "attention"
                 elsif connection.last_seen_at.nil?
                   "setup"
