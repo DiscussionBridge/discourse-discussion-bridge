@@ -102,6 +102,16 @@ describe "DiscussionBridge native product administration" do
         "Array.from(document.querySelectorAll('.discussion-bridge-direction-option')).every((label) => getComputedStyle(label).display === 'flex' && getComputedStyle(label).alignItems === 'center')",
       ),
     ).to eq(true)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-add-connection input[type=checkbox]')).every((input) => input.getBoundingClientRect().width < 64 && input.getBoundingClientRect().height < 64)",
+      ),
+    ).to eq(true)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-checkbox-setting')).every((label) => { const input = label.querySelector('input'); const copy = label.querySelector('span'); return getComputedStyle(label).display === 'flex' && copy.getBoundingClientRect().width > input.getBoundingClientRect().width; })",
+      ),
+    ).to eq(true)
     expect(page).to have_css(".discussion-bridge-add-connection__actions .btn-primary", text: "Add connection")
   end
 
