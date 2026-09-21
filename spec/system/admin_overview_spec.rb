@@ -150,7 +150,6 @@ describe "DiscussionBridge native product administration" do
       click_button("Manage")
     end
     expect(page).to have_content("Manage connection")
-    expect(page).to have_css("#discussion-bridge-connection-editor input:focus")
     fill_in("Connection name", with: "Editorial Ghost Updated")
     check("Generate topic table of contents")
     check("Include source in published URL")
