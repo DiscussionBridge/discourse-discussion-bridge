@@ -3,6 +3,7 @@ import { tracked } from "@glimmer/tracking";
 import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
+import { scheduleOnce } from "@ember/runloop";
 import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
@@ -727,7 +728,7 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   scrollTo(id) {
-    window.requestAnimationFrame(() => {
+    scheduleOnce("afterRender", this, () => {
       const target = document.getElementById(id);
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
       target
