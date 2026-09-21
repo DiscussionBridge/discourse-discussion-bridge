@@ -730,9 +730,11 @@ export default class DiscussionBridgeConnections extends Component {
     window.requestAnimationFrame(() => {
       const target = document.getElementById(id);
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
-      target?.querySelector("input, select, button")?.focus({
-        preventScroll: true,
-      });
+      target
+        ?.querySelector("input:not([type='hidden']), select, textarea, button")
+        ?.focus({
+          preventScroll: true,
+        });
     });
   }
 
@@ -873,9 +875,11 @@ export default class DiscussionBridgeConnections extends Component {
                       {{if
                         origin.embeddable
                         (i18n "discussion_bridge.admin.embed_host_ready")
-                         (i18n "discussion_bridge.admin.embedded_modes_unavailable")
-                       }}
-                     </span>
+                        (i18n
+                          "discussion_bridge.admin.embedded_modes_unavailable"
+                        )
+                      }}
+                    </span>
                     {{#unless origin.embeddable}}
                       <small>{{i18n
                           "discussion_bridge.admin.embeddable_host_explanation"
@@ -1358,9 +1362,7 @@ export default class DiscussionBridgeConnections extends Component {
               <label>{{i18n
                   "discussion_bridge.admin.destination_authorship_policy"
                 }}
-                <select
-                  {{on "change" this.updateDestinationAuthorshipPolicy}}
-                >
+                <select {{on "change" this.updateDestinationAuthorshipPolicy}}>
                   <option
                     value="service_author"
                     selected={{eq
@@ -1380,10 +1382,7 @@ export default class DiscussionBridgeConnections extends Component {
               </label>
               {{#if (eq this.destinationAuthorshipPolicy "fixed")}}
                 <label>{{i18n "discussion_bridge.admin.destination_author"}}
-                  <select
-                    required
-                    {{on "change" this.updateDestinationAuthor}}
-                  >
+                  <select required {{on "change" this.updateDestinationAuthor}}>
                     <option value="">{{i18n
                         "discussion_bridge.admin.select_destination_author"
                       }}</option>
