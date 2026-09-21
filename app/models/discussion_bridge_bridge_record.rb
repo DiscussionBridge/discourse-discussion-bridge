@@ -51,28 +51,47 @@ end
 #
 # Table name: discussion_bridge_bridge_records
 #
-#  id                       :bigint           not null, primary key
-#  direction                :string(32)       not null
-#  effective_visibility     :string(32)       default("unlisted"), not null
-#  lane                     :string(64)
-#  requested_visibility     :string(32)       default("unlisted"), not null
-#  reservation_token        :string(64)
-#  retry_authorized_at      :datetime
-#  source_authors           :jsonb            not null
-#  state                    :string(32)       default("reserved"), not null
-#  title                    :string(1024)     not null
-#  created_at               :datetime         not null
-#  updated_at               :datetime         not null
-#  effective_actor_id       :bigint
-#  primary_source_author_id :string(255)
-#  resource_id              :string(64)       not null
-#  retry_authorized_by_id   :bigint
-#  topic_id                 :bigint
+#  id                                :bigint           not null, primary key
+#  acknowledged_at                   :datetime
+#  acknowledged_destination          :jsonb            not null
+#  acknowledged_mapping_revision     :string(64)
+#  acknowledged_publication_revision :string(64)
+#  acknowledged_source_revision      :string(128)
+#  attempted_destination             :jsonb            not null
+#  attempted_mapping_revision        :string(64)
+#  attempted_publication_revision    :string(64)
+#  delivery_attempt_count            :integer          default(0), not null
+#  destination_state                 :string(32)
+#  direction                         :string(32)       not null
+#  effective_visibility              :string(32)       default("unlisted"), not null
+#  lane                              :string(64)
+#  last_delivery_attempt_at          :datetime
+#  last_delivery_error_code          :string(64)
+#  last_delivery_error_detail        :string(1000)
+#  last_delivery_outcome             :string(32)
+#  pending_destination               :jsonb            not null
+#  pending_mapping_revision          :string(64)
+#  pending_publication_revision      :string(64)
+#  publication_program               :string(32)       default("legacy"), not null
+#  requested_visibility              :string(32)       default("unlisted"), not null
+#  reservation_token                 :string(64)
+#  retry_authorized_at               :datetime
+#  source_authors                    :jsonb            not null
+#  state                             :string(32)       default("reserved"), not null
+#  title                             :string(1024)     not null
+#  created_at                        :datetime         not null
+#  updated_at                        :datetime         not null
+#  effective_actor_id                :bigint
+#  primary_source_author_id          :string(255)
+#  resource_id                       :string(64)       not null
+#  retry_authorized_by_id            :bigint
+#  topic_id                          :bigint
 #
 # Indexes
 #
-#  idx_db_bridge_records_reservation  (reservation_token) UNIQUE
-#  idx_db_bridge_records_resource_id  (resource_id) UNIQUE
-#  idx_db_bridge_records_state        (state)
-#  idx_db_bridge_records_topic_id     (topic_id)
+#  idx_db_bridge_records_destination_state  (destination_state)
+#  idx_db_bridge_records_reservation        (reservation_token) UNIQUE
+#  idx_db_bridge_records_resource_id        (resource_id) UNIQUE
+#  idx_db_bridge_records_state              (state)
+#  idx_db_bridge_records_topic_id           (topic_id)
 #

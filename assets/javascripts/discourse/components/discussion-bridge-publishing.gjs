@@ -390,7 +390,7 @@ export default class DiscussionBridgePublishing extends Component {
               }}</h2><p>{{i18n
                 "discussion_bridge.admin.publishing_description"
               }}</p></div></div>
-        <strong data-ready={{@model.product.ready}}>{{if
+        <strong class={{if @model.product.ready "is-ready" "needs-attention"}}>{{if
             @model.product.ready
             (i18n "discussion_bridge.admin.publisher_ready")
             (i18n "discussion_bridge.admin.needs_attention")
@@ -520,7 +520,7 @@ export default class DiscussionBridgePublishing extends Component {
         </form>
       </div>
 
-      <section class="discussion-bridge-publishing__recent">
+      <section class="discussion-bridge-publishing__recent discussion-bridge-publishing__recent--records">
         <h3>{{i18n "discussion_bridge.admin.publisher_recent_activity"}}</h3>
         <p><a href="/admin/plugins/discourse-discussion-bridge/bridge-records">{{i18n
               "discussion_bridge.admin.publisher_all_records"
@@ -660,7 +660,7 @@ export default class DiscussionBridgePublishing extends Component {
         </table>
       </section>
 
-      <section class="discussion-bridge-publishing__recent">
+      <section class="discussion-bridge-publishing__recent discussion-bridge-publishing__recent--queue">
         <h3>{{i18n "discussion_bridge.admin.publication_queue"}}</h3>
         <p>{{i18n "discussion_bridge.admin.publication_queue_description"}}</p>
         <table>

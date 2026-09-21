@@ -92,8 +92,8 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("wordpress-discussion-bridge")
     expect(page).to have_content("0.2.0-alpha.20")
     expect(page).to have_content("Last seen")
-    expect(page).to have_content("Connection operational")
-    expect(page).to have_content("Embedded modes unavailable")
+    expect(page).to have_content("Connection Operational")
+    expect(page).to have_content("Embedded Modes Unavailable")
     expect(page).to have_content("Native publication and Simple presentation remain available.")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
@@ -173,7 +173,7 @@ describe "DiscussionBridge native product administration" do
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
     expect(page).to have_css(".discussion-bridge-publishing", wait: 30)
-    expect(page).to have_css(".discussion-bridge-publishing__hero strong[data-ready='true']", text: "Publisher ready")
+    expect(page).to have_css(".discussion-bridge-publishing__hero strong.is-ready", text: "Publisher ready")
     expect(page).to have_select("Publishing connection", selected: "Select a connection")
     expect(page).to have_css(".discussion-bridge-publishing__topic-id input[max='999999999999']")
     fill_in("Local topic ID", with: topic.id)
@@ -196,7 +196,7 @@ describe "DiscussionBridge native product administration" do
     expect(binding.native_materialization).to eq(true)
     expect(binding.bridge_record.topic_id).to eq(topic.id)
 
-    within(".discussion-bridge-publishing__recent") do
+    within(".discussion-bridge-publishing__recent--records") do
       expect(page).to have_content("Recent platform publications (latest 20)")
       expect(page).to have_link("Browse all Bridge Records")
       expect(page).to have_link("Topic #{topic.id} · From the forum")
@@ -227,7 +227,7 @@ describe "DiscussionBridge native product administration" do
     visit("/")
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
-    within(".discussion-bridge-publishing__recent") do
+    within(".discussion-bridge-publishing__recent--records") do
       expect(page).to have_button("Verify older publication and change URL", wait: 30)
       click_button("Verify older publication and change URL")
       within(".discussion-bridge-publishing__correction-row") do

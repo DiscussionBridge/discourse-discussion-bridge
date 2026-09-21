@@ -717,6 +717,7 @@ export default class DiscussionBridgeConnections extends Component {
     return value ? new Date(value).toLocaleString() : "—";
   }
 
+  @action
   connectionHealthLabel(connection) {
     if (connection.health === "healthy") {
       return i18n("discussion_bridge.admin.connection_operational");

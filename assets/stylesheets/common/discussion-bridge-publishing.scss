@@ -25,8 +25,8 @@
     > div > span { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; color: #fff; background: var(--dbp-teal); font-weight: 800; }
     h2, p { margin: 0; }
     > strong { display: inline-flex; align-items: center; min-height: 2rem; padding: 0.65rem 1rem; border: 2px solid var(--dbp-border); border-radius: 999px; background: #fff; font-size: var(--font-up-1); }
-    > strong[data-ready="true"] { color: #064c32; background: #dff7e9; border-color: #159b63; box-shadow: 0 0.25rem 0.7rem rgb(7 91 58 / 18%); }
-    > strong[data-ready="false"] { color: #a13b1b; }
+    > strong.is-ready { color: #064c32; background: #dff7e9; border-color: #159b63; box-shadow: 0 0.25rem 0.7rem rgb(7 91 58 / 18%); }
+    > strong.needs-attention { color: #a13b1b; }
   }
 
   &__metrics { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); margin: 1rem 0; }

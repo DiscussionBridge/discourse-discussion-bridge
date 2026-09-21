@@ -207,14 +207,15 @@ describe DiscussionBridge::AdapterPlatformCatalogController do
           },
         } }, as: :json
 
-    expect(Jobs).to receive(:enqueue).with(
-      :discussion_bridge_reconcile_publication_connection,
-      connection_id: @connection.id,
-    )
+    allow(Jobs).to receive(:enqueue)
     put "/discussion-bridge/v1/platform-catalog.json",
         params: catalog, headers: headers(version: "1.1.0"), as: :json
 
     expect(response).to have_http_status(:ok)
+    expect(Jobs).to have_received(:enqueue).with(
+      :discussion_bridge_reconcile_publication_connection,
+      connection_id: @connection.id,
+    )
     expect(@connection.reload.platform_catalog_adapter_version).to eq("1.1.0")
   end
 

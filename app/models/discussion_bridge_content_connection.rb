@@ -232,27 +232,47 @@ end
 #
 # Table name: discussion_bridge_content_connections
 #
-#  id                              :bigint           not null, primary key
-#  adapter_version                 :string(100)
-#  allowed_directions              :jsonb            not null
-#  allowed_lanes                   :jsonb            not null
-#  allowed_origins                 :jsonb            not null
-#  authorship_mode                 :string(32)       default("fixed"), not null
-#  enabled                         :boolean          default(TRUE), not null
-#  generate_topic_toc              :boolean          default(FALSE), not null
-#  include_source_in_published_url :boolean          default(FALSE), not null
-#  last_seen_at                    :datetime
-#  name                            :string(120)      not null
-#  platform                        :string(32)       not null
-#  publication_source_path         :string(120)
-#  secret_digest                   :string(64)       not null
-#  unmapped_author_policy          :string(32)       default("fallback"), not null
-#  created_at                      :datetime         not null
-#  updated_at                      :datetime         not null
-#  adapter_id                      :string(100)
-#  author_user_id                  :bigint
-#  default_category_id             :bigint
-#  public_id                       :string(64)       not null
+#  id                                    :bigint           not null, primary key
+#  adapter_version                       :string(100)
+#  allowed_directions                    :jsonb            not null
+#  allowed_lanes                         :jsonb            not null
+#  allowed_origins                       :jsonb            not null
+#  authorship_mode                       :string(32)       default("fixed"), not null
+#  destination_mapping                   :jsonb            not null
+#  destination_mapping_revision          :string(64)
+#  destination_mapping_updated_at        :datetime
+#  enabled                               :boolean          default(TRUE), not null
+#  forum_publication_enabled             :boolean          default(FALSE), not null
+#  generate_topic_toc                    :boolean          default(FALSE), not null
+#  include_source_in_published_url       :boolean          default(FALSE), not null
+#  last_seen_at                          :datetime
+#  name                                  :string(120)      not null
+#  platform                              :string(32)       not null
+#  platform_catalog                      :jsonb            not null
+#  platform_catalog_adapter_version      :string(100)
+#  platform_catalog_display_revision     :string(64)
+#  platform_catalog_observed_at          :datetime
+#  platform_catalog_refresh_requested_at :datetime
+#  platform_catalog_revision             :string(64)
+#  publication_attention_fingerprint     :string(64)
+#  publication_attention_notified_at     :datetime
+#  publication_category_ids              :jsonb            not null
+#  publication_category_mode             :string(32)       default("all_except_selected"), not null
+#  publication_excluded_category_ids     :jsonb            not null
+#  publication_excluded_tag_ids          :jsonb            not null
+#  publication_include_unlisted          :boolean          default(FALSE), not null
+#  publication_source_path               :string(120)
+#  publication_tag_ids                   :jsonb            not null
+#  publication_tag_mode                  :string(32)       default("all"), not null
+#  secret_digest                         :string(64)       not null
+#  unmapped_author_policy                :string(32)       default("fallback"), not null
+#  created_at                            :datetime         not null
+#  updated_at                            :datetime         not null
+#  adapter_id                            :string(100)
+#  author_user_id                        :bigint
+#  default_category_id                   :bigint
+#  platform_catalog_adapter_id           :string(100)
+#  public_id                             :string(64)       not null
 #
 # Indexes
 #
