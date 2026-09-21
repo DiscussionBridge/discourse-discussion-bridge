@@ -14,6 +14,7 @@ module DiscussionBridge
       result = PlatformCatalog.call(params.require(:catalog), platform: @content_connection.platform)
       adapter_id, adapter_version = ContentConnectionAuthenticator.adapter_identity(request)
       raise ArgumentError, "adapter identity is required" unless adapter_id
+      reconcile_publications = false
       @content_connection.with_lock do
         @content_connection.reload
         expected_revision = params[:expected_catalog_revision].to_s.presence
@@ -28,6 +29,8 @@ module DiscussionBridge
           raise ArgumentError, "connection belongs to a different adapter"
         end
         prior_mapping_revision = @content_connection.destination_mapping_revision
+        prior_adapter_id = @content_connection.platform_catalog_adapter_id
+        prior_adapter_version = @content_connection.platform_catalog_adapter_version
         rebuilt_mapping = if @content_connection.destination_mapping.present?
           DestinationMapping.valid_against_catalog?(
             @content_connection.destination_mapping,
@@ -49,9 +52,20 @@ module DiscussionBridge
           destination_mapping: rebuilt_mapping&.mapping || @content_connection.destination_mapping,
           destination_mapping_revision: rebuilt_mapping&.revision,
         )
-        if prior_mapping_revision != @content_connection.destination_mapping_revision
+        mapping_changed = prior_mapping_revision != @content_connection.destination_mapping_revision
+        adapter_changed = prior_adapter_id != adapter_id || prior_adapter_version != adapter_version
+        reconcile_publications = mapping_changed || (
+          adapter_changed && @content_connection.destination_mapping_revision.present?
+        )
+        if reconcile_publications
           @content_connection.mark_from_discourse_publications_pending!
         end
+      end
+      if reconcile_publications
+        Jobs.enqueue(
+          :discussion_bridge_reconcile_publication_connection,
+          connection_id: @content_connection.id,
+        )
       end
       render json: {
         outcome: "accepted",

@@ -192,6 +192,32 @@ describe DiscussionBridge::AdapterPlatformCatalogController do
     expect(@connection.platform_catalog_adapter_version).to eq("1.1.0")
   end
 
+  it "reconciles queued publications after an admitted adapter version changes their policy revision" do
+    put "/discussion-bridge/v1/platform-catalog.json", params: catalog, headers: headers, as: :json
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: {
+          forum_publication_enabled: true,
+          publication_category_mode: "only_selected",
+          publication_category_ids: [category.id],
+          destination_mapping: {
+            category_mappings: [{ source_category_id: category.id, destination_container_id: "post" }],
+            tag_mappings: [], unmapped_category_policy: "hold", unmapped_tag_policy: "omit",
+            presentation_mode: "native",
+          },
+        } }, as: :json
+
+    expect(Jobs).to receive(:enqueue).with(
+      :discussion_bridge_reconcile_publication_connection,
+      connection_id: @connection.id,
+    )
+    put "/discussion-bridge/v1/platform-catalog.json",
+        params: catalog, headers: headers(version: "1.1.0"), as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(@connection.reload.platform_catalog_adapter_version).to eq("1.1.0")
+  end
+
   it "exposes the current catalog generation during an adapter upgrade without rebinding it" do
     put "/discussion-bridge/v1/platform-catalog.json", params: catalog, headers: headers, as: :json
 
