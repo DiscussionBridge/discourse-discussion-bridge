@@ -29,7 +29,20 @@ module DiscussionBridge
         raise ArgumentError, "unknown public source category" unless
           Category.exists?(id: source_id, read_restricted: false)
         raise ArgumentError, "unknown destination container" unless containers.key?(destination_id)
-        { "source_category_id" => source_id, "destination_container_id" => destination_id }
+        taxonomy_id = item["destination_taxonomy_id"].to_s.presence
+        term_id = item["destination_term_id"].to_s.presence
+        raise ArgumentError, "destination section mapping is incomplete" if taxonomy_id.present? != term_id.present?
+        if taxonomy_id
+          raise ArgumentError, "unknown destination taxonomy term" unless terms.key?([taxonomy_id, term_id])
+          raise ArgumentError, "destination taxonomy is unsupported by a mapped container" unless
+            Array(containers.fetch(destination_id)["taxonomy_ids"]).include?(taxonomy_id)
+        end
+        {
+          "source_category_id" => source_id,
+          "destination_container_id" => destination_id,
+          "destination_taxonomy_id" => taxonomy_id,
+          "destination_term_id" => term_id,
+        }.compact
       end
       tag_mappings = Array(value["tag_mappings"]).map do |item|
         source_id = Integer(item["source_tag_id"].to_s, 10)
@@ -76,9 +89,14 @@ module DiscussionBridge
       referenced_container_ids = (
         category_mappings.map { |item| item.fetch("destination_container_id") } + [default_id]
       ).compact.uniq.sort
-      referenced_term_ids = tag_mappings.map do |item|
+      referenced_term_ids = category_mappings.filter_map do |item|
+        if item["destination_taxonomy_id"]
+          [item.fetch("destination_taxonomy_id"), item.fetch("destination_term_id")]
+        end
+      end + tag_mappings.map do |item|
         [item.fetch("destination_taxonomy_id"), item.fetch("destination_term_id")]
-      end.sort
+      end
+      referenced_term_ids = referenced_term_ids.uniq.sort
       referenced_taxonomy_ids = referenced_term_ids.map(&:first).uniq
       referenced_container_ids.each do |container_id|
         supported = Array(containers.fetch(container_id)["taxonomy_ids"])
@@ -151,9 +169,17 @@ module DiscussionBridge
       reasons << "destination_category_unmapped" unless container_id
 
       tag_map = Array(mapping["tag_mappings"]).index_by { |item| item["source_tag_id"] }
-      destination_terms = topic.tags.filter_map { |tag| tag_map[tag.id] }
+      category_term = if category&.fetch("destination_taxonomy_id", nil)
+        {
+          "destination_taxonomy_id" => category.fetch("destination_taxonomy_id"),
+          "destination_term_id" => category.fetch("destination_term_id"),
+        }
+      end
+      destination_terms = ([category_term] + topic.tags.filter_map { |tag| tag_map[tag.id] })
+        .compact
+        .uniq { |item| [item.fetch("destination_taxonomy_id"), item.fetch("destination_term_id")] }
         .sort_by do |item|
-          [item.fetch("source_tag_id"), item.fetch("destination_taxonomy_id"), item.fetch("destination_term_id")]
+          [item.fetch("destination_taxonomy_id"), item.fetch("destination_term_id")]
         end
       if mapping["unmapped_tag_policy"] == "hold" && topic.tags.any? { |tag| !tag_map.key?(tag.id) }
         reasons << "destination_tag_unmapped"

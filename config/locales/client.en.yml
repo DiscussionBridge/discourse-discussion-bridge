@@ -154,6 +154,8 @@ en:
         url_source_title: "Use the Discourse topic title when first published"
         url_topic_id: "Use the stable Discourse topic ID"
         category_destination_mapping: "Category destinations"
+        destination_section: "Native section"
+        no_destination_section: "No native section"
         tag_destination_mapping: "Tag destinations"
         unmapped_category_policy: "Unmapped category policy"
         unmapped_tag_policy: "Unmapped tag policy"

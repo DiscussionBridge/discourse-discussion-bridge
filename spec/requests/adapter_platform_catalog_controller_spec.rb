@@ -101,6 +101,8 @@ describe DiscussionBridge::AdapterPlatformCatalogController do
           category_mappings: [{
             source_category_id: category.id,
             destination_container_id: "post",
+            destination_taxonomy_id: "post_tag",
+            destination_term_id: "policy",
           }],
           tag_mappings: [],
           unmapped_category_policy: "hold",
@@ -116,11 +118,44 @@ describe DiscussionBridge::AdapterPlatformCatalogController do
     expect(@connection.destination_mapping.dig("category_mappings", 0)).to include(
       "source_category_id" => category.id,
       "destination_container_id" => "post",
+      "destination_taxonomy_id" => "post_tag",
+      "destination_term_id" => "policy",
     )
     expect(@connection.destination_mapping).to include(
       "authorship_policy" => "fixed",
       "destination_author_id" => "user:7",
       "slug_policy" => "topic_id",
+    )
+  end
+
+  it "carries a category's native section into the resolved destination" do
+    put "/discussion-bridge/v1/platform-catalog.json", params: catalog, headers: headers, as: :json
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { destination_mapping: {
+          category_mappings: [{
+            source_category_id: category.id,
+            destination_container_id: "post",
+            destination_taxonomy_id: "post_tag",
+            destination_term_id: "policy",
+          }],
+          tag_mappings: [], unmapped_category_policy: "hold", unmapped_tag_policy: "omit",
+          presentation_mode: "native",
+        } } }, as: :json
+
+    topic = Fabricate(:topic, category: category)
+    destination = DiscussionBridge::DestinationMapping.resolve(
+      connection: @connection.reload,
+      topic: topic,
+    )
+
+    expect(destination).to include(
+      state: "ready",
+      destination_container_id: "post",
+      destination_terms: [{
+        "destination_taxonomy_id" => "post_tag",
+        "destination_term_id" => "policy",
+      }],
     )
   end
 

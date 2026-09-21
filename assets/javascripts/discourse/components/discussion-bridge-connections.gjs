@@ -41,6 +41,7 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked publicationTagOptions = [];
   @tracked publicationTagQuery = "";
   @tracked destinationCategoryMappings = {};
+  @tracked destinationCategoryTermMappings = {};
   @tracked destinationTagMappings = {};
   @tracked unmappedCategoryPolicy = "hold";
   @tracked defaultDestinationContainerId = "";
@@ -224,6 +225,18 @@ export default class DiscussionBridgeConnections extends Component {
       ...this.destinationCategoryMappings,
       [categoryId]: event.target.value,
     };
+    this.destinationCategoryTermMappings = {
+      ...this.destinationCategoryTermMappings,
+      [categoryId]: "",
+    };
+  }
+
+  @action
+  updateDestinationCategoryTerm(categoryId, event) {
+    this.destinationCategoryTermMappings = {
+      ...this.destinationCategoryTermMappings,
+      [categoryId]: event.target.value,
+    };
   }
 
   @action
@@ -399,6 +412,14 @@ export default class DiscussionBridgeConnections extends Component {
         item.destination_container_id,
       ]),
     );
+    this.destinationCategoryTermMappings = Object.fromEntries(
+      (mapping.category_mappings ?? []).map((item) => [
+        item.source_category_id,
+        item.destination_taxonomy_id && item.destination_term_id
+          ? `${item.destination_taxonomy_id}|${item.destination_term_id}`
+          : "",
+      ]),
+    );
     this.destinationTagMappings = Object.fromEntries(
       (mapping.tag_mappings ?? []).map((item) => [
         item.source_tag_id,
@@ -536,6 +557,7 @@ export default class DiscussionBridgeConnections extends Component {
     this.publicationExcludedTagIds = [];
     this.publicationTagQuery = "";
     this.destinationCategoryMappings = {};
+    this.destinationCategoryTermMappings = {};
     this.destinationTagMappings = {};
     this.unmappedCategoryPolicy = "hold";
     this.defaultDestinationContainerId = "";
@@ -587,6 +609,7 @@ export default class DiscussionBridgeConnections extends Component {
         taxonomy.terms.map((term) => ({
           value: `${taxonomy.id}|${term.id}`,
           label: `${taxonomy.label} / ${term.label}`,
+          taxonomyId: taxonomy.id,
         })),
     );
   }
@@ -622,10 +645,22 @@ export default class DiscussionBridgeConnections extends Component {
         (category) => !category.selected,
       );
     }
-    return categories.map((category) => ({
-      ...category,
-      destinationId: this.destinationCategoryMappings[category.id] ?? "",
-    }));
+    return categories.map((category) => {
+      const destinationId = this.destinationCategoryMappings[category.id] ?? "";
+      const container = this.platformContainers.find(
+        (candidate) => candidate.id === destinationId,
+      );
+      const supported = new Set(container?.taxonomy_ids ?? []);
+      return {
+        ...category,
+        destinationId,
+        destinationTermValue:
+          this.destinationCategoryTermMappings[category.id] ?? "",
+        destinationTermOptions: this.platformTaxonomyTerms.filter((term) =>
+          supported.has(term.taxonomyId),
+        ),
+      };
+    });
   }
 
   get mappingSourceTags() {
@@ -655,10 +690,20 @@ export default class DiscussionBridgeConnections extends Component {
     return {
       category_mappings: Object.entries(this.destinationCategoryMappings)
         .filter(([, destinationId]) => destinationId)
-        .map(([sourceId, destinationId]) => ({
-          source_category_id: Number(sourceId),
-          destination_container_id: destinationId,
-        })),
+        .map(([sourceId, destinationId]) => {
+          const value = this.destinationCategoryTermMappings[sourceId] ?? "";
+          const [taxonomyId, termId] = value.split("|", 2);
+          return {
+            source_category_id: Number(sourceId),
+            destination_container_id: destinationId,
+            ...(taxonomyId && termId
+              ? {
+                  destination_taxonomy_id: taxonomyId,
+                  destination_term_id: termId,
+                }
+              : {}),
+          };
+        }),
       tag_mappings: Object.entries(this.destinationTagMappings)
         .filter(([, value]) => value)
         .map(([sourceId, value]) => {
@@ -1439,6 +1484,31 @@ export default class DiscussionBridgeConnections extends Component {
                     {{/each}}
                   </select>
                 </label>
+                {{#if category.destinationTermOptions.length}}
+                  <label>{{i18n
+                      "discussion_bridge.admin.destination_section"
+                    }}
+                    <select
+                      {{on
+                        "change"
+                        (fn this.updateDestinationCategoryTerm category.id)
+                      }}
+                    >
+                      <option value="">{{i18n
+                          "discussion_bridge.admin.no_destination_section"
+                        }}</option>
+                      {{#each category.destinationTermOptions as |term|}}
+                        <option
+                          value={{term.value}}
+                          selected={{eq
+                            category.destinationTermValue
+                            term.value
+                          }}
+                        >{{term.label}}</option>
+                      {{/each}}
+                    </select>
+                  </label>
+                {{/if}}
               {{/each}}
 
               <label>{{i18n "discussion_bridge.admin.unmapped_category_policy"}}
