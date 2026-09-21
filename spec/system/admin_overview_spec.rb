@@ -92,7 +92,9 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("wordpress-discussion-bridge")
     expect(page).to have_content("0.2.0-alpha.20")
     expect(page).to have_content("Last seen")
-    expect(page).to have_content("Embeddable Host Missing")
+    expect(page).to have_content("Connection operational")
+    expect(page).to have_content("Embedded modes unavailable")
+    expect(page).to have_content("Native publication and Simple presentation remain available.")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']")
@@ -112,6 +114,7 @@ describe "DiscussionBridge native product administration" do
         "Array.from(document.querySelectorAll('.discussion-bridge-checkbox-setting')).every((label) => { const input = label.querySelector('input'); const copy = label.querySelector('span'); return getComputedStyle(label).display === 'flex' && copy.getBoundingClientRect().width > input.getBoundingClientRect().width; })",
       ),
     ).to eq(true)
+    expect(page).to have_css(".discussion-bridge-connections__header .btn-primary", text: "Add connection")
     expect(page).to have_css(".discussion-bridge-add-connection__actions .btn-primary", text: "Add connection")
   end
 
@@ -125,7 +128,9 @@ describe "DiscussionBridge native product administration" do
     select("ghost", from: "Platform")
     fill_in("Allowed origins (one per line)", with: "https://ghost.example")
     select(category.name, from: "Companion-topic category")
-    click_button("Add connection")
+    within(".discussion-bridge-add-connection") do
+      click_button("Add connection")
+    end
 
     expect(page).to have_content("Copy this connection credential now", wait: 30)
     expect(page).to have_button("Copy ID")
@@ -145,6 +150,7 @@ describe "DiscussionBridge native product administration" do
       click_button("Manage")
     end
     expect(page).to have_content("Manage connection")
+    expect(page).to have_css("#discussion-bridge-connection-editor input:focus")
     fill_in("Connection name", with: "Editorial Ghost Updated")
     check("Generate topic table of contents")
     check("Include source in published URL")
@@ -167,8 +173,16 @@ describe "DiscussionBridge native product administration" do
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
     expect(page).to have_css(".discussion-bridge-publishing", wait: 30)
+    expect(page).to have_css(".discussion-bridge-publishing__hero strong[data-ready='true']", text: "Publisher ready")
     expect(page).to have_select("Publishing connection", selected: "Select a connection")
     expect(page).to have_css(".discussion-bridge-publishing__topic-id input[max='999999999999']")
+    fill_in("Local topic ID", with: topic.id)
+    select("Main publication · wordpress", from: "Publishing connection")
+    fill_in("Platform content ID", with: "clear-this-form")
+    click_button("Cancel")
+    expect(page).to have_field("Local topic ID", with: "")
+    expect(page).to have_select("Publishing connection", selected: "Select a connection")
+    expect(page).to have_field("Platform content ID", with: "")
     fill_in("Local topic ID", with: topic.id)
     select("Main publication · wordpress", from: "Publishing connection")
     fill_in("Platform content ID", with: "from-the-forum")

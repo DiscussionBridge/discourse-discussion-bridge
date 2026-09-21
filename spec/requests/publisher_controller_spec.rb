@@ -518,6 +518,32 @@ describe DiscussionBridge::PublisherController do
     expect(response.body).not_to include("X-DiscussionBridge-Secret")
   end
 
+  it "paginates the complete publication queue in stable newest-first order" do
+    55.times do |index|
+      DiscussionBridgePublicationWorkItem.create!(
+        content_connection: @connection,
+        topic_id: 10_000 + index,
+        action: "publish",
+        state: "queued",
+        reason: "initial_publication",
+      )
+    end
+
+    sign_in(admin)
+    get "/discussion-bridge/admin/publishing.json", params: { publication_page: 2 }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("publication_work").length).to eq(5)
+    expect(response.parsed_body.fetch("publication_work_pagination")).to eq(
+      "page" => 2,
+      "per_page" => 50,
+      "total" => 55,
+      "pages" => 2,
+    )
+    expect(response.parsed_body.fetch("publication_work").map { |item| item.fetch("topic_id") })
+      .to eq((10_000..10_004).to_a.reverse)
+  end
+
   it "lets staff requeue an exhausted publication and notifies operators when attention clears" do
     SiteSetting.discussion_bridge_attention_groups = Group::AUTO_GROUPS[:admins].to_s
     @connection.update!(forum_publication_enabled: true)

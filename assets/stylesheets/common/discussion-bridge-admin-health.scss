@@ -268,6 +268,25 @@
   }
 }
 
+.discussion-bridge-connections__header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+
+  .d-page-subheader {
+    flex: 1 1 auto;
+  }
+
+  > .btn {
+    flex: 0 0 auto;
+  }
+}
+
+.discussion-bridge-connection-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .discussion-bridge-direction-cards > section {
   border-inline-start: 0.3rem solid var(--tertiary);
 
@@ -340,6 +359,20 @@
   dd code,
   dd > span:not(.discussion-bridge-direction) {
     display: block;
+  }
+
+  .discussion-bridge-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .btn {
+      justify-content: center;
+      width: 100%;
+    }
+
+    &__credential {
+      margin-inline-start: 0;
+    }
   }
 }
 
@@ -800,6 +833,23 @@
 }
 
 @media (width <= 50rem) {
+  .discussion-bridge-connections__header {
+    align-items: stretch;
+    flex-direction: column;
+
+    > .btn {
+      align-self: flex-start;
+    }
+  }
+
+  .discussion-bridge-connection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discussion-bridge-connection-card .discussion-bridge-actions {
+    grid-template-columns: 1fr;
+  }
+
   .discussion-bridge-secret__row {
     grid-template-columns: 1fr;
   }

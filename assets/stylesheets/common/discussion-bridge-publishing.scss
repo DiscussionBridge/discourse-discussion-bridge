@@ -24,12 +24,12 @@
     > div { display: flex; align-items: center; gap: 1rem; }
     > div > span { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 50%; color: #fff; background: var(--dbp-teal); font-weight: 800; }
     h2, p { margin: 0; }
-    > strong { padding: 0.5rem 0.85rem; border: 1px solid var(--dbp-border); border-radius: 999px; background: #fff; }
-    > strong[data-ready="true"] { color: #075b3a; background: #dff7e9; border-color: #78c9a3; box-shadow: 0 0.15rem 0.45rem rgb(7 91 58 / 12%); }
+    > strong { display: inline-flex; align-items: center; min-height: 2rem; padding: 0.65rem 1rem; border: 2px solid var(--dbp-border); border-radius: 999px; background: #fff; font-size: var(--font-up-1); }
+    > strong[data-ready="true"] { color: #064c32; background: #dff7e9; border-color: #159b63; box-shadow: 0 0.25rem 0.7rem rgb(7 91 58 / 18%); }
     > strong[data-ready="false"] { color: #a13b1b; }
   }
 
-  &__metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 1rem 0; }
+  &__metrics { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); margin: 1rem 0; }
   &__metrics article { padding: 1rem; border: 1px solid var(--dbp-border); border-radius: 0.6rem; }
   &__metrics span, td small { display: block; }
   &__metrics strong { display: block; margin-top: 0.25rem; font-size: 1.8rem; color: var(--dbp-teal); }
@@ -79,6 +79,7 @@
   &__correction label, &__correction input { display: block; width: 100%; }
   &__correction input { box-sizing: border-box; margin: 0.35rem 0 0.75rem; }
   &__correction .btn + .btn { margin-left: 0.5rem; }
+  &__pagination { display: flex; gap: 0.75rem; align-items: center; justify-content: center; margin-top: 1rem; }
 
   @media (max-width: 700px) {
     &__hero, &__metrics, &__actions, &__connection dl { grid-template-columns: 1fr; }

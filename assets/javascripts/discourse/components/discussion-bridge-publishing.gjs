@@ -32,6 +32,20 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked correctedCanonicalUrl = "";
   @tracked correctedPresentationUrls = {};
   @tracked migratedNativeResourceIds = {};
+  @tracked publicationWork;
+  @tracked publicationWorkPagination;
+
+  constructor() {
+    super(...arguments);
+    this.publicationWork = this.args.model.publication_work ?? [];
+    this.publicationWorkPagination =
+      this.args.model.publication_work_pagination ?? {
+        page: 1,
+        per_page: 50,
+        total: this.publicationWork.length,
+        pages: 1,
+      };
+  }
 
   @action
   updateTopicId(event) {
@@ -75,6 +89,20 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   updateNativeMaterialization(event) {
     this.nativeMaterialization = event.target.checked;
+  }
+
+  @action
+  cancelPublication() {
+    this.topicId = "";
+    this.connectionId = "";
+    this.externalId = "";
+    this.canonicalUrl = "";
+    this.canonicalUrlIsSuggested = true;
+    this.lane = "";
+    this.nativeMaterialization = false;
+    this.notice = "";
+    this.noticeContext = "";
+    this.createdRecord = null;
   }
 
   @action
@@ -237,12 +265,54 @@ export default class DiscussionBridgePublishing extends Component {
         { type: "POST" }
       );
       this.notice = i18n("discussion_bridge.admin.publication_retry_queued");
-      await this.router.refresh();
+      await this.loadPublicationWorkPage(this.publicationWorkPagination.page);
     } catch (error) {
       popupAjaxError(error);
     } finally {
       this.working = false;
     }
+  }
+
+  @action
+  async loadPublicationWorkPage(page) {
+    this.working = true;
+    try {
+      const result = await ajax("/discussion-bridge/admin/publishing.json", {
+        data: { publication_page: page },
+      });
+      this.publicationWork = result.publication_work;
+      this.publicationWorkPagination = result.publication_work_pagination;
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.working = false;
+    }
+  }
+
+  get hasPreviousPublicationWorkPage() {
+    return this.publicationWorkPagination.page > 1;
+  }
+
+  get hasNextPublicationWorkPage() {
+    return (
+      this.publicationWorkPagination.page < this.publicationWorkPagination.pages
+    );
+  }
+
+  get previousPublicationWorkPage() {
+    return this.publicationWorkPagination.page - 1;
+  }
+
+  get nextPublicationWorkPage() {
+    return this.publicationWorkPagination.page + 1;
+  }
+
+  get previousPublicationWorkPageDisabled() {
+    return this.working || !this.hasPreviousPublicationWorkPage;
+  }
+
+  get nextPublicationWorkPageDisabled() {
+    return this.working || !this.hasNextPublicationWorkPage;
   }
 
   @action
@@ -433,6 +503,11 @@ export default class DiscussionBridgePublishing extends Component {
             @disabled={{this.working}}
             class="btn-primary"
           />
+          <DButton
+            @label="discussion_bridge.admin.cancel"
+            @action={{this.cancelPublication}}
+            @disabled={{this.working}}
+          />
           {{#if (eq this.noticeContext "publication")}}
             <p
               class="discussion-bridge-publishing__notice"
@@ -591,7 +666,7 @@ export default class DiscussionBridgePublishing extends Component {
         <table>
           <thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.connection"}}</th><th>{{i18n "discussion_bridge.admin.action"}}</th><th>{{i18n "discussion_bridge.admin.status"}}</th><th>{{i18n "discussion_bridge.admin.reason"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
           <tbody>
-            {{#each @model.publication_work as |item|}}
+            {{#each this.publicationWork as |item|}}
               <tr>
                 <td><a href={{item.topic_url}}>Topic {{item.topic_id}} · {{item.title}}</a></td>
                 <td>{{item.connection_name}} · {{this.displayToken item.platform}}</td>
@@ -610,6 +685,35 @@ export default class DiscussionBridgePublishing extends Component {
             {{/each}}
           </tbody>
         </table>
+        <nav
+          class="discussion-bridge-publishing__pagination"
+          aria-label={{i18n
+            "discussion_bridge.admin.publication_queue_pagination"
+          }}
+        >
+          <DButton
+            @label="discussion_bridge.admin.previous"
+            @action={{fn
+              this.loadPublicationWorkPage
+              this.previousPublicationWorkPage
+            }}
+            @disabled={{this.previousPublicationWorkPageDisabled}}
+          />
+          <span>{{i18n
+              "discussion_bridge.admin.publication_queue_page"
+              page=this.publicationWorkPagination.page
+              pages=this.publicationWorkPagination.pages
+              total=this.publicationWorkPagination.total
+            }}</span>
+          <DButton
+            @label="discussion_bridge.admin.next"
+            @action={{fn
+              this.loadPublicationWorkPage
+              this.nextPublicationWorkPage
+            }}
+            @disabled={{this.nextPublicationWorkPageDisabled}}
+          />
+        </nav>
       </section>
     </section>
   </template>

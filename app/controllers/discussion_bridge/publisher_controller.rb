@@ -2,6 +2,9 @@
 
 module ::DiscussionBridge
   class PublisherController < ::ApplicationController
+    PUBLICATION_WORK_PAGE_SIZE = 50
+    MAX_PUBLICATION_WORK_PAGE = 10_000
+
     requires_plugin DiscussionBridge::PLUGIN_NAME
     before_action :ensure_staff
     before_action :ensure_publisher_enabled
@@ -9,6 +12,7 @@ module ::DiscussionBridge
     def overview
       connections = available_connections
       work_counts = DiscussionBridgePublicationWorkItem.group(:state).count
+      work_page = publication_work_page
       render json: {
         product: {
           name: "DiscussionBridge",
@@ -26,7 +30,8 @@ module ::DiscussionBridge
           end,
         },
         recent_records: recent_records,
-        publication_work: recent_publication_work,
+        publication_work: work_page[:items],
+        publication_work_pagination: work_page.except(:items),
       }
     end
 
@@ -119,7 +124,7 @@ module ::DiscussionBridge
       DiscussionBridge::PublicationAttentionNotifier.call(item.content_connection)
       render json: {
         outcome: "queued",
-        publication_work: recent_publication_work.find { |row| row[:id] == item.id },
+        publication_work: publication_work_payload(item.reload),
       }
     rescue ActiveRecord::RecordNotFound, ArgumentError => error
       render json: { errors: [error.message] }, status: :unprocessable_entity
@@ -194,30 +199,50 @@ module ::DiscussionBridge
         .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
     end
 
-    def recent_publication_work
-      DiscussionBridgePublicationWorkItem.includes(:content_connection, bridge_record: :topic)
-        .order(updated_at: :desc, id: :desc).limit(50).map do |item|
-        record = item.bridge_record
-        {
-          id: item.id,
-          topic_id: item.topic_id,
-          topic_url: record&.topic&.url || "/t/#{item.topic_id}",
-          title: record&.title || Topic.with_deleted.where(id: item.topic_id).pick(:title),
-          connection_name: item.content_connection.name,
-          platform: item.content_connection.platform,
-          action: item.action,
-          state: item.state,
-          reason: item.reason,
-          attempt_count: item.attempt_count,
-          available_at: item.available_at,
-          claimed_at: item.claimed_at,
-          lease_expires_at: item.lease_expires_at,
-          completed_at: item.completed_at,
-          last_error_code: item.last_error_code,
-          last_error_detail: item.last_error_detail,
-          canonical_url: record&.active_binding("presentation")&.canonical_url,
-        }
+    def publication_work_page
+      scope = DiscussionBridgePublicationWorkItem.includes(:content_connection, bridge_record: :topic)
+        .order(updated_at: :desc, id: :desc)
+      total = scope.count
+      pages = [(total.to_f / PUBLICATION_WORK_PAGE_SIZE).ceil, 1].max
+      requested_page = begin
+        Integer(params[:publication_page].presence || 1)
+      rescue ArgumentError, TypeError
+        1
       end
+      page = [[requested_page, 1].max, MAX_PUBLICATION_WORK_PAGE, pages].min
+
+      {
+        items: scope.offset((page - 1) * PUBLICATION_WORK_PAGE_SIZE)
+          .limit(PUBLICATION_WORK_PAGE_SIZE)
+          .map { |item| publication_work_payload(item) },
+        page: page,
+        per_page: PUBLICATION_WORK_PAGE_SIZE,
+        total: total,
+        pages: pages,
+      }
+    end
+
+    def publication_work_payload(item)
+      record = item.bridge_record
+      {
+        id: item.id,
+        topic_id: item.topic_id,
+        topic_url: record&.topic&.url || "/t/#{item.topic_id}",
+        title: record&.title || Topic.with_deleted.where(id: item.topic_id).pick(:title),
+        connection_name: item.content_connection.name,
+        platform: item.content_connection.platform,
+        action: item.action,
+        state: item.state,
+        reason: item.reason,
+        attempt_count: item.attempt_count,
+        available_at: item.available_at,
+        claimed_at: item.claimed_at,
+        lease_expires_at: item.lease_expires_at,
+        completed_at: item.completed_at,
+        last_error_code: item.last_error_code,
+        last_error_detail: item.last_error_detail,
+        canonical_url: record&.active_binding("presentation")&.canonical_url,
+      }
     end
 
     def native_materialization(value)

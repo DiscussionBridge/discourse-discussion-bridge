@@ -418,6 +418,13 @@ export default class DiscussionBridgeConnections extends Component {
     this.destinationAuthorId = mapping.destination_author_id ?? "";
     this.destinationSlugPolicy = mapping.slug_policy ?? "platform_default";
     this.publicationPreview = null;
+    this.scrollTo("discussion-bridge-connection-editor");
+  }
+
+  @action
+  beginAddConnection() {
+    this.resetForm();
+    this.scrollTo("discussion-bridge-connection-editor");
   }
 
   @action
@@ -456,6 +463,7 @@ export default class DiscussionBridgeConnections extends Component {
       );
       this.issuedSecret = result.secret;
       this.issuedConnectionId = connection.public_id;
+      this.scrollTo("discussion-bridge-issued-credential");
     } catch (error) {
       popupAjaxError(error);
     }
@@ -709,17 +717,46 @@ export default class DiscussionBridgeConnections extends Component {
     return value ? new Date(value).toLocaleString() : "—";
   }
 
+  connectionHealthLabel(connection) {
+    if (connection.health === "healthy") {
+      return i18n("discussion_bridge.admin.connection_operational");
+    }
+
+    return this.displayToken(connection.health);
+  }
+
+  scrollTo(id) {
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      target?.querySelector("input, select, button")?.focus({
+        preventScroll: true,
+      });
+    });
+  }
+
   <template>
     <section class="discussion-bridge-connections">
-      <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
-        @descriptionLabel={{i18n
-          "discussion_bridge.admin.connections_description"
-        }}
-      />
+      <div class="discussion-bridge-connections__header">
+        <DPageSubheader
+          @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
+          @descriptionLabel={{i18n
+            "discussion_bridge.admin.connections_description"
+          }}
+        />
+        <DButton
+          @label="discussion_bridge.admin.add_connection"
+          @action={{this.beginAddConnection}}
+          class="btn-primary"
+        />
+      </div>
 
       {{#if this.issuedSecret}}
-        <section class="discussion-bridge-secret" role="status">
+        <section
+          id="discussion-bridge-issued-credential"
+          class="discussion-bridge-secret"
+          role="status"
+        >
           <strong>{{i18n "discussion_bridge.admin.secret_shown_once"}}</strong>
           <div class="discussion-bridge-secret__row">
             <span>{{i18n "discussion_bridge.admin.connection_id"}}</span>
@@ -773,7 +810,7 @@ export default class DiscussionBridgeConnections extends Component {
               <span
                 class="discussion-bridge-status"
                 data-state={{connection.health}}
-              >{{this.displayToken connection.health}}</span>
+              >{{this.connectionHealthLabel connection}}</span>
             </header>
             <dl>
               <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd
@@ -830,14 +867,19 @@ export default class DiscussionBridgeConnections extends Component {
                     <code>{{origin.origin}}</code>
                     <span
                       class="discussion-bridge-status"
-                      data-state={{if origin.embeddable "healthy" "attention"}}
+                      data-state={{if origin.embeddable "healthy" "setup"}}
                     >
                       {{if
                         origin.embeddable
                         (i18n "discussion_bridge.admin.embed_host_ready")
-                        (i18n "discussion_bridge.admin.embeddable_host_missing")
-                      }}
-                    </span>
+                         (i18n "discussion_bridge.admin.embedded_modes_unavailable")
+                       }}
+                     </span>
+                    {{#unless origin.embeddable}}
+                      <small>{{i18n
+                          "discussion_bridge.admin.embeddable_host_explanation"
+                        }}</small>
+                    {{/unless}}
                   </span>
                 {{/each}}
               </dd>
@@ -927,6 +969,7 @@ export default class DiscussionBridgeConnections extends Component {
       </div>
 
       <form
+        id="discussion-bridge-connection-editor"
         class="discussion-bridge-add-connection"
         {{on "submit" this.saveConnection}}
       >
