@@ -34,8 +34,8 @@ module DiscussionBridge
         raise ArgumentError, "destination section mapping is incomplete" if taxonomy_id.present? != term_id.present?
         if taxonomy_id
           raise ArgumentError, "unknown destination taxonomy term" unless terms.key?([taxonomy_id, term_id])
-          raise ArgumentError, "destination taxonomy is unsupported by a mapped container" unless
-            Array(containers.fetch(destination_id)["taxonomy_ids"]).include?(taxonomy_id)
+          raise ArgumentError, "destination taxonomy is unsupported by a mapped container" if
+            Array(containers.fetch(destination_id)["taxonomy_ids"]).exclude?(taxonomy_id)
         end
         {
           "source_category_id" => source_id,
@@ -201,7 +201,7 @@ module DiscussionBridge
 
     def self.effective_limits(raw)
       limits = raw.is_a?(Hash) ? raw.deep_stringify_keys : {}
-      receiver_limit = BridgeRecordRequest::MAX_CONTENT_HTML_BYTES
+      receiver_limit = BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES
       platform_limit = limits["content_bytes"].to_i
       platform_limit = receiver_limit unless platform_limit.positive?
       limits.merge("content_bytes" => [receiver_limit, platform_limit].min)

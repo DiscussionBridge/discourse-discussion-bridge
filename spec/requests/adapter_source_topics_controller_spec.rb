@@ -573,29 +573,45 @@ describe DiscussionBridge::AdapterSourceTopicsController do
     )
   end
 
-  it "uses the shared 48 KiB content boundary" do
-    first_post.update_columns(cooked: "x" * (DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES + 1))
+  it "uses the bounded forum-publication content boundary without widening inbound creation" do
+    maximum = DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES
+    expect(maximum).to be > DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES
+    configure_destination(
+      @connection,
+      "pages",
+      limits: { "content_bytes" => 10 * 1024 * 1024, "title_bytes" => 1_000, "slug_bytes" => 255 },
+    )
+    first_post.update_columns(cooked: "x" * (maximum + 1))
 
     get "/discussion-bridge/v1/source-topics/#{topic.id}.json", headers: headers
 
     expect(response).to have_http_status(:unprocessable_entity)
     expect(response.parsed_body).to include(
       "reason" => "source_content_too_large",
-      "maximum_bytes" => DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES,
+      "maximum_bytes" => maximum,
     )
   end
 
   it "keeps a worst-case escaped source detail inside the adapter response budget" do
+    configure_destination(
+      @connection,
+      "pages",
+      limits: {
+        "content_bytes" => DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES,
+        "title_bytes" => 1_000,
+        "slug_bytes" => 255,
+      },
+    )
     first_post.update_columns(
-      cooked: "\u0001" * DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES,
+      cooked: "\u0001" * DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES,
     )
 
     get "/discussion-bridge/v1/source-topics/#{topic.id}.json", headers: headers
 
     expect(response).to have_http_status(:ok)
-    expect(response.body.bytesize).to be <= 384 * 1024
+    expect(response.body.bytesize).to be <= 2 * 1024 * 1024
     expect(response.parsed_body.dig("source_topic", "content_html").bytesize).to eq(
-      DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES,
+      DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES,
     )
   end
 
@@ -622,7 +638,7 @@ describe DiscussionBridge::AdapterSourceTopicsController do
   end
 
   it "plans against the receiver limit when the adapter advertises a larger content limit" do
-    maximum = DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES
+    maximum = DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES
     first_post.update_columns(cooked: "<p>#{'x' * maximum}</p>")
     configure_destination(
       @connection,

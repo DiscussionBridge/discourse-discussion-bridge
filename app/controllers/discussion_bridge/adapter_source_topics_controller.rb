@@ -12,7 +12,7 @@ module DiscussionBridge
     before_action :ensure_publication_scope
 
     PER_PAGE = 20
-    MAX_SOURCE_BYTES = DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES
+    MAX_SOURCE_BYTES = DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES
 
     def index
       relation = PublicationTopicScope.relation(@content_connection)

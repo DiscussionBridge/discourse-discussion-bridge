@@ -17,7 +17,7 @@ module DiscussionBridge
     CAPABILITY_KEYS = %w[updates unpublish drafts].freeze
     LIMIT_KEYS = %w[content_bytes title_bytes slug_bytes].freeze
     DEFAULT_LIMITS = {
-      "content_bytes" => DiscussionBridge::BridgeRecordRequest::MAX_CONTENT_HTML_BYTES,
+      "content_bytes" => DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES,
       "title_bytes" => DiscussionBridge::ConnectionRequest::MAX_TITLE_BYTES,
       "slug_bytes" => 255,
     }.freeze
