@@ -40,7 +40,7 @@ module DiscussionBridge
         item = @content_connection.publication_work_items
           .where(state: %w[queued retrying])
           .where("available_at IS NULL OR available_at <= ?", now)
-          .order(:available_at, :id)
+          .order(Arel.sql("CASE state WHEN 'retrying' THEN 0 ELSE 1 END"), :available_at, :id)
           .lock("FOR UPDATE SKIP LOCKED")
           .first
         if item

@@ -788,6 +788,41 @@ describe DiscussionBridge::AdapterSourceTopicsController do
     expect(DiscussionBridgePublicationWorkItem.find_by!(topic_id: topic.id).state).to eq("current")
   end
 
+  it "reclaims expired publication work before leasing new queued work" do
+    queued_topic = Fabricate(:topic, user: admin, category: category)
+    Fabricate(:post, topic: queued_topic, user: admin, post_number: 1)
+    retry_topic = Fabricate(:topic, user: admin, category: category)
+    Fabricate(:post, topic: retry_topic, user: admin, post_number: 1)
+
+    [queued_topic, retry_topic].each do |candidate|
+      DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
+        topic_id: candidate.id,
+        connection: @connection,
+      )
+    end
+
+    queued_item = DiscussionBridgePublicationWorkItem.find_by!(topic_id: queued_topic.id)
+    queued_item.update!(available_at: 1.hour.ago)
+    retry_item = DiscussionBridgePublicationWorkItem.find_by!(topic_id: retry_topic.id)
+    retry_item.update!(
+      state: "claimed",
+      lease_token: SecureRandom.hex(32),
+      claimed_at: 2.hours.ago,
+      lease_expires_at: 1.minute.ago,
+      available_at: nil,
+      attempt_count: 1,
+    )
+
+    post "/discussion-bridge/v1/publication-work/claim.json", headers: headers, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("publication_work")).to include(
+      "topic_id" => retry_topic.id,
+      "attempt_count" => 2,
+    )
+    expect(queued_item.reload).to have_attributes(state: "queued", attempt_count: 0)
+  end
+
   it "records bounded adapter failures against the exact publication lease" do
     DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
       topic_id: topic.id,
