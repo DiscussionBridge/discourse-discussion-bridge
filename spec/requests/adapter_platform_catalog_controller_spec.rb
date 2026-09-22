@@ -128,6 +128,47 @@ describe DiscussionBridge::AdapterPlatformCatalogController do
     )
   end
 
+  it "accepts the indexed mapping shape submitted by the connection editor" do
+    second_category = Fabricate(:category)
+    put "/discussion-bridge/v1/platform-catalog.json", params: catalog, headers: headers, as: :json
+    sign_in(admin)
+
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { destination_mapping: {
+          category_mappings: {
+            "1" => {
+              source_category_id: second_category.id,
+              destination_container_id: "post",
+              destination_taxonomy_id: "post_tag",
+              destination_term_id: "policy",
+            },
+            "0" => {
+              source_category_id: category.id,
+              destination_container_id: "post",
+              destination_taxonomy_id: "post_tag",
+              destination_term_id: "policy",
+            },
+          },
+          unmapped_category_policy: "hold",
+          unmapped_tag_policy: "omit",
+          presentation_mode: "native",
+          authorship_policy: "fixed",
+          destination_author_id: "user:7",
+          slug_policy: "topic_id",
+        } } }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    stored = @connection.reload.destination_mapping.fetch("category_mappings")
+    expect(stored.map { |item| item.fetch("source_category_id") }).to eq(
+      [category.id, second_category.id].sort,
+    )
+    expect(stored).to all(include(
+      "destination_container_id" => "post",
+      "destination_taxonomy_id" => "post_tag",
+      "destination_term_id" => "policy",
+    ))
+  end
+
   it "carries a category's native section into the resolved destination" do
     put "/discussion-bridge/v1/platform-catalog.json", params: catalog, headers: headers, as: :json
     sign_in(admin)

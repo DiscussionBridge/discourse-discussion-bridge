@@ -23,7 +23,7 @@ module DiscussionBridge
         Array(taxonomy["terms"]).each { |term| result[[taxonomy_id, term["id"]]] = term }
       end
 
-      category_mappings = Array(value["category_mappings"]).map do |item|
+      category_mappings = mapping_items(value["category_mappings"], "category mappings").map do |item|
         source_id = Integer(item["source_category_id"].to_s, 10)
         destination_id = item["destination_container_id"].to_s
         raise ArgumentError, "unknown public source category" unless
@@ -44,7 +44,7 @@ module DiscussionBridge
           "destination_term_id" => term_id,
         }.compact
       end
-      tag_mappings = Array(value["tag_mappings"]).map do |item|
+      tag_mappings = mapping_items(value["tag_mappings"], "tag mappings").map do |item|
         source_id = Integer(item["source_tag_id"].to_s, 10)
         taxonomy_id = item["destination_taxonomy_id"].to_s
         term_id = item["destination_term_id"].to_s
@@ -220,6 +220,22 @@ module DiscussionBridge
       end
     end
 
-    private_class_method :effective_limits, :ensure_unique!, :deep_sort
+    def self.mapping_items(raw, label)
+      raw = raw.to_unsafe_h if raw.respond_to?(:to_unsafe_h)
+      return [] if raw.blank?
+      return raw if raw.is_a?(Array)
+      raise ArgumentError, "invalid #{label}" unless raw.is_a?(Hash)
+
+      indexed = raw.map do |key, item|
+        key = key.to_s
+        raise ArgumentError, "invalid #{label}" unless key.match?(/\A(?:0|[1-9]\d*)\z/)
+        [Integer(key, 10), item]
+      end
+      raise ArgumentError, "invalid #{label}" unless indexed.map(&:first).uniq.length == indexed.length
+
+      indexed.sort_by(&:first).map(&:last)
+    end
+
+    private_class_method :effective_limits, :ensure_unique!, :deep_sort, :mapping_items
   end
 end
