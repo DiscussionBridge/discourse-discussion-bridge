@@ -126,7 +126,7 @@ en:
         publication_category_mode: "Forum category selection"
         only_selected_categories: "Only selected public categories"
         all_except_selected_categories: "All public categories except selected"
-        publication_categories_description: "Select the categories governed by the mode above. Private and staff-only topics are never included."
+        publication_categories_description: "Select the categories governed by the mode above. Private, staff-only, and category definition topics are never included."
         publication_tag_mode: "Forum tag selection"
         all_tags: "All tags and untagged topics"
         only_selected_tags: "Topics with at least one selected tag"

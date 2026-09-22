@@ -7,6 +7,7 @@ module DiscussionBridge
         .where(archetype: Archetype.default, deleted_at: nil)
         .where(posts: { deleted_at: nil })
         .where("topics.category_id IS NULL OR categories.read_restricted = FALSE")
+        .where("categories.topic_id IS NULL OR topics.id <> categories.topic_id")
       topics = topics.where(visible: true) unless connection.publication_include_unlisted
 
       included = Array(connection.publication_category_ids).map(&:to_i)
@@ -35,6 +36,9 @@ module DiscussionBridge
       return { eligible: false, reason: "topic_deleted" } if topic.deleted_at || topic.first_post.nil?
       return { eligible: false, reason: "topic_not_regular" } unless topic.archetype == Archetype.default
       return { eligible: false, reason: "category_private" } if topic.category&.read_restricted
+      if topic.category&.topic_id == topic.id
+        return { eligible: false, reason: "category_definition_topic" }
+      end
       if !connection.publication_include_unlisted && !topic.visible
         return { eligible: false, reason: "topic_unlisted" }
       end

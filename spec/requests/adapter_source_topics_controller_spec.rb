@@ -120,6 +120,24 @@ describe DiscussionBridge::AdapterSourceTopicsController do
     expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse")).to be_empty
   end
 
+  it "excludes a category definition topic from preview and direct source access" do
+    category.update_column(:topic_id, topic.id)
+
+    get "/discussion-bridge/v1/source-topics.json", headers: headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("source_topics").map { |item| item.fetch("topic_id") })
+      .not_to include(topic.id)
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}.json", headers: headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      "eligible" => false,
+      "reason" => "category_definition_topic",
+    )
+  end
+
   it "resolves the same topic independently for two connections" do
     ghost, ghost_secret = DiscussionBridgeContentConnection.issue!(
       name: "OBBBA Ghost",
@@ -438,6 +456,24 @@ describe DiscussionBridge::AdapterSourceTopicsController do
       "acknowledged_publication_revision" => item.fetch("publication_revision"),
       "last_delivery_outcome" => "unpublished",
     )
+  end
+
+  it "emits a content-free revocation when a published topic becomes the category definition" do
+    state = DiscussionBridge::TopicPublicationState.for_topic(connection: @connection, topic: topic)
+    post "/discussion-bridge/v1/source-topics/#{topic.id}/resolve.json",
+         params: publication(state.source_revision, origin: "https://obbba-wordpress.example.com"),
+         headers: headers, as: :json
+    expect(response).to have_http_status(:created), response.body
+    resource_id = response.parsed_body.fetch("resource_id")
+    category.update_column(:topic_id, topic.id)
+
+    get "/discussion-bridge/v1/source-revocations.json", headers: headers
+
+    item = response.parsed_body.fetch("publication_revocations")
+      .find { |row| row.fetch("resource_id") == resource_id }
+    expect(item).to include("reason" => "category_definition_topic")
+    expect(item).not_to have_key("title")
+    expect(item).not_to have_key("content_html")
   end
 
   it "returns the current revocation state instead of replaying a stale revocation" do
