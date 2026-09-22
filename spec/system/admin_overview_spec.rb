@@ -150,6 +150,14 @@ describe "DiscussionBridge native product administration" do
       click_button("Manage")
     end
     expect(page).to have_content("Manage connection")
+    check("Allow this adapter to publish eligible forum topics")
+    expect(page).to have_css(".discussion-bridge-direction-option > label", minimum: 3)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-direction-option > label')).every((label) => { const input = label.querySelector('input[type=checkbox]'); const style = getComputedStyle(label); return input && style.display === 'flex' && style.alignItems === 'center' && input.getBoundingClientRect().left < label.getBoundingClientRect().right; })",
+      ),
+    ).to eq(true)
+    uncheck("Allow this adapter to publish eligible forum topics")
     fill_in("Connection name", with: "Editorial Ghost Updated")
     check("Generate topic table of contents")
     check("Include source in published URL")
