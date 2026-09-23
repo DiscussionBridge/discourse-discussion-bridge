@@ -1,5 +1,6 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
+import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -17,6 +18,8 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked direction = "";
   @tracked state = "";
   @tracked connectionId = "";
+  @tracked sort = "updated";
+  @tracked order = "desc";
   @tracked detail = null;
   @tracked fromConnectionId = "";
   @tracked fromTopicId = "";
@@ -29,6 +32,18 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked sourceNativeConfirmed = false;
   @tracked sourceNotice = "";
   @tracked sourceWorking = false;
+
+  constructor() {
+    super(...arguments);
+    const filters = this.args.model.filters || {};
+    const sorting = this.args.model.sorting || {};
+    this.query = filters.query || "";
+    this.direction = filters.direction || "";
+    this.state = filters.state || "";
+    this.connectionId = filters.connection_id || "";
+    this.sort = sorting.sort || "updated";
+    this.order = sorting.order || "desc";
+  }
 
   @action
   updateQuery(event) { this.query = event.target.value; }
@@ -73,6 +88,33 @@ export default class DiscussionBridgeOperations extends Component {
   get nextDisabled() { return this.args.model.pagination.page >= this.args.model.pagination.pages; }
   displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
 
+  publicationLabel(value) {
+    return i18n(`discussion_bridge.admin.publication_${value || "not_published"}`);
+  }
+
+  @action
+  sortIndicator(column) {
+    if (this.sort !== column) {
+      return "";
+    }
+
+    return this.order === "asc" ? "▲" : "▼";
+  }
+
+  @action
+  ariaSort(column) {
+    if (this.sort !== column) {
+      return "none";
+    }
+
+    return this.order === "asc" ? "ascending" : "descending";
+  }
+
+  @action
+  connectionSelected(id) {
+    return String(id) === String(this.connectionId);
+  }
+
   @action
   filter(event) {
     event.preventDefault();
@@ -85,6 +127,14 @@ export default class DiscussionBridgeOperations extends Component {
   @action
   nextPage() { this.transition(this.args.model.pagination.page + 1); }
 
+  @action
+  changeSort(column) {
+    const nextOrder = this.sort === column && this.order === "asc" ? "desc" : "asc";
+    this.sort = column;
+    this.order = nextOrder;
+    this.transition(1);
+  }
+
   transition(page) {
     this.router.transitionTo("adminPlugins.show.discussion-bridge-operations", {
       queryParams: {
@@ -92,6 +142,8 @@ export default class DiscussionBridgeOperations extends Component {
         direction: this.direction,
         state: this.state,
         connection_id: this.connectionId,
+        sort: this.sort,
+        order: this.order,
         page,
       },
     });
@@ -203,23 +255,23 @@ export default class DiscussionBridgeOperations extends Component {
         <label>{{i18n "discussion_bridge.admin.search"}}<input type="search" value={{this.query}} {{on "input" this.updateQuery}} /></label>
         <label>{{i18n "discussion_bridge.admin.content_direction"}}
           <select {{on "change" this.updateDirection}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
-            <option value="to_discourse">{{i18n "discussion_bridge.admin.to_discourse"}}</option>
-            <option value="from_discourse">{{i18n "discussion_bridge.admin.from_discourse"}}</option>
+            <option value="" selected={{eq this.direction ""}}>{{i18n "discussion_bridge.admin.all"}}</option>
+            <option value="to_discourse" selected={{eq this.direction "to_discourse"}}>{{i18n "discussion_bridge.admin.to_discourse"}}</option>
+            <option value="from_discourse" selected={{eq this.direction "from_discourse"}}>{{i18n "discussion_bridge.admin.from_discourse"}}</option>
           </select>
         </label>
         <label>{{i18n "discussion_bridge.admin.status"}}
           <select {{on "change" this.updateState}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
-            <option value="healthy">{{i18n "discussion_bridge.admin.healthy"}}</option>
-            <option value="migration">{{i18n "discussion_bridge.admin.migration"}}</option>
-            <option value="attention">{{i18n "discussion_bridge.admin.needs_attention"}}</option>
+            <option value="" selected={{eq this.state ""}}>{{i18n "discussion_bridge.admin.all"}}</option>
+            <option value="healthy" selected={{eq this.state "healthy"}}>{{i18n "discussion_bridge.admin.healthy"}}</option>
+            <option value="migration" selected={{eq this.state "migration"}}>{{i18n "discussion_bridge.admin.migration"}}</option>
+            <option value="attention" selected={{eq this.state "attention"}}>{{i18n "discussion_bridge.admin.needs_attention"}}</option>
           </select>
         </label>
         <label>{{i18n "discussion_bridge.admin.connection"}}
           <select {{on "change" this.updateConnection}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
-            {{#each @model.content_connections as |connection|}}<option value={{connection.id}}>{{connection.name}}</option>{{/each}}
+            <option value="" selected={{eq this.connectionId ""}}>{{i18n "discussion_bridge.admin.all"}}</option>
+            {{#each @model.content_connections as |connection|}}<option value={{connection.id}} selected={{this.connectionSelected connection.id}}>{{connection.name}}</option>{{/each}}
           </select>
         </label>
         <DButton @type="submit" @label="discussion_bridge.admin.apply" class="btn-primary" />
@@ -227,7 +279,17 @@ export default class DiscussionBridgeOperations extends Component {
 
       <div class="discussion-bridge-operations__table-wrap">
         <table>
-          <thead><tr><th>{{i18n "discussion_bridge.admin.bridge_record"}}</th><th>{{i18n "discussion_bridge.admin.connection"}}</th><th>{{i18n "discussion_bridge.admin.content_direction"}}</th><th>{{i18n "discussion_bridge.admin.discussion"}}</th><th>{{i18n "discussion_bridge.admin.status"}}</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th aria-sort={{this.ariaSort "title"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "title")}}>{{i18n "discussion_bridge.admin.bridge_record"}} <span aria-hidden="true">{{this.sortIndicator "title"}}</span></button></th>
+              <th aria-sort={{this.ariaSort "connection"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "connection")}}>{{i18n "discussion_bridge.admin.connection"}} <span aria-hidden="true">{{this.sortIndicator "connection"}}</span></button></th>
+              <th aria-sort={{this.ariaSort "direction"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "direction")}}>{{i18n "discussion_bridge.admin.content_direction"}} <span aria-hidden="true">{{this.sortIndicator "direction"}}</span></button></th>
+              <th aria-sort={{this.ariaSort "topic"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "topic")}}>{{i18n "discussion_bridge.admin.discussion"}} <span aria-hidden="true">{{this.sortIndicator "topic"}}</span></button></th>
+              <th aria-sort={{this.ariaSort "publication"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "publication")}}>{{i18n "discussion_bridge.admin.publication"}} <span aria-hidden="true">{{this.sortIndicator "publication"}}</span></button></th>
+              <th aria-sort={{this.ariaSort "status"}}><button type="button" class="discussion-bridge-operations__sort" {{on "click" (fn this.changeSort "status")}}>{{i18n "discussion_bridge.admin.status"}} <span aria-hidden="true">{{this.sortIndicator "status"}}</span></button></th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody>
             {{#each @model.bridge_records as |record|}}
               <tr>
@@ -235,10 +297,11 @@ export default class DiscussionBridgeOperations extends Component {
                 <td>{{record.connection_names}}</td>
                 <td><span class="discussion-bridge-direction" data-direction={{record.direction}}>{{this.displayToken record.direction}}</span></td>
                 <td>{{#if record.topic_id}}<a href="/t/{{record.topic_id}}">Topic {{record.topic_id}} · {{record.reply_count}} replies</a>{{else}}—{{/if}}</td>
+                <td><span class="discussion-bridge-publication" data-state={{record.publication_state}}>{{this.publicationLabel record.publication_state}}</span></td>
                 <td><span class="discussion-bridge-status" data-state={{record.operational_state}}>{{this.displayToken record.operational_state}}</span></td>
                 <td><DButton @label="discussion_bridge.admin.view" @action={{this.showRecord}} @actionParam={{record}} class="btn-primary" /></td>
               </tr>
-            {{else}}<tr><td colspan="6">{{i18n "discussion_bridge.admin.no_records"}}</td></tr>{{/each}}
+            {{else}}<tr><td colspan="7">{{i18n "discussion_bridge.admin.no_records"}}</td></tr>{{/each}}
           </tbody>
         </table>
       </div>

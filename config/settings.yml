@@ -43,6 +43,22 @@ plugins:
   discussion_bridge_publisher_enabled:
     default: false
     client: true
+  discussion_bridge_publication_status_audience:
+    type: enum
+    default: "staff"
+    choices:
+      - admins
+      - staff
+      - groups
+    client: false
+  discussion_bridge_publication_status_groups:
+    type: group_list
+    list_type: compact
+    default: ""
+    allow_any: false
+    client: false
+    refresh: true
+    area: "group_permissions"
   discussion_bridge_attention_groups:
     type: group_list
     list_type: compact

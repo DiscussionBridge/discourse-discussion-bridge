@@ -7,6 +7,8 @@ export default class DiscussionBridgeOperationsRoute extends Route {
     state: { refreshModel: true },
     connection_id: { refreshModel: true },
     query: { refreshModel: true },
+    sort: { refreshModel: true },
+    order: { refreshModel: true },
     page: { refreshModel: true },
   };
 
@@ -18,6 +20,8 @@ export default class DiscussionBridgeOperationsRoute extends Route {
           state: params.state || "",
           connection_id: params.connection_id || "",
           query: params.query || "",
+          sort: params.sort || "updated",
+          order: params.order || "desc",
           page: params.page || 1,
         },
       }),

@@ -157,6 +157,32 @@
 }
 
 .discussion-bridge-operations {
+  &__sort {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      color: var(--tertiary);
+      text-decoration: underline;
+    }
+
+    span {
+      display: inline-block;
+      min-width: 0.75rem;
+      margin-inline-start: 0.15rem;
+      color: var(--tertiary);
+      font-size: var(--font-down-1);
+    }
+  }
+
   &__source-url-form {
     display: grid;
     gap: 0.75rem;
@@ -210,7 +236,8 @@
 
 .discussion-bridge-status,
 .discussion-bridge-direction,
-.discussion-bridge-platform {
+.discussion-bridge-platform,
+.discussion-bridge-publication {
   display: inline-flex;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -218,6 +245,28 @@
   font-size: var(--font-down-1);
   font-weight: 600;
   text-transform: capitalize;
+}
+
+.discussion-bridge-publication[data-state="published"],
+.discussion-bridge-publication[data-state="in_discourse"] {
+  color: var(--success);
+  background: var(--success-low, var(--primary-low));
+}
+
+.discussion-bridge-publication[data-state="not_published"] {
+  color: var(--primary-high);
+  background: var(--primary-low);
+}
+
+.discussion-bridge-publication[data-state="pending_publication"],
+.discussion-bridge-publication[data-state="pending_removal"] {
+  color: var(--tertiary);
+  background: var(--tertiary-low, var(--primary-low));
+}
+
+.discussion-bridge-publication[data-state="needs_attention"] {
+  color: var(--danger);
+  background: var(--danger-low, var(--primary-low));
 }
 
 .discussion-bridge-status[data-state="healthy"],

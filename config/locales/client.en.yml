@@ -5,6 +5,13 @@ en:
         categories:
           discourse_discussion_bridge: "DiscussionBridge"
     discussion_bridge:
+      publication_badge:
+        published: "Published"
+        not_published: "Not published"
+        partial: "Published %{published}/%{total}"
+        syncing: "Syncing %{published}/%{total}"
+        attention: "Needs attention"
+        detail: "Published on %{published} of %{total} connections. Pending: %{pending}. Needs attention: %{attention}."
       notification:
         attention_title: "DiscussionBridge publication needs attention"
         resolved_title: "DiscussionBridge publication is resolved"
@@ -207,6 +214,13 @@ en:
         connection_operational: "Connection operational"
         setup: "Needs setup"
         status: "Status"
+        publication: "Publication"
+        publication_in_discourse: "In Discourse"
+        publication_published: "Published"
+        publication_not_published: "Not published"
+        publication_pending_publication: "Publication pending"
+        publication_pending_removal: "Removal pending"
+        publication_needs_attention: "Needs attention"
         migration: "Migration"
         view: "View"
         bindings: "Content bindings"

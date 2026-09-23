@@ -1,3 +1,38 @@
+.discussion-bridge-publication-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 0.45rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary-low);
+  color: var(--primary-high);
+  font-size: var(--font-down-2);
+  font-weight: 600;
+  line-height: 1.35;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.discussion-bridge-publication-badge[data-state="published"] {
+  background: var(--success-low, var(--primary-low));
+  color: var(--success, var(--primary));
+}
+
+.discussion-bridge-publication-badge[data-state="partial"],
+.discussion-bridge-publication-badge[data-state="pending"] {
+  background: var(--tertiary-low, var(--primary-low));
+  color: var(--tertiary, var(--primary));
+}
+
+.discussion-bridge-publication-badge[data-state="attention"] {
+  background: var(--danger-low, var(--primary-low));
+  color: var(--danger, var(--primary));
+}
+
+.topic-footer-main-buttons .discussion-bridge-publication-badge {
+  margin-block: 0.25rem;
+}
+
 .discussion-bridge-topic-status {
   --db-status-border: var(--primary-low-mid);
   --db-status-muted: var(--primary-medium);
