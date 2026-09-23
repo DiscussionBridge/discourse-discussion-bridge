@@ -41,7 +41,15 @@ describe DiscussionBridge do
   end
 
   it "keeps publishing in the same default-disabled product" do
+    manifest = JSON.parse(
+      File.read(File.expand_path("../discussionbridge-release.json", __dir__), encoding: "UTF-8"),
+    )
+
     expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.45")
+    expect(manifest.dig("component", "version")).to eq(DiscussionBridge::VERSION)
+    expect(manifest.dig("family", "version")).to eq(
+      DiscussionBridge::VERSION.sub(".alpha.", "-alpha."),
+    )
     expect(SiteSetting.discussion_bridge_publisher_enabled).to eq(false)
   end
 end
