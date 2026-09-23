@@ -63,7 +63,7 @@ module DiscussionBridge
       raise ArgumentError, "entitlement installation is invalid" unless claims["installation_id"] == service.installation_id
       raise ArgumentError, "entitlement enrollment is invalid" unless claims["enrollment_id"] == service.enrollment_id
       raise ArgumentError, "entitlement site is invalid" unless claims["site_url"] == Discourse.base_url
-      raise ArgumentError, "entitlement status is invalid" unless STATUSES.include?(claims["status"])
+      raise ArgumentError, "entitlement status is invalid" if STATUSES.exclude?(claims["status"])
       raise ArgumentError, "entitlement email is invalid" unless claims["operator_email"].to_s.match?(/\A[^\s@]+@discussionbridge\.dev\z/i)
       raise ArgumentError, "entitlement identity is invalid" if claims["operator_identity_id"].to_s.blank?
       raise ArgumentError, "entitlement id is invalid" if claims["entitlement_id"].to_s.blank?
@@ -78,7 +78,7 @@ module DiscussionBridge
       raise ArgumentError, "entitlement issue time is invalid" if issued_at > now + 5.minutes
       raise ArgumentError, "entitlement paid-through time is invalid" if paid_through_at < issued_at
       expected_grace = paid_through_at + GRACE_PERIOD_DAYS.days
-      raise ArgumentError, "entitlement grace expiration is invalid" unless (grace_expires_at - expected_grace).abs < 1.second
+      raise ArgumentError, "entitlement grace expiration is invalid" if (grace_expires_at - expected_grace).abs >= 1.second
     end
     private_class_method :validate_claims!
 

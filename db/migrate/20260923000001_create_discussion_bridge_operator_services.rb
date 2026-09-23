@@ -3,6 +3,7 @@
 class CreateDiscussionBridgeOperatorServices < ActiveRecord::Migration[7.0]
   def change
     create_table :discussion_bridge_operator_services do |t|
+      t.string :singleton_key, null: false, default: "current", limit: 16
       t.string :installation_id, null: false, limit: 36
       t.string :enrollment_id, null: false, limit: 36
       t.boolean :enabled, null: false, default: false
@@ -28,6 +29,8 @@ class CreateDiscussionBridgeOperatorServices < ActiveRecord::Migration[7.0]
       t.timestamps
     end
 
+    add_index :discussion_bridge_operator_services, :singleton_key, unique: true,
+              name: "idx_discussion_bridge_operator_service_singleton"
     add_index :discussion_bridge_operator_services, :installation_id, unique: true,
               name: "idx_discussion_bridge_operator_service_installation"
     add_index :discussion_bridge_operator_services, :enrollment_id, unique: true,
@@ -38,8 +41,7 @@ class CreateDiscussionBridgeOperatorServices < ActiveRecord::Migration[7.0]
               name: "idx_discussion_bridge_operator_service_entitlement"
 
     create_table :discussion_bridge_operator_events do |t|
-      t.references :operator_service, null: false,
-                   foreign_key: { to_table: :discussion_bridge_operator_services }
+      t.bigint :operator_service_id, null: false
       t.bigint :actor_user_id
       t.bigint :topic_id
       t.bigint :content_connection_id
@@ -50,6 +52,9 @@ class CreateDiscussionBridgeOperatorServices < ActiveRecord::Migration[7.0]
       t.datetime :created_at, null: false
     end
 
+    add_index :discussion_bridge_operator_events, :operator_service_id
+    add_foreign_key :discussion_bridge_operator_events, :discussion_bridge_operator_services,
+                    column: :operator_service_id
     add_index :discussion_bridge_operator_events, :actor_user_id
     add_index :discussion_bridge_operator_events, :topic_id
     add_index :discussion_bridge_operator_events, :content_connection_id,

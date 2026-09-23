@@ -32,7 +32,9 @@ describe DiscussionBridge::OperatorServiceController do
     )
     expect(Jobs).to have_received(:enqueue).with(
       :discussion_bridge_operator_service_notification,
-      hash_including(event: "requested", requested_by_id: admin.id),
+      service_id: kind_of(Integer),
+      event: "requested",
+      requested_by_id: admin.id,
     )
 
     put "/discussion-bridge/admin/operator-service.json",
@@ -42,4 +44,3 @@ describe DiscussionBridge::OperatorServiceController do
     expect(response.parsed_body).to include("enabled" => false, "status" => "inactive")
   end
 end
-

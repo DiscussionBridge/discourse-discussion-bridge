@@ -23,6 +23,21 @@ describe DiscussionBridgeOperatorService do
     }
   end
 
+  it "uses one database-enforced singleton service record" do
+    first = described_class.instance
+    second = described_class.instance
+
+    expect(second.id).to eq(first.id)
+    expect(described_class.where(singleton_key: described_class::SINGLETON_KEY).count).to eq(1)
+    expect do
+      described_class.create!(
+        singleton_key: described_class::SINGLETON_KEY,
+        installation_id: SecureRandom.uuid,
+        enrollment_id: SecureRandom.uuid,
+      )
+    end.to raise_error(ActiveRecord::RecordNotUnique)
+  end
+
   it "requires explicit administrator opt-in before an entitlement grants access" do
     service = described_class.instance
     service.apply_entitlement!(claims)
@@ -80,4 +95,3 @@ describe DiscussionBridgeOperatorService do
     expect(service.mutation_allowed?(admin)).to eq(true)
   end
 end
-

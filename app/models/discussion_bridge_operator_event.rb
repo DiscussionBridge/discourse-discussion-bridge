@@ -28,3 +28,32 @@ class DiscussionBridgeOperatorEvent < ActiveRecord::Base
     errors.add(:details, "contains unsupported fields or values") unless valid
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_operator_events
+#
+#  id                    :bigint           not null, primary key
+#  details               :jsonb            not null
+#  event_type            :string(100)      not null
+#  outcome               :string(32)       not null
+#  created_at            :datetime         not null
+#  actor_user_id         :bigint
+#  bridge_record_id      :bigint
+#  content_connection_id :bigint
+#  operator_service_id   :bigint           not null
+#  topic_id              :bigint
+#
+# Indexes
+#
+#  idx_discussion_bridge_operator_events_connection                (content_connection_id)
+#  idx_discussion_bridge_operator_events_record                    (bridge_record_id)
+#  index_discussion_bridge_operator_events_on_actor_user_id        (actor_user_id)
+#  index_discussion_bridge_operator_events_on_created_at           (created_at)
+#  index_discussion_bridge_operator_events_on_operator_service_id  (operator_service_id)
+#  index_discussion_bridge_operator_events_on_topic_id             (topic_id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (operator_service_id => discussion_bridge_operator_services.id)
+#

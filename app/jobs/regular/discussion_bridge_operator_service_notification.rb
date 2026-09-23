@@ -8,7 +8,7 @@ module Jobs
       service = DiscussionBridgeOperatorService.find(args.fetch(:service_id))
       requested_by = User.find(args.fetch(:requested_by_id))
       event = args.fetch(:event).to_s
-      raise Discourse::InvalidParameters unless %w[requested disabled].include?(event)
+      raise Discourse::InvalidParameters if %w[requested disabled].exclude?(event)
 
       message = DiscussionBridge::OperatorServiceMailer.service_event(
         service: service,
@@ -31,4 +31,3 @@ module Jobs
     end
   end
 end
-

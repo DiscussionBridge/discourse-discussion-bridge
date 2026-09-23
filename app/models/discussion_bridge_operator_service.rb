@@ -4,6 +4,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
   self.table_name = "discussion_bridge_operator_services"
 
   GRACE_PERIOD_DAYS = 14
+  SINGLETON_KEY = "current"
   STORED_STATUSES = %w[inactive pending active past_due cancelled revoked].freeze
   VIEWABLE_STATUSES = %w[active grace read_only cancelled].freeze
   MUTABLE_STATUSES = %w[active grace cancelled].freeze
@@ -14,6 +15,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
   validates :installation_id, :enrollment_id, presence: true,
             format: { with: /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i }
   validates :installation_id, :enrollment_id, uniqueness: true
+  validates :singleton_key, inclusion: { in: [SINGLETON_KEY] }
   validates :status, inclusion: { in: STORED_STATUSES }
   validates :identity_version, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :entitlement_version, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -21,12 +23,12 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
   validates :operator_email, length: { maximum: 254 }, allow_nil: true
 
   def self.instance
-    first_or_create! do |record|
+    find_or_create_by!(singleton_key: SINGLETON_KEY) do |record|
       record.installation_id = SecureRandom.uuid
       record.enrollment_id = SecureRandom.uuid
     end
   rescue ActiveRecord::RecordNotUnique
-    first!
+    find_by!(singleton_key: SINGLETON_KEY)
   end
 
   def request!(user:)
@@ -125,3 +127,43 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
       !user.suspended? && !user.silenced?
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_operator_services
+#
+#  id                   :bigint           not null, primary key
+#  disabled_at          :datetime
+#  enabled              :boolean          default(FALSE), not null
+#  entitlement_digest   :string(64)
+#  entitlement_payload  :jsonb            not null
+#  entitlement_version  :integer          default(0), not null
+#  grace_expires_at     :datetime
+#  identity_version     :integer          default(0), not null
+#  issued_at            :datetime
+#  notification_error   :text
+#  notification_sent_at :datetime
+#  notification_state   :string(32)       default("not_sent"), not null
+#  operator_email       :string(254)
+#  paid_through_at      :datetime
+#  requested_at         :datetime
+#  singleton_key        :string(16)       default("current"), not null
+#  status               :string(32)       default("inactive"), not null
+#  created_at           :datetime         not null
+#  updated_at           :datetime         not null
+#  enrollment_id        :string(36)       not null
+#  entitlement_id       :string(64)
+#  installation_id      :string(36)       not null
+#  operator_identity_id :string(100)
+#  operator_user_id     :bigint
+#  plan_id              :string(100)
+#  requested_by_id      :bigint
+#
+# Indexes
+#
+#  idx_discussion_bridge_operator_service_enrollment              (enrollment_id) UNIQUE
+#  idx_discussion_bridge_operator_service_entitlement             (entitlement_id) UNIQUE WHERE (entitlement_id IS NOT NULL)
+#  idx_discussion_bridge_operator_service_installation            (installation_id) UNIQUE
+#  idx_discussion_bridge_operator_service_singleton               (singleton_key) UNIQUE
+#  index_discussion_bridge_operator_services_on_operator_user_id  (operator_user_id)
+#
