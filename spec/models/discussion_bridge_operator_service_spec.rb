@@ -46,16 +46,43 @@ describe DiscussionBridgeOperatorService do
     expect(service.view_allowed?(operator)).to eq(false)
     expect(service.mutation_allowed?(operator)).to eq(false)
 
-    service.request!(user: admin)
+    service.enable!
     expect(service.reload).to have_attributes(enabled: true, status: "active")
     expect(service.operator_user).to eq(operator)
     expect(service.view_allowed?(operator)).to eq(true)
     expect(service.mutation_allowed?(operator)).to eq(true)
   end
 
+  it "separates local enablement from requesting enrollment" do
+    service = described_class.instance
+
+    expect { service.request!(user: admin) }.to raise_error(
+      ArgumentError,
+      "operator service must be enabled before requesting enrollment",
+    )
+
+    service.enable!
+    expect(service.reload).to have_attributes(
+      enabled: true,
+      status: "inactive",
+      requested_at: nil,
+      notification_state: "not_sent",
+    )
+    expect(service.effective_status).to eq("inactive")
+
+    service.request!(user: admin)
+    expect(service.reload).to have_attributes(
+      enabled: true,
+      status: "pending",
+      requested_by: admin,
+      notification_state: "queued",
+    )
+  end
+
   it "uses the centrally controlled fourteen-day grace period then becomes read-only" do
     paid_through = 1.day.ago
     service = described_class.instance
+    service.enable!
     service.request!(user: admin)
     service.apply_entitlement!(claims(status: "past_due", paid_through_at: paid_through))
 
@@ -68,6 +95,7 @@ describe DiscussionBridgeOperatorService do
 
   it "rejects replayed entitlements and requires a newer identity version for replacement" do
     service = described_class.instance
+    service.enable!
     service.request!(user: admin)
     service.apply_entitlement!(claims)
 
@@ -85,6 +113,7 @@ describe DiscussionBridgeOperatorService do
 
   it "fails closed for revoked service while administrators retain control" do
     service = described_class.instance
+    service.enable!
     service.request!(user: admin)
     service.apply_entitlement!(claims(status: "revoked"))
 

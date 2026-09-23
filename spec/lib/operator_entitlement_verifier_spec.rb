@@ -8,6 +8,7 @@ describe DiscussionBridge::OperatorEntitlementVerifier do
   before do
     @key = OpenSSL::PKey::RSA.generate(2048)
     @service = DiscussionBridgeOperatorService.instance
+    @service.enable!
     @service.request!(user: admin)
   end
 

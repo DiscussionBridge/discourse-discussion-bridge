@@ -16,6 +16,19 @@ module DiscussionBridge
       render json: { errors: [error.message] }, status: :unprocessable_entity
     end
 
+    def request_service
+      service.request!(user: current_user)
+      DiscussionBridge::OperatorAudit.record(
+        event_type: "service_requested",
+        actor: current_user,
+        details: { status: service.effective_status },
+      )
+      enqueue_notification("requested")
+      render json: payload(service.reload)
+    rescue ArgumentError => error
+      render json: { errors: [error.message] }, status: :unprocessable_entity
+    end
+
     private
 
     def service
@@ -25,25 +38,28 @@ module DiscussionBridge
     def enable_service
       return if service.enabled?
 
-      service.request!(user: current_user)
+      service.enable!
       DiscussionBridge::OperatorAudit.record(
-        event_type: "service_requested",
+        event_type: "service_enabled",
         actor: current_user,
         details: { status: service.effective_status },
       )
-      enqueue_notification("requested")
     end
 
     def disable_service
       return unless service.enabled?
 
-      service.disable!(user: current_user)
+      notify_service = service.requested_at.present? || service.entitlement_id.present?
+      service.disable!
       DiscussionBridge::OperatorAudit.record(
         event_type: "service_disabled",
         actor: current_user,
         details: { status: service.effective_status },
       )
-      enqueue_notification("disabled")
+      if notify_service
+        service.update!(notification_state: "queued", notification_error: nil)
+        enqueue_notification("disabled")
+      end
     end
 
     def enqueue_notification(event)
@@ -68,6 +84,8 @@ module DiscussionBridge
         requested_by: record.requested_by&.username,
         notification_state: record.notification_state,
         notification_sent_at: record.notification_sent_at,
+        request_available: record.request_available?,
+        request_submitted: record.requested_at.present?,
         operator_identity_id: record.operator_identity_id,
         operator_email: record.operator_email,
         operator_username: record.operator_user&.username,

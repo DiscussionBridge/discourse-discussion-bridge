@@ -1,11 +1,12 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { fn } from "@ember/helper";
 import { action } from "@ember/object";
+import { on } from "@ember/modifier";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
+import DToggleSwitch from "discourse/ui-kit/d-toggle-switch";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgeOperatorService extends Component {
@@ -27,8 +28,36 @@ export default class DiscussionBridgeOperatorService extends Component {
       );
       this.notice = i18n(
         enabled
-          ? "discussion_bridge.admin.operator_service_requested"
+          ? "discussion_bridge.admin.operator_service_enabled"
           : "discussion_bridge.admin.operator_service_disabled"
+      );
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.working = false;
+    }
+  }
+
+  @action
+  toggleEnabled() {
+    if (this.working) {
+      return;
+    }
+
+    return this.setEnabled(!this.state.enabled);
+  }
+
+  @action
+  async requestService() {
+    this.working = true;
+    this.notice = "";
+    try {
+      this.state = await ajax(
+        "/discussion-bridge/admin/operator-service/request.json",
+        { type: "POST" }
+      );
+      this.notice = i18n(
+        "discussion_bridge.admin.operator_service_requested"
       );
     } catch (error) {
       popupAjaxError(error);
@@ -64,26 +93,45 @@ export default class DiscussionBridgeOperatorService extends Component {
       />
 
       <section class="discussion-bridge-operator-service__panel">
+        <h3>{{i18n "discussion_bridge.admin.operator_service_local_control"}}</h3>
+        <p>{{i18n
+            "discussion_bridge.admin.operator_service_local_control_description"
+          }}</p>
+        <DToggleSwitch
+          @state={{this.state.enabled}}
+          @translatedLabel={{i18n
+            "discussion_bridge.admin.operator_service_toggle"
+          }}
+          disabled={{this.working}}
+          {{on "click" this.toggleEnabled}}
+        />
+        {{#if this.notice}}<p role="status"><strong>{{this.notice}}</strong></p>{{/if}}
+      </section>
+
+      <section class="discussion-bridge-operator-service__panel">
         <h3>{{i18n "discussion_bridge.admin.operator_service_enrollment"}}</h3>
         <p>{{i18n
             "discussion_bridge.admin.operator_service_disclosure"
             email=this.state.service_request_email
           }}</p>
-        {{#if this.state.enabled}}
+        {{#if this.state.request_available}}
           <DButton
-            @label="discussion_bridge.admin.operator_service_disable"
-            @action={{fn this.setEnabled false}}
-            @disabled={{this.working}}
-          />
-        {{else}}
-          <DButton
-            @label="discussion_bridge.admin.operator_service_enable"
-            @action={{fn this.setEnabled true}}
+            @label="discussion_bridge.admin.operator_service_request"
+            @action={{this.requestService}}
             @disabled={{this.working}}
             class="btn-primary"
           />
+        {{else}}
+          {{#if this.state.request_submitted}}
+            <p class="discussion-bridge-operator-service__request-state">
+              {{i18n "discussion_bridge.admin.operator_service_request_submitted"}}
+            </p>
+          {{else}}
+            <p class="discussion-bridge-operator-service__request-state">
+              {{i18n "discussion_bridge.admin.operator_service_enable_first"}}
+            </p>
+          {{/if}}
         {{/if}}
-        {{#if this.notice}}<p role="status"><strong>{{this.notice}}</strong></p>{{/if}}
       </section>
 
       <section class="discussion-bridge-operator-service__panel">
