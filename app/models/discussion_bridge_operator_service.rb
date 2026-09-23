@@ -33,7 +33,15 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
 
   def enable!
     with_lock do
-      update!(enabled: true, disabled_at: nil)
+      local_status =
+        if entitlement_id.present?
+          status
+        elsif requested_at.present?
+          "pending"
+        else
+          "inactive"
+        end
+      update!(enabled: true, status: local_status, disabled_at: nil)
     end
   end
 
@@ -106,6 +114,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
 
   def effective_status(now: Time.zone.now)
     return "inactive" unless enabled
+    return "inactive" if entitlement_id.blank? && requested_at.blank?
     return "pending" if entitlement_id.blank?
     return "revoked" if status == "revoked"
     return "read_only" unless paid_through_at && grace_expires_at

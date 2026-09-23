@@ -68,6 +68,7 @@ describe DiscussionBridgeOperatorService do
       requested_at: nil,
       notification_state: "not_sent",
     )
+    expect(service.effective_status).to eq("inactive")
 
     service.request!(user: admin)
     expect(service.reload).to have_attributes(
