@@ -337,8 +337,8 @@ module ::DiscussionBridge
 
     def publication_work_page
       filter = params[:publication_filter].presence || "all"
-      raise Discourse::InvalidParameters.new(:publication_filter) unless
-        PUBLICATION_WORK_FILTERS.include?(filter)
+      raise Discourse::InvalidParameters.new(:publication_filter) if
+        PUBLICATION_WORK_FILTERS.exclude?(filter)
 
       scope = DiscussionBridgePublicationWorkItem.includes(:content_connection, bridge_record: :topic)
         .order(updated_at: :desc, id: :desc)
