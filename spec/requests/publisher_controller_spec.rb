@@ -582,4 +582,125 @@ describe DiscussionBridge::PublisherController do
       "discussion_bridge.notification.resolved_title",
     )
   end
+
+  it "reports every forum-publication connection and applies a durable per-topic override" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(admin)
+
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+
+    expect(response).to have_http_status(:ok)
+    status = response.parsed_body.fetch("connections").sole
+    expect(status.dig("connection", "id")).to eq(@connection.id)
+    expect(status.dig("override", "decision")).to eq("inherit")
+    expect(status.dig("effective", "basis")).to eq("connection_rules")
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.dig("connections", 0, "override")).to include(
+      "decision" => "exclude",
+      "set_by" => admin.username,
+    )
+    expect(response.parsed_body.dig("connections", 0, "effective")).to include(
+      "eligible" => false,
+      "reason" => "operator_excluded",
+      "basis" => "operator_override",
+    )
+    expect(DiscussionBridgePublicationOverride.find_by!(
+      content_connection: @connection,
+      topic: topic,
+    ).decision).to eq("exclude")
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "inherit" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("connections", 0, "override", "decision")).to eq("inherit")
+    expect(DiscussionBridgePublicationOverride.where(
+      content_connection: @connection,
+      topic: topic,
+    )).to be_empty
+  end
+
+  it "queues unpublish when staff excludes an existing platform publication" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(native_materialization: true),
+         as: :json
+    expect(response).to have_http_status(:created)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(DiscussionBridgePublicationWorkItem.find_by!(
+      content_connection: @connection,
+      topic: topic,
+    )).to have_attributes(
+      action: "unpublish",
+      state: "queued",
+      reason: "operator_excluded",
+    )
+  end
+
+  it "lets an explicit publish override connection selection rules but not safety policy" do
+    selected_category = Fabricate(:category)
+    @connection.update!(
+      forum_publication_enabled: true,
+      publication_category_mode: "only_selected",
+      publication_category_ids: [selected_category.id],
+    )
+    sign_in(admin)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "publish" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.dig("connections", 0, "rule")).to include(
+      "eligible" => false,
+      "reason" => "category_not_selected",
+    )
+    expect(response.parsed_body.dig("connections", 0, "effective")).to include(
+      "eligible" => true,
+      "basis" => "operator_override",
+    )
+
+    sign_out
+    get "/discussion-bridge/v1/source-topics.json", headers: adapter_headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("source_topics").map { |item| item.fetch("topic_id") })
+      .to include(topic.id)
+    sign_in(admin)
+
+    topic.update!(visible: false)
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "publish" } },
+        as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "topic cannot be published: topic_unlisted",
+    )
+  end
+
+  it "does not let a non-staff user inspect or change topic publication status" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(user)
+
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+    expect(response).to have_http_status(:forbidden)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(DiscussionBridgePublicationOverride.count).to eq(0)
+  end
 end

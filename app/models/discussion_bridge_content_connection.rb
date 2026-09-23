@@ -31,6 +31,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            class_name: "DiscussionBridgePublicationWorkItem",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
+  has_many :publication_overrides,
+           class_name: "DiscussionBridgePublicationOverride",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true

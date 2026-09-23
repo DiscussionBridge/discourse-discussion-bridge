@@ -300,4 +300,33 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_link("Export report")
     expect(page).to have_no_content("Care diagnostics")
   end
+
+  it "manages per-connection publication policy from the native topic wrench menu" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    @connection.update!(forum_publication_enabled: true)
+    topic = Topic.find_by!(title: "Community Guide")
+    sign_in(admin)
+
+    visit(topic.url)
+    expect(page).to have_css(".toggle-admin-menu", wait: 30)
+    find(".toggle-admin-menu").click
+    expect(page).to have_button("DiscussionBridge Status")
+    click_button("DiscussionBridge Status")
+
+    within(".discussion-bridge-topic-status") do
+      expect(page).to have_content("Main publication", wait: 30)
+      expect(page).to have_content("Included by connection rules")
+      expect(page).to have_content("Not yet published")
+      click_button("Stop publishing")
+      expect(page).to have_content("Topic publication policy saved.", wait: 30)
+      expect(page).to have_content("operator excluded")
+      click_button("Use connection rules")
+      expect(page).to have_content("Included by connection rules", wait: 30)
+    end
+
+    expect(DiscussionBridgePublicationOverride.where(
+      content_connection: @connection,
+      topic: topic,
+    )).to be_empty
+  end
 end

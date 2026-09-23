@@ -58,6 +58,24 @@ Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
 
 The native Discourse Settings tab remains the editor for forum-wide policy.
 
+On an individual topic, staff can open the native topic wrench menu and choose
+**DiscussionBridge Status**. The modal shows every enabled forum-publication
+Content Connection, the inherited category/tag rule, any explicit topic
+override, the effective decision, current queue state, and the bound platform
+publication. Staff may **Publish**, **Stop publishing**, or return the topic to
+**Use connection rules** independently for each connection. An explicit topic
+override survives later category and tag edits; it never overrides private,
+staff-only, deleted, unlisted-without-authorization, or category-definition
+safety exclusions.
+
+Stopping publication queues an adapter-owned unpublish while retaining the
+Discourse topic, Bridge Record, binding history, and audit identity. The same
+modal reuses the verified one-publication URL-change operation for an existing
+native publication. That operation is distinct from stopping publication and
+from a future site/platform-wide migration workflow: it requires the same
+native platform item plus a verified permanent redirect and changes the
+existing binding in place.
+
 ## Adapter API
 
 All adapter requests use HTTPS and JSON. Authentication is connection-scoped:

@@ -54,16 +54,42 @@ module ::DiscussionBridge
     end
 
     def topic_status
-      topic = Topic.find(params.require(:topic_id))
-      guardian.ensure_can_see!(topic)
-      render json: {
+      render json: topic_status_payload(visible_topic)
+    end
+
+    def update_topic_policy
+      topic = visible_topic
+      connection = publication_policy_connections.find do |candidate|
+        candidate.id == params.require(:connection_id).to_i
+      end
+      raise ActiveRecord::RecordNotFound unless connection
+
+      DiscussionBridge::PublicationOverrideManager.call(
+        user: current_user,
+        connection: connection,
+        topic: topic,
+        decision: params.require(:publication_policy).fetch(:decision),
+      )
+      render json: topic_status_payload(topic)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ArgumentError => error
+      errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+      render json: { errors: errors }, status: :unprocessable_entity
+    end
+
+    def reconcile_topic
+      topic = visible_topic
+      connection = publication_policy_connections.find do |candidate|
+        candidate.id == params.require(:connection_id).to_i
+      end
+      raise ActiveRecord::RecordNotFound unless connection
+
+      DiscussionBridge::PublicationWorkQueue.reconcile_topic!(
         topic_id: topic.id,
-        title: topic.title,
-        topic_url: topic.url,
-        publications: from_discourse_records.where(topic_id: topic.id).order(:id).map do |record|
-          publication_payload(record)
-        end,
-      }
+        connection: connection,
+      )
+      render json: topic_status_payload(topic)
+    rescue ActiveRecord::RecordNotFound, ArgumentError => error
+      render json: { errors: [error.message] }, status: :unprocessable_entity
     end
 
     def correct_presentation
@@ -191,6 +217,75 @@ module ::DiscussionBridge
         delivery_reason: work&.reason || record.last_delivery_error_code,
         delivery_attempt_count: work&.attempt_count || record.delivery_attempt_count,
         last_delivery_attempt_at: record.last_delivery_attempt_at,
+      }
+    end
+
+    def publication_policy_connections
+      available_connections.select(&:forum_publication_enabled)
+    end
+
+    def visible_topic
+      topic = Topic.includes(:category, :tags, first_post: :user).find(params.require(:topic_id))
+      guardian.ensure_can_see!(topic)
+      topic
+    end
+
+    def topic_status_payload(topic)
+      connections = publication_policy_connections
+      overrides = DiscussionBridgePublicationOverride.where(
+        content_connection_id: connections.map(&:id),
+        topic_id: topic.id,
+      ).includes(:set_by).index_by(&:content_connection_id)
+      records = from_discourse_records.where(topic_id: topic.id).includes(
+        :publication_work_items,
+        content_bindings: :content_connection,
+      )
+
+      {
+        topic_id: topic.id,
+        title: topic.title,
+        topic_url: topic.url,
+        connections: connections.map do |connection|
+          topic_connection_payload(
+            connection,
+            topic,
+            overrides[connection.id],
+            records,
+          )
+        end,
+      }
+    end
+
+    def topic_connection_payload(connection, topic, override, records)
+      rule = DiscussionBridge::PublicationTopicScope.rule_eligibility(connection, topic)
+      hard = DiscussionBridge::PublicationTopicScope.hard_eligibility(connection, topic)
+      effective = DiscussionBridge::PublicationTopicScope.eligibility(connection, topic)
+      binding_record = records.find do |record|
+        record.content_bindings.any? do |binding|
+          binding.role == "presentation" && binding.state == "active" &&
+            binding.content_connection_id == connection.id
+        end
+      end
+      work = connection.publication_work_items.find_by(topic_id: topic.id)
+      basis = if !hard.fetch(:eligible)
+        "safety_policy"
+      elsif override
+        "operator_override"
+      else
+        "connection_rules"
+      end
+
+      {
+        connection: connection_payload(connection),
+        rule: rule,
+        override: override ? {
+          decision: override.decision,
+          set_by: override.set_by.username,
+          updated_at: override.updated_at,
+        } : { decision: "inherit" },
+        effective: effective.merge(basis: basis, publish_allowed: hard.fetch(:eligible)),
+        publication: binding_record && publication_payload(binding_record),
+        work: work && publication_work_payload(work),
       }
     end
 

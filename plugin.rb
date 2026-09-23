@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.44
+# version: 0.2.0.alpha.45
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -14,6 +14,7 @@ enabled_site_setting :discussion_bridge_enabled
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
+register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
@@ -50,7 +51,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.44"
+    VERSION = "0.2.0.alpha.45"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -99,7 +100,9 @@ after_initialize do
   require_relative "app/models/discussion_bridge_presentation_url_history"
   require_relative "app/models/discussion_bridge_source_url_history"
   require_relative "app/models/discussion_bridge_publication_work_item"
+  require_relative "app/models/discussion_bridge_publication_override"
   require_relative "lib/discussion_bridge/publication_work_queue"
+  require_relative "lib/discussion_bridge/publication_override_manager"
   require_relative "lib/discussion_bridge/publication_attention_notifier"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_topic"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_connection"
@@ -385,6 +388,10 @@ after_initialize do
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
     put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"
     get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
+    put "/v1/publisher/topics/:topic_id/connections/:connection_id/policy" =>
+      "publisher#update_topic_policy"
+    post "/v1/publisher/topics/:topic_id/connections/:connection_id/reconcile" =>
+      "publisher#reconcile_topic"
   end
 
   Discourse::Application.routes.append do
