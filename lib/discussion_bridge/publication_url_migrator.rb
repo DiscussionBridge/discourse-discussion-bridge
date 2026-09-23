@@ -31,7 +31,7 @@ module DiscussionBridge
     end
 
     def call
-      raise Discourse::InvalidAccess unless @user&.staff?
+      raise Discourse::InvalidAccess unless DiscussionBridge::OperatorServiceAccess.mutate?(@user)
       record = DiscussionBridgeBridgeRecord.find_by!(resource_id: @resource_id, direction: "from_discourse")
       binding = record.content_bindings.find_by!(role: "presentation", state: "active")
       connection = binding.content_connection

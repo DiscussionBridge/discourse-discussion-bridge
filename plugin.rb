@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.47
+# version: 0.2.0.alpha.48
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -16,6 +16,7 @@ register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
 register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
+register_asset "stylesheets/common/discussion-bridge-operator-service.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
@@ -52,7 +53,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.47"
+    VERSION = "0.2.0.alpha.48"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -83,6 +84,11 @@ after_initialize do
   require_relative "lib/discussion_bridge/topic_publication_state"
   require_relative "lib/discussion_bridge/publication_status_access"
   require_relative "lib/discussion_bridge/publication_summary"
+  require_relative "app/models/discussion_bridge_operator_service"
+  require_relative "app/models/discussion_bridge_operator_event"
+  require_relative "lib/discussion_bridge/operator_service_access"
+  require_relative "lib/discussion_bridge/operator_audit"
+  require_relative "lib/discussion_bridge/operator_entitlement_verifier"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
   require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
@@ -110,6 +116,8 @@ after_initialize do
   require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_topic"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_connection"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_category"
+  require_relative "app/mailers/discussion_bridge/operator_service_mailer"
+  require_relative "app/jobs/regular/discussion_bridge_operator_service_notification"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
   require_relative "app/controllers/discussion_bridge/adapter_publication_work_controller"
@@ -119,6 +127,8 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
+  require_relative "app/controllers/discussion_bridge/operator_service_controller"
+  require_relative "app/controllers/discussion_bridge/operator_entitlements_controller"
 
   Topic.has_many(
     :discussion_bridge_publication_work_items,
@@ -165,6 +175,13 @@ after_initialize do
     :discussion_bridge_publication_summary,
     include_condition: publication_summary_condition,
   ) { DiscussionBridge::PublicationSummary.call(object.topic) }
+
+  add_to_serializer(:current_user, :discussion_bridge_operator_can_view) do
+    DiscussionBridge::OperatorServiceAccess.view?(object)
+  end
+  add_to_serializer(:current_user, :discussion_bridge_operator_can_mutate) do
+    DiscussionBridge::OperatorServiceAccess.mutate?(object)
+  end
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -392,6 +409,11 @@ after_initialize do
   on(:post_recovered) do |post, *|
     queue_publication_topic.call(post.topic_id) if post.post_number == 1
   end
+  on(:user_created) do |user|
+    service = DiscussionBridgeOperatorService.instance
+    service.reconcile_operator_user! if service.enabled? &&
+      service.operator_email.present? && user.email.casecmp?(service.operator_email)
+  end
   on(:category_updated) do |category|
     if category.is_a?(Category)
       Jobs.enqueue(:discussion_bridge_reconcile_publication_category, category_id: category.id)
@@ -433,6 +455,9 @@ after_initialize do
     get "/admin/reconciliation/report" => "reconciliation#report"
     get "/admin/publishing" => "publisher#overview"
     post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
+    get "/admin/operator-service" => "operator_service#show"
+    put "/admin/operator-service" => "operator_service#update"
+    put "/v1/operator-entitlements/current" => "operator_entitlements#update"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
     put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"

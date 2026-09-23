@@ -6,7 +6,8 @@ module ::DiscussionBridge
     MAX_PUBLICATION_WORK_PAGE = 10_000
 
     requires_plugin DiscussionBridge::PLUGIN_NAME
-    before_action :ensure_staff
+    before_action :ensure_operator_view, only: %i[overview topic_status]
+    before_action :ensure_operator_mutation, except: %i[overview topic_status]
     before_action :ensure_publisher_enabled
 
     def overview
@@ -14,6 +15,11 @@ module ::DiscussionBridge
       work_counts = DiscussionBridgePublicationWorkItem.group(:state).count
       work_page = publication_work_page
       render json: {
+        operator_access: {
+          status: DiscussionBridge::OperatorServiceAccess.service.effective_status,
+          can_view: DiscussionBridge::OperatorServiceAccess.view?(current_user),
+          can_mutate: DiscussionBridge::OperatorServiceAccess.mutate?(current_user),
+        },
         product: {
           name: "DiscussionBridge",
           version: DiscussionBridge::VERSION,
@@ -30,6 +36,7 @@ module ::DiscussionBridge
           end,
         },
         recent_records: recent_records,
+        operator_events: operator_events,
         publication_work: work_page[:items],
         publication_work_pagination: work_page.except(:items),
       }
@@ -45,6 +52,13 @@ module ::DiscussionBridge
         canonical_url: input.fetch(:canonical_url),
         lane: input[:lane],
         native_materialization: native_materialization(input[:native_materialization]),
+      )
+      audit_operator_action(
+        "topic_published",
+        topic: result.record.topic,
+        connection: result.record.active_binding("presentation")&.content_connection,
+        bridge_record: result.record,
+        details: { resource_id: result.record.resource_id },
       )
       render json: publication_payload(result.record).merge(outcome: result.outcome),
              status: result.outcome == "created" ? :created : :ok
@@ -70,6 +84,12 @@ module ::DiscussionBridge
         topic: topic,
         decision: params.require(:publication_policy).fetch(:decision),
       )
+      audit_operator_action(
+        "topic_policy_changed",
+        topic: topic,
+        connection: connection,
+        details: { decision: params.require(:publication_policy).fetch(:decision) },
+      )
       render json: topic_status_payload(topic)
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ArgumentError => error
       errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
@@ -87,6 +107,7 @@ module ::DiscussionBridge
         topic_id: topic.id,
         connection: connection,
       )
+      audit_operator_action("topic_reconciled", topic: topic, connection: connection)
       render json: topic_status_payload(topic)
     rescue ActiveRecord::RecordNotFound, ArgumentError => error
       render json: { errors: [error.message] }, status: :unprocessable_entity
@@ -97,6 +118,12 @@ module ::DiscussionBridge
         user: current_user,
         resource_id: params.require(:resource_id),
         canonical_url: params.require(:publication).fetch(:canonical_url),
+      )
+      audit_operator_action(
+        "presentation_corrected",
+        topic: record.topic,
+        bridge_record: record,
+        details: { resource_id: record.resource_id },
       )
       render json: publication_payload(record).merge(outcome: "presentation_corrected")
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique,
@@ -115,6 +142,12 @@ module ::DiscussionBridge
         legacy_native_confirmation: input[:legacy_native_confirmation] == true ||
           input[:legacy_native_confirmation] == "true",
         platform_content_id: input[:platform_content_id],
+      )
+      audit_operator_action(
+        "publication_url_migrated",
+        topic: result.record.topic,
+        bridge_record: result.record,
+        details: { resource_id: result.record.resource_id },
       )
       render json: publication_payload(result.record).merge(
         outcome: result.outcome,
@@ -148,6 +181,13 @@ module ::DiscussionBridge
         )
       end
       DiscussionBridge::PublicationAttentionNotifier.call(item.content_connection)
+      audit_operator_action(
+        "publication_work_retried",
+        topic: item.bridge_record&.topic,
+        connection: item.content_connection,
+        bridge_record: item.bridge_record,
+        details: { action: item.action, resource_id: item.bridge_record&.resource_id },
+      )
       render json: {
         outcome: "queued",
         publication_work: publication_work_payload(item.reload),
@@ -347,12 +387,48 @@ module ::DiscussionBridge
       raise ArgumentError, "invalid native_materialization"
     end
 
-    def ensure_staff
-      raise Discourse::InvalidAccess unless current_user&.staff?
+    def ensure_operator_view
+      raise Discourse::InvalidAccess unless DiscussionBridge::OperatorServiceAccess.view?(current_user)
+    end
+
+    def operator_events
+      DiscussionBridgeOperatorEvent.includes(:actor_user, :topic, :content_connection)
+        .order(created_at: :desc, id: :desc)
+        .limit(50)
+        .map do |event|
+          {
+            id: event.id,
+            event_type: event.event_type,
+            outcome: event.outcome,
+            actor_username: event.actor_user&.username,
+            topic_id: event.topic_id,
+            topic_url: event.topic&.url,
+            connection_name: event.content_connection&.name,
+            details: event.details,
+            created_at: event.created_at,
+          }
+        end
+    end
+
+    def ensure_operator_mutation
+      raise Discourse::InvalidAccess unless DiscussionBridge::OperatorServiceAccess.mutate?(current_user)
     end
 
     def ensure_publisher_enabled
       raise Discourse::NotFound unless SiteSetting.discussion_bridge_publisher_enabled
+    end
+
+    def audit_operator_action(event_type, topic: nil, connection: nil, bridge_record: nil, details: {})
+      return if current_user&.staff?
+
+      DiscussionBridge::OperatorAudit.record(
+        event_type: event_type,
+        actor: current_user,
+        topic: topic,
+        connection: connection,
+        bridge_record: bridge_record,
+        details: details,
+      )
     end
   end
 end

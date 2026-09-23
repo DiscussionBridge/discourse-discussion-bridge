@@ -5,7 +5,7 @@ module DiscussionBridge
     DECISIONS = (DiscussionBridgePublicationOverride::DECISIONS + ["inherit"]).freeze
 
     def self.call(user:, connection:, topic:, decision:)
-      raise Discourse::InvalidAccess unless user&.staff?
+      raise Discourse::InvalidAccess unless DiscussionBridge::OperatorServiceAccess.mutate?(user)
       raise ArgumentError, "publication connection is unavailable" unless
         PublicationWorkQueue.publication_connection?(connection)
 

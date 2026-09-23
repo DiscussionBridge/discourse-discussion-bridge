@@ -38,6 +38,11 @@ export default {
           description: "discussion_bridge.admin.publishing_nav_description",
         },
         {
+          label: "discussion_bridge.admin.operator_service_nav",
+          route: "adminPlugins.show.discussion-bridge-operator-service",
+          description: "discussion_bridge.admin.operator_service_nav_description",
+        },
+        {
           label: "discussion_bridge.admin.settings_nav",
           route: "adminPlugins.show.settings",
           description: "discussion_bridge.admin.settings_nav_description",

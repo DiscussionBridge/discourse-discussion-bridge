@@ -1,5 +1,6 @@
 import DiscussionBridgeTopicStatus from "discourse/plugins/discourse-discussion-bridge/discourse/components/discussion-bridge-topic-status";
 import DiscussionBridgePublicationBadge from "discourse/plugins/discourse-discussion-bridge/discourse/components/discussion-bridge-publication-badge";
+import DiscussionBridgeOperatorTopicControl from "discourse/plugins/discourse-discussion-bridge/discourse/components/discussion-bridge-operator-topic-control";
 import { withPluginApi } from "discourse/lib/plugin-api";
 
 export default {
@@ -25,7 +26,19 @@ export default {
         "after-topic-footer-buttons",
         DiscussionBridgePublicationBadge
       );
-      if (currentUser.staff) {
+      if (
+        currentUser.discussion_bridge_operator_can_view &&
+        !currentUser.staff
+      ) {
+        api.renderInOutlet(
+          "after-topic-footer-buttons",
+          DiscussionBridgeOperatorTopicControl
+        );
+      }
+      if (
+        currentUser.staff ||
+        currentUser.discussion_bridge_operator_can_view
+      ) {
         api.addTopicAdminMenuButton((topic) => ({
           action: () =>
             container
