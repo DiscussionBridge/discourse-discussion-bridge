@@ -5,7 +5,7 @@ import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import { eq } from "discourse/truth-helpers";
+import { eq, not, or } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DModal from "discourse/ui-kit/d-modal";
 import DModalCancel from "discourse/ui-kit/d-modal-cancel";
@@ -129,26 +129,6 @@ export default class DiscussionBridgeTopicStatus extends Component {
     return value?.replaceAll("_", " ") || "—";
   }
 
-  connectionWorking(item) {
-    return this.workingConnectionId === item.connection.id;
-  }
-
-  publishDisabled(item) {
-    return (
-      this.connectionWorking(item) ||
-      !item.effective.publish_allowed ||
-      item.override.decision === "publish"
-    );
-  }
-
-  stopDisabled(item) {
-    return this.connectionWorking(item) || item.override.decision === "exclude";
-  }
-
-  rulesDisabled(item) {
-    return this.connectionWorking(item) || item.override.decision === "inherit";
-  }
-
   <template>
     <DModal
       @closeModal={{@closeModal}}
@@ -252,29 +232,42 @@ export default class DiscussionBridgeTopicStatus extends Component {
                   <DButton
                     @label="discussion_bridge.topic_status.publish"
                     @action={{fn this.setPolicy item "publish"}}
-                    @disabled={{this.publishDisabled item}}
+                    @disabled={{or
+                      (eq this.workingConnectionId item.connection.id)
+                      (not item.effective.publish_allowed)
+                      (eq item.override.decision "publish")
+                    }}
                     class="btn-primary"
                   />
                   <DButton
                     @label="discussion_bridge.topic_status.stop_publishing"
                     @action={{fn this.setPolicy item "exclude"}}
-                    @disabled={{this.stopDisabled item}}
+                    @disabled={{or
+                      (eq this.workingConnectionId item.connection.id)
+                      (eq item.override.decision "exclude")
+                    }}
                   />
                   <DButton
                     @label="discussion_bridge.topic_status.use_connection_rules"
                     @action={{fn this.setPolicy item "inherit"}}
-                    @disabled={{this.rulesDisabled item}}
+                    @disabled={{or
+                      (eq this.workingConnectionId item.connection.id)
+                      (eq item.override.decision "inherit")
+                    }}
                   />
                   <DButton
                     @label="discussion_bridge.topic_status.sync_now"
                     @action={{fn this.syncNow item}}
-                    @disabled={{this.connectionWorking item}}
+                    @disabled={{eq this.workingConnectionId item.connection.id}}
                   />
                   {{#if item.publication.native_materialization}}
                     <DButton
                       @label="discussion_bridge.topic_status.change_url"
                       @action={{fn this.beginUrlMigration item}}
-                      @disabled={{this.connectionWorking item}}
+                      @disabled={{eq
+                        this.workingConnectionId
+                        item.connection.id
+                      }}
                     />
                   {{/if}}
                 </div>
@@ -305,7 +298,10 @@ export default class DiscussionBridgeTopicStatus extends Component {
                     <DButton
                       @type="submit"
                       @label="discussion_bridge.topic_status.verify_and_change_url"
-                      @disabled={{this.connectionWorking item}}
+                      @disabled={{eq
+                        this.workingConnectionId
+                        item.connection.id
+                      }}
                       class="btn-primary"
                     />
                     <DButton
