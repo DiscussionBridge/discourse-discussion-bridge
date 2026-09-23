@@ -42,20 +42,20 @@ describe DiscussionBridge::AdminBridgeRecordsController do
 
   it "returns explicit publication state and sorts the complete result set server-side" do
     create_publication(
-      title: "Zulu published",
+      title: "Zoning policy overview",
       slug: "zulu",
       work_state: "current",
       destination_state: "healthy",
     )
     create_publication(
-      title: "Alpha unpublished",
+      title: "Agriculture policy digest",
       slug: "alpha",
       work_state: "unpublished",
       action: "unpublish",
       destination_state: "held",
     )
     create_publication(
-      title: "Middle queued",
+      title: "Medical coverage update",
       slug: "middle",
       work_state: "queued",
     )
@@ -70,7 +70,7 @@ describe DiscussionBridge::AdminBridgeRecordsController do
 
     get "/discussion-bridge/admin/bridge-records.json", params: { sort: "title", order: "asc" }
     expect(response.parsed_body.fetch("bridge_records").map { |record| record.fetch("title") })
-      .to eq(["Alpha unpublished", "Middle queued", "Zulu published"])
+      .to eq(["Agriculture policy digest", "Medical coverage update", "Zoning policy overview"])
   end
 
   it "rejects unrecognized sort columns and directions" do

@@ -57,7 +57,7 @@ module DiscussionBridge
 
     def publication_work_items
       association = @topic.association(:discussion_bridge_publication_work_items)
-      items = association.loaded? ? association.target : association.includes(:bridge_record).to_a
+      items = association.loaded? ? association.target : association.scope.includes(:bridge_record).to_a
       allowed = publication_connection_ids.to_set
       items.select { |item| allowed.include?(item.content_connection_id) }
     end
@@ -67,7 +67,7 @@ module DiscussionBridge
       records = if association.loaded?
         association.target
       else
-        association.includes(:publication_work_items, :content_bindings).to_a
+        association.scope.includes(:publication_work_items, :content_bindings).to_a
       end
       records.select { |record| record.direction == "from_discourse" }
     end
