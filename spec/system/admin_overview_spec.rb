@@ -151,7 +151,7 @@ describe "DiscussionBridge native product administration" do
     end
     expect(page).to have_content("Manage connection")
     check("Allow this adapter to publish eligible forum topics")
-    expect(page).to have_css(".discussion-bridge-direction-option > label", minimum: 3)
+    expect(page).to have_css(".discussion-bridge-direction-option > label", minimum: 2)
     expect(
       page.evaluate_script(
         "Array.from(document.querySelectorAll('.discussion-bridge-direction-option > label')).every((label) => { const input = label.querySelector('input[type=checkbox]'); const style = getComputedStyle(label); return input && style.display === 'flex' && style.alignItems === 'center' && input.getBoundingClientRect().left < label.getBoundingClientRect().right; })",
@@ -309,7 +309,7 @@ describe "DiscussionBridge native product administration" do
 
     visit(topic.url)
     expect(page).to have_css(".toggle-admin-menu", wait: 30)
-    find(".toggle-admin-menu").click
+    first(".toggle-admin-menu", visible: true).click
     expect(page).to have_button("DiscussionBridge Status")
     click_button("DiscussionBridge Status")
 

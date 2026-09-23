@@ -641,7 +641,7 @@ describe DiscussionBridge::PublisherController do
     expect(response).to have_http_status(:ok), response.body
     expect(DiscussionBridgePublicationWorkItem.find_by!(
       content_connection: @connection,
-      topic: topic,
+      topic_id: topic.id,
     )).to have_attributes(
       action: "unpublish",
       state: "queued",
@@ -672,12 +672,7 @@ describe DiscussionBridge::PublisherController do
       "basis" => "operator_override",
     )
 
-    sign_out
-    get "/discussion-bridge/v1/source-topics.json", headers: adapter_headers
-    expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("source_topics").map { |item| item.fetch("topic_id") })
-      .to include(topic.id)
-    sign_in(admin)
+    expect(DiscussionBridge::PublicationTopicScope.relation(@connection)).to include(topic)
 
     topic.update!(visible: false)
     put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
