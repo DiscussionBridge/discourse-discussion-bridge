@@ -17,7 +17,6 @@ export default {
     }
 
     withPluginApi((api) => {
-      api.addModelField("topic", "discussion_bridge_publication_summary");
       api.renderInOutlet(
         "topic-list-after-title",
         DiscussionBridgePublicationBadge
