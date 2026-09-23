@@ -3,7 +3,26 @@ import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgePublicationBadge extends Component {
   get summary() {
-    return this.args.outletArgs?.topic?.discussion_bridge_publication_summary;
+    const summary =
+      this.args.outletArgs?.topic?.discussion_bridge_publication_summary;
+    const validStates = new Set([
+      "published",
+      "not_published",
+      "partial",
+      "pending",
+      "attention",
+    ]);
+    const countKeys = ["published", "total", "pending", "attention"];
+
+    if (
+      !summary ||
+      !validStates.has(summary.state) ||
+      !countKeys.every((key) => Number.isInteger(summary[key]))
+    ) {
+      return null;
+    }
+
+    return summary;
   }
 
   get label() {

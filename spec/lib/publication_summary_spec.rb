@@ -81,6 +81,19 @@ describe DiscussionBridge::PublicationSummary do
     expect(described_class.call(topic)).to include(state: "not_published", total: 1)
   end
 
+  it "serializes the complete summary for Discourse suggested-topic rows" do
+    serialized =
+      SuggestedTopicSerializer.new(topic, scope: Guardian.new(admin), root: false).as_json
+
+    expect(serialized[:discussion_bridge_publication_summary]).to eq(
+      state: "not_published",
+      published: 0,
+      total: 2,
+      pending: 0,
+      attention: 0,
+    )
+  end
+
   it "supports administrator-only, staff, and configured-group badge audiences" do
     moderator = Fabricate(:moderator)
     editors = Fabricate(:group)
