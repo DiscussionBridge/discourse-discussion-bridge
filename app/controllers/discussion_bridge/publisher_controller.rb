@@ -4,6 +4,7 @@ module ::DiscussionBridge
   class PublisherController < ::ApplicationController
     PUBLICATION_WORK_PAGE_SIZE = 50
     MAX_PUBLICATION_WORK_PAGE = 10_000
+    PUBLICATION_WORK_FILTERS = %w[all attention].freeze
 
     requires_plugin DiscussionBridge::PLUGIN_NAME
     before_action :ensure_operator_view, only: %i[overview topic_status]
@@ -335,8 +336,15 @@ module ::DiscussionBridge
     end
 
     def publication_work_page
+      filter = params[:publication_filter].presence || "all"
+      raise Discourse::InvalidParameters.new(:publication_filter) if
+        PUBLICATION_WORK_FILTERS.exclude?(filter)
+
       scope = DiscussionBridgePublicationWorkItem.includes(:content_connection, bridge_record: :topic)
         .order(updated_at: :desc, id: :desc)
+      if filter == "attention"
+        scope = scope.where(state: DiscussionBridgePublicationWorkItem::ATTENTION_STATES)
+      end
       total = scope.count
       pages = [(total.to_f / PUBLICATION_WORK_PAGE_SIZE).ceil, 1].max
       requested_page = begin
@@ -354,16 +362,18 @@ module ::DiscussionBridge
         per_page: PUBLICATION_WORK_PAGE_SIZE,
         total: total,
         pages: pages,
+        filter: filter,
       }
     end
 
     def publication_work_payload(item)
       record = item.bridge_record
-      {
+      topic = record&.topic || Topic.with_deleted.includes(:first_post).find_by(id: item.topic_id)
+      payload = {
         id: item.id,
         topic_id: item.topic_id,
-        topic_url: record&.topic&.url || "/t/#{item.topic_id}",
-        title: record&.title || Topic.with_deleted.where(id: item.topic_id).pick(:title),
+        topic_url: topic&.url || "/t/#{item.topic_id}",
+        title: record&.title || topic&.title,
         connection_name: item.content_connection.name,
         platform: item.content_connection.platform,
         action: item.action,
@@ -378,6 +388,14 @@ module ::DiscussionBridge
         last_error_detail: item.last_error_detail,
         canonical_url: record&.active_binding("presentation")&.canonical_url,
       }
+      if item.reason == "source_content_too_large"
+        platform_limit = item.content_connection.platform_catalog&.dig("limits", "content_bytes").to_i
+        receiver_limit = DiscussionBridge::BridgeRecordRequest::MAX_PUBLICATION_CONTENT_HTML_BYTES
+        effective_limit = platform_limit.positive? ? [platform_limit, receiver_limit].min : receiver_limit
+        payload[:source_content_bytes] = topic&.first_post&.cooked.to_s.bytesize
+        payload[:source_content_limit_bytes] = effective_limit
+      end
+      payload
     end
 
     def native_materialization(value)

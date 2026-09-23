@@ -73,6 +73,8 @@
   }
   &__recent { overflow-x: auto; }
   &__recent table { width: 100%; }
+  &__queue-filter { display: flex; align-items: center; gap: 0.6rem; margin: 0.75rem 0; font-weight: 700; }
+  &__queue-filter select { min-width: 12rem; font-weight: 400; }
   &__correction-row td { background: var(--dbp-mint); }
   &__correction { max-width: 48rem; padding: 0.5rem; }
   &__correction h4 { margin-top: 0; }

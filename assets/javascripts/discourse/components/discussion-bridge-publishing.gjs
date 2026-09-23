@@ -34,6 +34,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked migratedNativeResourceIds = {};
   @tracked publicationWork;
   @tracked publicationWorkPagination;
+  @tracked publicationWorkFilter;
 
   constructor() {
     super(...arguments);
@@ -44,7 +45,9 @@ export default class DiscussionBridgePublishing extends Component {
         per_page: 50,
         total: this.publicationWork.length,
         pages: 1,
+        filter: "all",
       };
+    this.publicationWorkFilter = this.publicationWorkPagination.filter ?? "all";
   }
 
   @action
@@ -278,7 +281,10 @@ export default class DiscussionBridgePublishing extends Component {
     this.working = true;
     try {
       const result = await ajax("/discussion-bridge/admin/publishing.json", {
-        data: { publication_page: page },
+        data: {
+          publication_page: page,
+          publication_filter: this.publicationWorkFilter,
+        },
       });
       this.publicationWork = result.publication_work;
       this.publicationWorkPagination = result.publication_work_pagination;
@@ -287,6 +293,12 @@ export default class DiscussionBridgePublishing extends Component {
     } finally {
       this.working = false;
     }
+  }
+
+  @action
+  async updatePublicationWorkFilter(event) {
+    this.publicationWorkFilter = event.target.value;
+    await this.loadPublicationWorkPage(1);
   }
 
   get hasPreviousPublicationWorkPage() {
@@ -663,6 +675,13 @@ export default class DiscussionBridgePublishing extends Component {
       <section class="discussion-bridge-publishing__recent discussion-bridge-publishing__recent--queue">
         <h3>{{i18n "discussion_bridge.admin.publication_queue"}}</h3>
         <p>{{i18n "discussion_bridge.admin.publication_queue_description"}}</p>
+        <label class="discussion-bridge-publishing__queue-filter">
+          {{i18n "discussion_bridge.admin.publication_queue_filter"}}
+          <select {{on "change" this.updatePublicationWorkFilter}}>
+            <option value="all" selected={{eq this.publicationWorkFilter "all"}}>{{i18n "discussion_bridge.admin.all"}}</option>
+            <option value="attention" selected={{eq this.publicationWorkFilter "attention"}}>{{i18n "discussion_bridge.admin.publication_queue_attention_filter"}}</option>
+          </select>
+        </label>
         <table>
           <thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.connection"}}</th><th>{{i18n "discussion_bridge.admin.action"}}</th><th>{{i18n "discussion_bridge.admin.status"}}</th><th>{{i18n "discussion_bridge.admin.reason"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
           <tbody>
@@ -672,7 +691,11 @@ export default class DiscussionBridgePublishing extends Component {
                 <td>{{item.connection_name}} · {{this.displayToken item.platform}}</td>
                 <td>{{this.displayToken item.action}}</td>
                 <td><span class="discussion-bridge-status" data-state={{item.state}}>{{this.displayToken item.state}}</span></td>
-                <td>{{this.displayToken item.reason}}{{#if item.last_error_detail}}<small>{{item.last_error_detail}}</small>{{/if}}</td>
+                <td>{{this.displayToken item.reason}}{{#if item.source_content_bytes}}<small>{{i18n
+                      "discussion_bridge.admin.publication_source_size"
+                      bytes=item.source_content_bytes
+                      limit=item.source_content_limit_bytes
+                    }}</small>{{/if}}{{#if item.last_error_detail}}<small>{{item.last_error_detail}}</small>{{/if}}</td>
                 <td>{{#if (eq item.state "failed")}}<DButton
                     @label="discussion_bridge.admin.retry_publication"
                     @action={{fn this.retryPublicationWork item}}
