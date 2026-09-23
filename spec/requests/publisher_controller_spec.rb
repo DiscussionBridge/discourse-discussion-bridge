@@ -539,9 +539,53 @@ describe DiscussionBridge::PublisherController do
       "per_page" => 50,
       "total" => 55,
       "pages" => 2,
+      "filter" => "all",
     )
     expect(response.parsed_body.fetch("publication_work").map { |item| item.fetch("topic_id") })
       .to eq((10_000..10_004).to_a.reverse)
+  end
+
+  it "filters pre-record publication attention and reports the measured source boundary" do
+    first_post.update_column(:cooked, "x" * 70_000)
+    @connection.update_column(:platform_catalog, { "limits" => { "content_bytes" => 49_152 } })
+    attention = DiscussionBridgePublicationWorkItem.create!(
+      content_connection: @connection,
+      topic_id: topic.id,
+      action: "publish",
+      state: "attention",
+      reason: "source_content_too_large",
+    )
+    failed = DiscussionBridgePublicationWorkItem.create!(
+      content_connection: @connection,
+      topic_id: 20_001,
+      action: "publish",
+      state: "failed",
+      reason: "delivery_failed",
+    )
+    DiscussionBridgePublicationWorkItem.create!(
+      content_connection: @connection,
+      topic_id: 20_002,
+      action: "publish",
+      state: "queued",
+      reason: "initial_publication",
+    )
+
+    sign_in(admin)
+    get "/discussion-bridge/admin/publishing.json",
+        params: { publication_filter: "attention" }
+
+    expect(response).to have_http_status(:ok)
+    work = response.parsed_body.fetch("publication_work")
+    expect(work.map { |item| item.fetch("id") }).to contain_exactly(attention.id, failed.id)
+    oversized = work.find { |item| item.fetch("id") == attention.id }
+    expect(oversized).to include(
+      "source_content_bytes" => 70_000,
+      "source_content_limit_bytes" => 49_152,
+    )
+    expect(response.parsed_body.fetch("publication_work_pagination")).to include(
+      "filter" => "attention",
+      "total" => 2,
+    )
   end
 
   it "lets staff requeue an exhausted publication and notifies operators when attention clears" do

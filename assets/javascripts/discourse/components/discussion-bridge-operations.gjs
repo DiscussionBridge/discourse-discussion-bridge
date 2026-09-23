@@ -245,6 +245,11 @@ export default class DiscussionBridgeOperations extends Component {
         @titleLabel={{i18n "discussion_bridge.admin.bridge_records_title"}}
         @descriptionLabel={{i18n "discussion_bridge.admin.bridge_records_description"}}
       />
+      <p class="discussion-bridge-operations__pre-record-note">{{i18n
+          "discussion_bridge.admin.bridge_records_pre_record_attention_before"
+        }} <a href="/admin/plugins/discourse-discussion-bridge/publishing">{{i18n
+            "discussion_bridge.admin.publishing_nav"
+          }}</a>{{i18n "discussion_bridge.admin.bridge_records_pre_record_attention_after"}}</p>
 
       <div class="discussion-bridge-direction-cards">
         <section data-direction="to_discourse"><strong>{{i18n "discussion_bridge.admin.to_discourse"}}</strong><p>{{i18n "discussion_bridge.admin.to_discourse_description"}}</p></section>
@@ -265,7 +270,7 @@ export default class DiscussionBridgeOperations extends Component {
             <option value="" selected={{eq this.state ""}}>{{i18n "discussion_bridge.admin.all"}}</option>
             <option value="healthy" selected={{eq this.state "healthy"}}>{{i18n "discussion_bridge.admin.healthy"}}</option>
             <option value="migration" selected={{eq this.state "migration"}}>{{i18n "discussion_bridge.admin.migration"}}</option>
-            <option value="attention" selected={{eq this.state "attention"}}>{{i18n "discussion_bridge.admin.needs_attention"}}</option>
+            <option value="attention" selected={{eq this.state "attention"}}>{{i18n "discussion_bridge.admin.record_needs_attention"}}</option>
           </select>
         </label>
         <label>{{i18n "discussion_bridge.admin.connection"}}
