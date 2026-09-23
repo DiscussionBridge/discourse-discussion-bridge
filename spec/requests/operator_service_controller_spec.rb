@@ -8,7 +8,10 @@ describe DiscussionBridge::OperatorServiceController do
 
   before do
     SiteSetting.discussion_bridge_enabled = true
-    allow(Jobs).to receive(:enqueue)
+    @enqueued_jobs = []
+    allow(Jobs).to receive(:enqueue) do |job_name, **arguments|
+      @enqueued_jobs << [job_name, arguments]
+    end
   end
 
   it "lets only an administrator explicitly request or disable service" do
@@ -30,11 +33,15 @@ describe DiscussionBridge::OperatorServiceController do
       "grace_period_days" => 14,
       "notification_state" => "queued",
     )
-    expect(Jobs).to have_received(:enqueue).with(
-      :discussion_bridge_operator_service_notification,
-      service_id: kind_of(Integer),
-      event: "requested",
-      requested_by_id: admin.id,
+    expect(@enqueued_jobs).to include(
+      [
+        :discussion_bridge_operator_service_notification,
+        {
+          service_id: DiscussionBridgeOperatorService.instance.id,
+          event: "requested",
+          requested_by_id: admin.id,
+        },
+      ],
     )
 
     put "/discussion-bridge/admin/operator-service.json",
