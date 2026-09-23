@@ -81,8 +81,8 @@ module DiscussionBridge
       raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
       sort = params[:sort].presence || "updated"
       order = params[:order].presence || "desc"
-      raise Discourse::InvalidParameters.new(:sort) unless SORT_COLUMNS.include?(sort)
-      raise Discourse::InvalidParameters.new(:order) unless SORT_ORDERS.include?(order)
+      raise Discourse::InvalidParameters.new(:sort) if SORT_COLUMNS.exclude?(sort)
+      raise Discourse::InvalidParameters.new(:order) if SORT_ORDERS.exclude?(order)
 
       scope = DiscussionBridgeBridgeRecord.includes(
         :topic,
