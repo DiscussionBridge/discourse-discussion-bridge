@@ -49,12 +49,10 @@ module DiscussionBridge
     private
 
     def publication_connection_ids
-      RequestStore.store[:discussion_bridge_publication_connection_ids] ||=
-        DiscussionBridgeContentConnection
-          .where(enabled: true, forum_publication_enabled: true)
-          .select { |connection| connection.allows_direction?("from_discourse") }
-          .map(&:id)
-          .freeze
+      DiscussionBridgeContentConnection
+        .where(enabled: true, forum_publication_enabled: true)
+        .select { |connection| connection.allows_direction?("from_discourse") }
+        .map(&:id)
     end
 
     def publication_work_items
