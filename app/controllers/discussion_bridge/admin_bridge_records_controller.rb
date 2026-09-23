@@ -8,10 +8,81 @@ module DiscussionBridge
 
     MAX_PAGE = 10_000
     PER_PAGE = 25
+    SORT_COLUMNS = %w[updated title connection direction topic publication status].freeze
+    SORT_ORDERS = %w[asc desc].freeze
+    RECORD_TABLE = DiscussionBridgeBridgeRecord.table_name.freeze
+    WORK_TABLE = DiscussionBridgePublicationWorkItem.table_name.freeze
+    BINDING_TABLE = DiscussionBridgeContentBinding.table_name.freeze
+    CONNECTION_TABLE = DiscussionBridgeContentConnection.table_name.freeze
+    ACTIVE_CONNECTION_NAME_SQL = <<~SQL.squish.freeze
+      (SELECT MIN(connection.name)
+       FROM #{BINDING_TABLE} binding
+       INNER JOIN #{CONNECTION_TABLE} connection
+         ON connection.id = binding.content_connection_id
+       WHERE binding.bridge_record_id = #{RECORD_TABLE}.id
+         AND binding.state = 'active')
+    SQL
+    WORK_STATE_SQL = <<~SQL.squish.freeze
+      (SELECT work.state
+       FROM #{WORK_TABLE} work
+       INNER JOIN #{BINDING_TABLE} binding
+         ON binding.bridge_record_id = #{RECORD_TABLE}.id
+        AND binding.content_connection_id = work.content_connection_id
+        AND binding.state = 'active'
+       WHERE work.bridge_record_id = #{RECORD_TABLE}.id
+       ORDER BY work.id DESC
+       LIMIT 1)
+    SQL
+    WORK_ACTION_SQL = <<~SQL.squish.freeze
+      (SELECT work.action
+       FROM #{WORK_TABLE} work
+       INNER JOIN #{BINDING_TABLE} binding
+         ON binding.bridge_record_id = #{RECORD_TABLE}.id
+        AND binding.content_connection_id = work.content_connection_id
+        AND binding.state = 'active'
+       WHERE work.bridge_record_id = #{RECORD_TABLE}.id
+       ORDER BY work.id DESC
+       LIMIT 1)
+    SQL
+    PUBLICATION_STATE_SQL = <<~SQL.squish.freeze
+      CASE
+        WHEN #{RECORD_TABLE}.direction = 'to_discourse' AND #{RECORD_TABLE}.topic_id IS NOT NULL
+          THEN 'in_discourse'
+        WHEN #{WORK_STATE_SQL} IN ('attention', 'failed')
+          OR #{RECORD_TABLE}.destination_state IN ('attention', 'failed')
+          THEN 'needs_attention'
+        WHEN #{WORK_STATE_SQL} IN ('queued', 'claimed', 'retrying')
+          AND #{WORK_ACTION_SQL} = 'unpublish'
+          THEN 'pending_removal'
+        WHEN #{WORK_STATE_SQL} IN ('queued', 'claimed', 'retrying')
+          THEN 'pending_publication'
+        WHEN #{WORK_STATE_SQL} = 'unpublished' OR #{RECORD_TABLE}.destination_state = 'held'
+          THEN 'not_published'
+        WHEN #{WORK_STATE_SQL} = 'current' OR #{RECORD_TABLE}.destination_state = 'healthy'
+          THEN 'published'
+        ELSE 'not_published'
+      END
+    SQL
+    OPERATIONAL_STATE_SQL = <<~SQL.squish.freeze
+      COALESCE(#{WORK_STATE_SQL}, #{RECORD_TABLE}.destination_state, #{RECORD_TABLE}.state)
+    SQL
+    SORT_SQL = {
+      "updated" => "#{RECORD_TABLE}.updated_at",
+      "title" => "LOWER(#{RECORD_TABLE}.title)",
+      "connection" => ACTIVE_CONNECTION_NAME_SQL,
+      "direction" => "#{RECORD_TABLE}.direction",
+      "topic" => "#{RECORD_TABLE}.topic_id",
+      "publication" => PUBLICATION_STATE_SQL,
+      "status" => OPERATIONAL_STATE_SQL,
+    }.freeze
 
     def index
       page = Integer(params[:page].presence || 1, exception: false)
       raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
+      sort = params[:sort].presence || "updated"
+      order = params[:order].presence || "desc"
+      raise Discourse::InvalidParameters.new(:sort) unless SORT_COLUMNS.include?(sort)
+      raise Discourse::InvalidParameters.new(:order) unless SORT_ORDERS.include?(order)
 
       scope = DiscussionBridgeBridgeRecord.includes(
         :topic,
@@ -21,9 +92,11 @@ module DiscussionBridge
       scope = scope.where(direction: params[:direction]) if DiscussionBridgeBridgeRecord::DIRECTIONS.include?(params[:direction])
       scope = scope.where(state: params[:state]) if DiscussionBridgeBridgeRecord::STATES.include?(params[:state])
       if params[:connection_id].present?
-        scope = scope.joins(:content_bindings).where(
-          discussion_bridge_content_bindings: { content_connection_id: params[:connection_id] },
-        ).distinct
+        scope = scope.where(
+          id: DiscussionBridgeContentBinding
+            .where(content_connection_id: params[:connection_id])
+            .select(:bridge_record_id),
+        )
       end
       if params[:query].present?
         term = params[:query].to_s.strip
@@ -33,9 +106,20 @@ module DiscussionBridge
       end
 
       total = scope.count
-      records = scope.order(updated_at: :desc, id: :desc).offset((page - 1) * PER_PAGE).limit(PER_PAGE)
+      direction = order.upcase
+      records = scope
+        .order(Arel.sql("#{SORT_SQL.fetch(sort)} #{direction} NULLS LAST, #{RECORD_TABLE}.id #{direction}"))
+        .offset((page - 1) * PER_PAGE)
+        .limit(PER_PAGE)
       render json: {
         bridge_records: records.map { |record| serialize(record) },
+        filters: {
+          query: params[:query].to_s,
+          direction: params[:direction].to_s,
+          state: params[:state].to_s,
+          connection_id: params[:connection_id].to_s,
+        },
+        sorting: { sort: sort, order: order },
         pagination: {
           page: page,
           per_page: PER_PAGE,
@@ -208,11 +292,25 @@ module DiscussionBridge
         connection_names: active.map { |binding| binding.content_connection.name },
         active_binding: active.first && binding_payload(active.first),
         publication_work: work && publication_work_payload(work),
+        publication_state: publication_state(record, work),
         operational_state: work&.state || record.destination_state || record.state,
         updated_at: record.updated_at,
       }
       payload[:bindings] = bindings.map { |binding| binding_payload(binding) } if detailed
       payload
+    end
+
+    def publication_state(record, work)
+      return "in_discourse" if record.direction == "to_discourse" && record.topic_id
+      return "needs_attention" if DiscussionBridgePublicationWorkItem::ATTENTION_STATES.include?(work&.state) ||
+        %w[attention failed].include?(record.destination_state)
+      if DiscussionBridgePublicationWorkItem::ACTIVE_STATES.include?(work&.state)
+        return work.action == "unpublish" ? "pending_removal" : "pending_publication"
+      end
+      return "not_published" if work&.state == "unpublished" || record.destination_state == "held"
+      return "published" if work&.state == "current" || record.destination_state == "healthy"
+
+      "not_published"
     end
 
     def binding_payload(binding)

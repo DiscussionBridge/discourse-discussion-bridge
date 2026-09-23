@@ -81,6 +81,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/platform_catalog"
   require_relative "lib/discussion_bridge/destination_mapping"
   require_relative "lib/discussion_bridge/topic_publication_state"
+  require_relative "lib/discussion_bridge/publication_status_access"
+  require_relative "lib/discussion_bridge/publication_summary"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
   require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
@@ -117,6 +119,46 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
+
+  Topic.has_many(
+    :discussion_bridge_publication_work_items,
+    class_name: "DiscussionBridgePublicationWorkItem",
+    foreign_key: :topic_id,
+  )
+  Topic.has_many(
+    :discussion_bridge_bridge_records,
+    class_name: "DiscussionBridgeBridgeRecord",
+    foreign_key: :topic_id,
+  )
+
+  register_topic_preloader_associations(
+    [
+      { discussion_bridge_publication_work_items: :bridge_record },
+      {
+        discussion_bridge_bridge_records: [
+          :publication_work_items,
+          :content_bindings,
+        ],
+      },
+    ],
+  ) do
+    SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_publisher_enabled
+  end
+
+  publication_summary_condition = lambda do
+    DiscussionBridge::PublicationStatusAccess.allowed?(scope.user) && SiteSetting.discussion_bridge_enabled &&
+      SiteSetting.discussion_bridge_publisher_enabled
+  end
+  add_to_serializer(
+    :topic_list_item,
+    :discussion_bridge_publication_summary,
+    include_condition: publication_summary_condition,
+  ) { DiscussionBridge::PublicationSummary.call(object) }
+  add_to_serializer(
+    :topic_view,
+    :discussion_bridge_publication_summary,
+    include_condition: publication_summary_condition,
+  ) { DiscussionBridge::PublicationSummary.call(object.topic) }
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,

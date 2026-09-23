@@ -281,6 +281,11 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Direction belongs to each record, not the connection.")
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']", text: "To Discourse")
     expect(page).to have_content("Community Guide")
+    expect(page).to have_content("Publication")
+    expect(page).to have_css(".discussion-bridge-publication[data-state='in_discourse']", text: "In Discourse")
+    expect(page).to have_button("Bridge Record")
+    expect(page).to have_button("Publication")
+    expect(page).to have_button("Status")
     expect(page).to have_button("View")
     expect(page).to have_css(".discussion-bridge-operations__search .btn-primary", text: "Apply")
     expect(page).to have_css("td .btn-primary", text: "View")
@@ -308,6 +313,7 @@ describe "DiscussionBridge native product administration" do
     sign_in(admin)
 
     visit(topic.url)
+    expect(page).to have_css(".discussion-bridge-publication-badge", text: "Not published", wait: 30)
     expect(page).to have_css(".toggle-admin-menu", wait: 30)
     first(".toggle-admin-menu", visible: true).click
     expect(page).to have_button("DiscussionBridge Status")
