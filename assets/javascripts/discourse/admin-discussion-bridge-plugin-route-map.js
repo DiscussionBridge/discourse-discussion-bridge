@@ -8,5 +8,6 @@ export default {
     this.route("discussion-bridge-operations", { path: "bridge-records" });
     this.route("discussion-bridge-reconciliation", { path: "reconciliation" });
     this.route("discussion-bridge-publishing", { path: "publishing" });
+    this.route("discussion-bridge-operator-service", { path: "operator-service" });
   },
 };

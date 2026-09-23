@@ -3,15 +3,17 @@ import { tracked } from "@glimmer/tracking";
 import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
+import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import { eq, not, or } from "discourse/truth-helpers";
+import { and, eq, not, or } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DModal from "discourse/ui-kit/d-modal";
 import DModalCancel from "discourse/ui-kit/d-modal-cancel";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgeTopicStatus extends Component {
+  @service currentUser;
   @tracked status = null;
   @tracked loading = true;
   @tracked workingConnectionId = null;
@@ -26,6 +28,10 @@ export default class DiscussionBridgeTopicStatus extends Component {
 
   get topicId() {
     return this.args.model.topic.id;
+  }
+
+  get canMutate() {
+    return this.currentUser?.discussion_bridge_operator_can_mutate;
   }
 
   @action
@@ -228,6 +234,7 @@ export default class DiscussionBridgeTopicStatus extends Component {
                   </div>
                 </dl>
 
+                {{#if this.canMutate}}
                 <div class="discussion-bridge-topic-status__actions">
                   <DButton
                     @label="discussion_bridge.topic_status.publish"
@@ -272,7 +279,13 @@ export default class DiscussionBridgeTopicStatus extends Component {
                   {{/if}}
                 </div>
 
-                {{#if (eq this.migrationConnectionId item.connection.id)}}
+                {{else}}
+                  <p class="discussion-bridge-topic-status__read-only">{{i18n
+                      "discussion_bridge.topic_status.read_only"
+                    }}</p>
+                {{/if}}
+
+                {{#if (and this.canMutate (eq this.migrationConnectionId item.connection.id))}}
                   <form
                     class="discussion-bridge-topic-status__migration"
                     {{on "submit" (fn this.migratePublicationUrl item)}}

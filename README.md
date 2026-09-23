@@ -1,5 +1,10 @@
 # The Bridge — DiscussionBridge for Discourse
 
+DiscussionBridge Operator service is documented in
+[`OPERATOR_SERVICE.md`](OPERATOR_SERVICE.md). It is an administrator-opted-in,
+payment-controlled, separately scoped support role; it never replaces ordinary
+forum administration or automatic publishing synchronization.
+
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent
 Content Connections. Each connection represents one configured installation

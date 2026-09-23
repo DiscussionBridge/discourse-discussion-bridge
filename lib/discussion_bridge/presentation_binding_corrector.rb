@@ -15,7 +15,7 @@ module DiscussionBridge
     end
 
     def call
-      raise Discourse::InvalidAccess unless @user&.staff?
+      raise Discourse::InvalidAccess unless DiscussionBridge::OperatorServiceAccess.mutate?(@user)
 
       record = DiscussionBridgeBridgeRecord.find_by!(
         resource_id: @resource_id,

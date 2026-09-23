@@ -698,4 +698,48 @@ describe DiscussionBridge::PublisherController do
     expect(response).to have_http_status(:forbidden)
     expect(DiscussionBridgePublicationOverride.count).to eq(0)
   end
+
+  it "gives the bound paid operator scoped access and makes it read-only after grace" do
+    operator = Fabricate(:user, email: "operator@discussionbridge.dev")
+    service = DiscussionBridgeOperatorService.instance
+    service.request!(user: admin)
+    paid_through = 30.days.from_now
+    service.apply_entitlement!(
+      "status" => "active",
+      "entitlement_id" => SecureRandom.uuid,
+      "operator_identity_id" => "discussionbridge-support-1",
+      "operator_email" => operator.email,
+      "identity_version" => 1,
+      "entitlement_version" => 1,
+      "plan_id" => "operator-service",
+      "issued_at" => Time.zone.now,
+      "paid_through_at" => paid_through,
+      "grace_expires_at" => paid_through + 14.days,
+      "entitlement_digest" => Digest::SHA256.hexdigest(SecureRandom.hex),
+    )
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(operator)
+
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+    expect(response).to have_http_status(:ok)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+    expect(response).to have_http_status(:ok)
+    expect(DiscussionBridgePublicationOverride.find_by!(topic: topic, content_connection: @connection).set_by)
+      .to eq(operator)
+    expect(DiscussionBridgeOperatorEvent.where(event_type: "topic_policy_changed", actor_user: operator)).to exist
+
+    service.update!(paid_through_at: 15.days.ago, grace_expires_at: 1.day.ago)
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+    expect(response).to have_http_status(:ok)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "publish" } },
+        as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(DiscussionBridgePublicationOverride.find_by!(topic: topic, content_connection: @connection).decision)
+      .to eq("exclude")
+  end
 end
