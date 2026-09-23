@@ -39,7 +39,9 @@ export default class DiscussionBridgeOperatorService extends Component {
 
   @action
   toggleEnabled() {
-    return if (this.working);
+    if (this.working) {
+      return;
+    }
 
     return this.setEnabled(!this.state.enabled);
   }
