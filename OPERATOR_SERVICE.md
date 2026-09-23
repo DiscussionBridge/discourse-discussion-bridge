@@ -6,15 +6,19 @@ It does not control automatic publication synchronization.
 
 ## Enrollment
 
-An administrator opens **DiscussionBridge → Operator service** and selects
-**Request Operator service**. The receiver records a stable installation ID and
-enrollment ID, then queues one email to
+An administrator opens **DiscussionBridge → Operator service** and first turns
+on **Enable DiscussionBridge Operator service**. This is local opt-in only: it
+does not submit a request or send a notification. The administrator then
+separately selects **Request Operator service**. The receiver records a stable
+installation ID and enrollment ID, then queues one email to
 `servicerequest@discussionbridge.dev`. The message contains the forum URL,
 installation and enrollment IDs, requesting administrator username and email,
 plugin version, and timestamp. It contains no forum credentials, Content
 Connection secrets, topic content, or user census.
 
-The switch is off by default. A payment or remote event cannot enable it.
+The switch is off by default. A payment or remote event cannot enable it. A
+request cannot be submitted while the switch is off, and switching it on never
+submits a request implicitly.
 
 ## Payment entitlement
 

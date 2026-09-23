@@ -702,6 +702,7 @@ describe DiscussionBridge::PublisherController do
   it "gives the bound paid operator scoped access and makes it read-only after grace" do
     operator = Fabricate(:user, email: "operator@discussionbridge.dev")
     service = DiscussionBridgeOperatorService.instance
+    service.enable!
     service.request!(user: admin)
     paid_through = 30.days.from_now
     service.apply_entitlement!(

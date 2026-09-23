@@ -31,10 +31,18 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
     find_by!(singleton_key: SINGLETON_KEY)
   end
 
+  def enable!
+    with_lock do
+      update!(enabled: true, disabled_at: nil)
+    end
+  end
+
   def request!(user:)
     with_lock do
+      raise ArgumentError, "operator service must be enabled before requesting enrollment" unless enabled?
+      raise ArgumentError, "operator service enrollment has already been requested" unless request_available?
+
       update!(
-        enabled: true,
         status: entitlement_id.present? ? status : "pending",
         requested_by: user,
         requested_at: Time.zone.now,
@@ -45,17 +53,17 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
     end
   end
 
-  def disable!(user:)
+  def disable!
     with_lock do
       update!(
         enabled: false,
-        status: "inactive",
-        requested_by: user,
         disabled_at: Time.zone.now,
-        notification_state: "queued",
-        notification_error: nil,
       )
     end
+  end
+
+  def request_available?
+    enabled? && entitlement_id.blank? && (requested_at.blank? || notification_state == "failed")
   end
 
   def apply_entitlement!(claims)

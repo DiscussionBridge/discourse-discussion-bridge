@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.48
+# version: 0.2.0.alpha.49
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -53,7 +53,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.48"
+    VERSION = "0.2.0.alpha.49"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -457,6 +457,7 @@ after_initialize do
     post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
     get "/admin/operator-service" => "operator_service#show"
     put "/admin/operator-service" => "operator_service#update"
+    post "/admin/operator-service/request" => "operator_service#request_service"
     put "/v1/operator-entitlements/current" => "operator_entitlements#update"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
