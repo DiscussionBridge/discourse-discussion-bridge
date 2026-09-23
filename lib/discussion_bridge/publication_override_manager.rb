@@ -10,7 +10,7 @@ module DiscussionBridge
         PublicationWorkQueue.publication_connection?(connection)
 
       normalized = decision.to_s
-      raise ArgumentError, "invalid publication decision" unless DECISIONS.include?(normalized)
+      raise ArgumentError, "invalid publication decision" if DECISIONS.exclude?(normalized)
 
       if normalized == "publish"
         hard_eligibility = PublicationTopicScope.hard_eligibility(connection, topic)

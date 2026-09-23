@@ -21,7 +21,7 @@ export default {
           container.lookup("service:modal").show(DiscussionBridgeTopicStatus, {
             model: { topic },
           }),
-        icon: "link",
+        icon: "bridge",
         className: "discussion-bridge-topic-status-action",
         label: "discussion_bridge.topic_status.menu_label",
         section: {

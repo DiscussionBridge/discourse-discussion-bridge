@@ -11,6 +11,7 @@
 require_relative "lib/discussion_bridge/settings_validators"
 
 enabled_site_setting :discussion_bridge_enabled
+register_svg_icon "bridge"
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
