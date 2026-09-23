@@ -19,11 +19,13 @@ module DiscussionBridge
 
       work_by_connection = publication_work_items.index_by(&:content_connection_id)
       records = publication_records
+      bindings = publication_bindings
       published_connection_ids = connection_ids.select do |connection_id|
         published_for_connection?(
           connection_id,
           work_by_connection[connection_id],
           records,
+          bindings,
         )
       end
       pending = work_by_connection.values.count { |item| PENDING_STATES.include?(item.state) }
@@ -57,7 +59,7 @@ module DiscussionBridge
 
     def publication_work_items
       association = @topic.association(:discussion_bridge_publication_work_items)
-      items = association.loaded? ? association.target : association.scope.includes(:bridge_record).to_a
+      items = association.loaded? ? association.target : association.scope.to_a
       allowed = publication_connection_ids.to_set
       items.select { |item| allowed.include?(item.content_connection_id) }
     end
@@ -67,21 +69,25 @@ module DiscussionBridge
       records = if association.loaded?
         association.target
       else
-        association.scope.includes(:publication_work_items, :content_bindings).to_a
+        association.scope.to_a
       end
       records.select { |record| record.direction == "from_discourse" }
     end
 
-    def published_for_connection?(connection_id, work, records)
+    def publication_bindings
+      association = @topic.association(:discussion_bridge_content_bindings)
+      association.loaded? ? association.target : association.scope.to_a
+    end
+
+    def published_for_connection?(connection_id, work, records, bindings)
       return false if work&.state == "unpublished"
       return true if work&.state == "current"
 
-      record = records.find do |candidate|
-        candidate.content_bindings.any? do |binding|
-          binding.content_connection_id == connection_id &&
-            binding.role == "presentation" && binding.state == "active"
-        end
+      binding = bindings.find do |candidate|
+        candidate.content_connection_id == connection_id &&
+          candidate.role == "presentation" && candidate.state == "active"
       end
+      record = records.find { |candidate| candidate.id == binding&.bridge_record_id }
       return false unless record
       return false if record.destination_state == "held"
 

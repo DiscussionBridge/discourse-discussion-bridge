@@ -130,16 +130,17 @@ after_initialize do
     class_name: "DiscussionBridgeBridgeRecord",
     foreign_key: :topic_id,
   )
+  Topic.has_many(
+    :discussion_bridge_content_bindings,
+    through: :discussion_bridge_bridge_records,
+    source: :content_bindings,
+  )
 
   register_topic_preloader_associations(
     [
-      { discussion_bridge_publication_work_items: :bridge_record },
-      {
-        discussion_bridge_bridge_records: [
-          :publication_work_items,
-          :content_bindings,
-        ],
-      },
+      :discussion_bridge_publication_work_items,
+      :discussion_bridge_bridge_records,
+      :discussion_bridge_content_bindings,
     ],
   ) do
     SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_publisher_enabled

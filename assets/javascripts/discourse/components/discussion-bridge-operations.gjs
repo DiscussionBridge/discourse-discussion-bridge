@@ -92,6 +92,7 @@ export default class DiscussionBridgeOperations extends Component {
     return i18n(`discussion_bridge.admin.publication_${value || "not_published"}`);
   }
 
+  @action
   sortIndicator(column) {
     if (this.sort !== column) {
       return "";
@@ -100,6 +101,7 @@ export default class DiscussionBridgeOperations extends Component {
     return this.order === "asc" ? "▲" : "▼";
   }
 
+  @action
   ariaSort(column) {
     if (this.sort !== column) {
       return "none";
@@ -108,6 +110,7 @@ export default class DiscussionBridgeOperations extends Component {
     return this.order === "asc" ? "ascending" : "descending";
   }
 
+  @action
   connectionSelected(id) {
     return String(id) === String(this.connectionId);
   }
