@@ -10,6 +10,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   PUBLIC_ID_PATTERN = /\Adbc_[a-z0-9]{24}\z/
   MAX_ORIGINS = 50
   MAX_LANES = 50
+  MAX_PUBLICATION_CATEGORY_IDS = 100
+  MAX_PUBLICATION_TAG_IDS = 500
+  PUBLICATION_CATEGORY_MODES = %w[only_selected all_except_selected].freeze
+  PUBLICATION_TAG_MODES = %w[all only_selected all_except_selected].freeze
   AUTHORSHIP_MODES = %w[fixed mapped].freeze
   UNMAPPED_AUTHOR_POLICIES = %w[fallback hold].freeze
   PUBLICATION_SOURCE_PATH_PATTERN = /\A[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*\z/
@@ -23,6 +27,14 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            class_name: "DiscussionBridgeSourceAuthor",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
+  has_many :publication_work_items,
+           class_name: "DiscussionBridgePublicationWorkItem",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
+  has_many :publication_overrides,
+           class_name: "DiscussionBridgePublicationOverride",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true
@@ -32,11 +44,14 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validates :authorship_mode, inclusion: { in: AUTHORSHIP_MODES }
   validates :unmapped_author_policy, inclusion: { in: UNMAPPED_AUTHOR_POLICIES }
   validates :secret_digest, length: { is: 64 }
+  validates :publication_category_mode, inclusion: { in: PUBLICATION_CATEGORY_MODES }
+  validates :publication_tag_mode, inclusion: { in: PUBLICATION_TAG_MODES }
   validates :adapter_id, :adapter_version, length: { maximum: 100 }, allow_nil: true
   validate :scopes_are_valid
   validate :author_user_is_usable
   validate :default_category_is_available
   validate :publication_path_is_valid
+  validate :publication_scope_is_valid
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -91,7 +106,86 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
     false
   end
 
+  def destination_mapping_current?
+    destination_mapping_revision.present? && platform_catalog_revision.present? &&
+      destination_mapping["catalog_revision"] == platform_catalog_revision &&
+      platform_catalog_adapter_id == adapter_id &&
+      platform_catalog_adapter_version == adapter_version
+  end
+
+  def mark_from_discourse_publications_pending!
+    DiscussionBridgeBridgeRecord.joins(:content_bindings)
+      .where(direction: "from_discourse")
+      .where(publication_program: %w[forum_sync_pending forum_sync])
+      .where(discussion_bridge_content_bindings: {
+        content_connection_id: id, role: "presentation", state: "active",
+      }).update_all(
+        destination_state: "pending",
+        pending_publication_revision: nil,
+        pending_mapping_revision: destination_mapping_revision,
+        pending_destination: {},
+        updated_at: Time.zone.now,
+      )
+    publication_work_items.update_all(
+      state: "queued",
+      reason: "mapping_changed",
+      available_at: Time.zone.now,
+      lease_token: nil,
+      claimed_at: nil,
+      lease_expires_at: nil,
+      completed_at: nil,
+      updated_at: Time.zone.now,
+    )
+  end
+
   private
+
+  def publication_scope_is_valid
+    included = Array(publication_category_ids)
+    excluded = Array(publication_excluded_category_ids)
+    valid = ->(values, maximum) do
+      values.length <= maximum && values.uniq == values &&
+        values.all? { |value| value.is_a?(Integer) && value.positive? }
+    end
+    errors.add(:publication_category_ids, "is invalid") unless
+      valid.call(included, MAX_PUBLICATION_CATEGORY_IDS)
+    errors.add(:publication_excluded_category_ids, "is invalid") unless
+      valid.call(excluded, MAX_PUBLICATION_CATEGORY_IDS)
+    errors.add(:publication_category_ids, "overlaps excluded categories") if (included & excluded).any?
+    configured = (included + excluded).uniq
+    public_count = Category.where(id: configured, read_restricted: false).count
+    errors.add(:publication_category_ids, "must identify existing public categories") unless
+      public_count == configured.length
+    if publication_category_mode == "only_selected"
+      errors.add(:publication_category_ids, "must select at least one category") if included.empty?
+      errors.add(:publication_excluded_category_ids, "must be empty in only-selected mode") if excluded.any?
+    elsif included.any?
+      errors.add(:publication_category_ids, "must be empty in all-except-selected mode")
+    end
+
+    included_tags = Array(publication_tag_ids)
+    excluded_tags = Array(publication_excluded_tag_ids)
+    errors.add(:publication_tag_ids, "is invalid") unless
+      valid.call(included_tags, MAX_PUBLICATION_TAG_IDS)
+    errors.add(:publication_excluded_tag_ids, "is invalid") unless
+      valid.call(excluded_tags, MAX_PUBLICATION_TAG_IDS)
+    errors.add(:publication_tag_ids, "overlaps excluded tags") if
+      (included_tags & excluded_tags).any?
+    configured_tags = (included_tags + excluded_tags).uniq
+    errors.add(:publication_tag_ids, "must identify existing tags") unless
+      Tag.where(id: configured_tags).count == configured_tags.length
+    case publication_tag_mode
+    when "all"
+      errors.add(:publication_tag_ids, "must be empty in all-tags mode") if included_tags.any?
+      errors.add(:publication_excluded_tag_ids, "must be empty in all-tags mode") if excluded_tags.any?
+    when "only_selected"
+      errors.add(:publication_tag_ids, "must select at least one tag") if included_tags.empty?
+      errors.add(:publication_excluded_tag_ids, "must be empty in only-selected mode") if excluded_tags.any?
+    when "all_except_selected"
+      errors.add(:publication_tag_ids, "must be empty in all-except-selected mode") if
+        included_tags.any?
+    end
+  end
 
   def publication_path_is_valid
     path = publication_source_path.to_s
@@ -142,27 +236,47 @@ end
 #
 # Table name: discussion_bridge_content_connections
 #
-#  id                              :bigint           not null, primary key
-#  adapter_version                 :string(100)
-#  allowed_directions              :jsonb            not null
-#  allowed_lanes                   :jsonb            not null
-#  allowed_origins                 :jsonb            not null
-#  authorship_mode                 :string(32)       default("fixed"), not null
-#  enabled                         :boolean          default(TRUE), not null
-#  generate_topic_toc              :boolean          default(FALSE), not null
-#  include_source_in_published_url :boolean          default(FALSE), not null
-#  last_seen_at                    :datetime
-#  name                            :string(120)      not null
-#  platform                        :string(32)       not null
-#  publication_source_path         :string(120)
-#  secret_digest                   :string(64)       not null
-#  unmapped_author_policy          :string(32)       default("fallback"), not null
-#  created_at                      :datetime         not null
-#  updated_at                      :datetime         not null
-#  adapter_id                      :string(100)
-#  author_user_id                  :bigint
-#  default_category_id             :bigint
-#  public_id                       :string(64)       not null
+#  id                                    :bigint           not null, primary key
+#  adapter_version                       :string(100)
+#  allowed_directions                    :jsonb            not null
+#  allowed_lanes                         :jsonb            not null
+#  allowed_origins                       :jsonb            not null
+#  authorship_mode                       :string(32)       default("fixed"), not null
+#  destination_mapping                   :jsonb            not null
+#  destination_mapping_revision          :string(64)
+#  destination_mapping_updated_at        :datetime
+#  enabled                               :boolean          default(TRUE), not null
+#  forum_publication_enabled             :boolean          default(FALSE), not null
+#  generate_topic_toc                    :boolean          default(FALSE), not null
+#  include_source_in_published_url       :boolean          default(FALSE), not null
+#  last_seen_at                          :datetime
+#  name                                  :string(120)      not null
+#  platform                              :string(32)       not null
+#  platform_catalog                      :jsonb            not null
+#  platform_catalog_adapter_version      :string(100)
+#  platform_catalog_display_revision     :string(64)
+#  platform_catalog_observed_at          :datetime
+#  platform_catalog_refresh_requested_at :datetime
+#  platform_catalog_revision             :string(64)
+#  publication_attention_fingerprint     :string(64)
+#  publication_attention_notified_at     :datetime
+#  publication_category_ids              :jsonb            not null
+#  publication_category_mode             :string(32)       default("all_except_selected"), not null
+#  publication_excluded_category_ids     :jsonb            not null
+#  publication_excluded_tag_ids          :jsonb            not null
+#  publication_include_unlisted          :boolean          default(FALSE), not null
+#  publication_source_path               :string(120)
+#  publication_tag_ids                   :jsonb            not null
+#  publication_tag_mode                  :string(32)       default("all"), not null
+#  secret_digest                         :string(64)       not null
+#  unmapped_author_policy                :string(32)       default("fallback"), not null
+#  created_at                            :datetime         not null
+#  updated_at                            :datetime         not null
+#  adapter_id                            :string(100)
+#  author_user_id                        :bigint
+#  default_category_id                   :bigint
+#  platform_catalog_adapter_id           :string(100)
+#  public_id                             :string(64)       not null
 #
 # Indexes
 #

@@ -1,0 +1,132 @@
+.discussion-bridge-topic-status {
+  --db-status-border: var(--primary-low-mid);
+  --db-status-muted: var(--primary-medium);
+  --db-status-ready: #08784f;
+  --db-status-attention: #9d3f20;
+
+  .d-modal__container {
+    width: min(62rem, calc(100vw - 2rem));
+  }
+
+  &__topic {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--db-status-border);
+
+    span {
+      color: var(--db-status-muted);
+    }
+  }
+
+  &__notice {
+    padding: 0.75rem 1rem;
+    color: #075b3a;
+    background: #e7f8ef;
+    border: 1px solid #78c9a3;
+    border-radius: 0.4rem;
+  }
+
+  &__connections {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  &__connection {
+    padding: 1rem;
+    border: 1px solid var(--db-status-border);
+    border-radius: 0.6rem;
+
+    > header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    h3 {
+      margin: 0;
+    }
+
+    header span {
+      color: var(--db-status-muted);
+    }
+
+    dl {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem 1rem;
+      margin: 1rem 0;
+    }
+
+    dt {
+      font-weight: 700;
+    }
+
+    dd {
+      min-width: 0;
+      margin: 0.2rem 0 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  &__state {
+    padding: 0.3rem 0.65rem;
+    color: var(--db-status-ready);
+    background: #e7f8ef;
+    border-radius: 999px;
+
+    &[data-state="attention"],
+    &[data-state="failed"],
+    &[data-state="excluded"] {
+      color: var(--db-status-attention);
+      background: #fff1ec;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  &__migration {
+    padding: 1rem;
+    margin-top: 1rem;
+    background: var(--primary-very-low);
+    border-left: 0.3rem solid var(--tertiary);
+
+    h4 {
+      margin-top: 0;
+    }
+
+    code {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    label,
+    input {
+      display: block;
+      width: 100%;
+    }
+
+    input {
+      box-sizing: border-box;
+      margin: 0.35rem 0 0.75rem;
+    }
+
+    .btn + .btn {
+      margin-left: 0.5rem;
+    }
+  }
+
+  @media (max-width: 700px) {
+    &__connection dl {
+      grid-template-columns: 1fr;
+    }
+  }
+}

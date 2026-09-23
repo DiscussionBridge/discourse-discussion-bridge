@@ -40,6 +40,9 @@ module DiscussionBridge
       raise ArgumentError, "publication URLs must differ" if old_canonical == new_canonical
       ensure_eligible!(record, binding, connection, old_canonical, new_canonical)
 
+      committed = committed_transition(record, binding, connection, old_canonical, new_canonical)
+      return committed if committed
+
       # Network verification is outside the database transaction. Every binding
       # and collision condition is checked again under locks before committing.
       redirect_status = @verifier.call(old_url: old_canonical, new_url: new_canonical)
@@ -56,6 +59,7 @@ module DiscussionBridge
         history = exact_history(binding, old_canonical, new_canonical)
         if binding.canonical_url == new_canonical && history
           outcome = "already_current"
+          redirect_status = history.redirect_status
         else
           raise ArgumentError, "old publication URL no longer matches the active binding" unless
             binding.canonical_url == old_canonical
@@ -64,7 +68,8 @@ module DiscussionBridge
           raise ArgumentError, "destination URL is already bound or reserved" if
             DiscussionBridgeContentBinding.where(canonical_url_digest: new_digest).where.not(id: binding.id).exists? ||
               DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: new_digest)
-                .where.not(content_binding_id: binding.id).exists?
+                .where.not(content_binding_id: binding.id).exists? ||
+              DiscussionBridgeSourceUrlHistory.where(old_canonical_url_digest: new_digest).exists?
 
           DiscussionBridgePresentationUrlHistory.create!(
             bridge_record: record,
@@ -107,6 +112,21 @@ module DiscussionBridge
         old_canonical_url: old_url,
         new_canonical_url: new_url,
       )
+    end
+
+    def committed_transition(record, binding, connection, old_url, new_url)
+      result = nil
+      DiscussionBridgeBridgeRecord.transaction do
+        connection.lock!
+        record.lock!
+        binding.lock!
+        ensure_eligible!(record, binding, connection, old_url, new_url)
+        history = exact_history(binding, old_url, new_url)
+        if binding.canonical_url == new_url && history
+          result = Result.new(record: record.reload, outcome: "already_current", redirect_status: history.redirect_status)
+        end
+      end
+      result
     end
 
     def ensure_eligible!(record, binding, connection, old_url, new_url)

@@ -10,6 +10,7 @@ en:
     discussion_bridge_default_visibility: "Forum-enforced visibility for newly created topics. The current product contract supports unlisted creation."
     discussion_bridge_comments_only_full_interactive: "For completed DiscussionBridge mappings, enable Interactive mode by omitting companion post 1 from the full-app embed layout while preserving the ordinary topic and native discussion interactions."
     discussion_bridge_publisher_enabled: "Enable local publication of selected Discourse topics through authorized Content Connections. No second receiving forum is required."
+    discussion_bridge_attention_groups: "Groups whose active members receive a bounded notification when a Content Connection has failed delivery or another publication item requiring attention. Defaults to administrators and moderators."
     discussion_bridge_service_username_error: "Choose an active, non-system, non-staged Discourse user that is not suspended or silenced."
     discussion_bridge_default_author_username_error: "Choose an active, non-system, non-staged Discourse user that is not suspended or silenced."
     discussion_bridge_effective_category_id_error: "Choose an existing Discourse category ID, or 0 while configuration is incomplete."

@@ -156,6 +156,58 @@
   }
 }
 
+.discussion-bridge-operations {
+  &__source-url-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-block: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--primary-low);
+    border-radius: var(--d-border-radius);
+    background: var(--secondary);
+
+    h4,
+    p {
+      margin: 0;
+    }
+
+    code {
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      display: grid;
+      gap: 0.35rem;
+      max-width: 40rem;
+      font-weight: 600;
+    }
+
+    input {
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .discussion-bridge-operations__confirmation {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      max-width: none;
+      font-weight: normal;
+
+      input {
+        width: auto;
+        margin-block-start: 0.2rem;
+      }
+    }
+  }
+
+  &__notice {
+    padding: 0.75rem 1rem;
+    border-inline-start: 0.25rem solid var(--success);
+    background: var(--success-low, var(--primary-very-low));
+  }
+}
+
 .discussion-bridge-status,
 .discussion-bridge-direction,
 .discussion-bridge-platform {
@@ -168,7 +220,9 @@
   text-transform: capitalize;
 }
 
-.discussion-bridge-status[data-state="healthy"] {
+.discussion-bridge-status[data-state="healthy"],
+.discussion-bridge-status[data-state="current"],
+.discussion-bridge-status[data-state="unpublished"] {
   color: var(--success);
   background: var(--success-low, var(--primary-low));
 }
@@ -189,6 +243,14 @@
   background: var(--danger-low, var(--primary-low));
 }
 
+.discussion-bridge-status[data-state="queued"],
+.discussion-bridge-status[data-state="claimed"],
+.discussion-bridge-status[data-state="retrying"],
+.discussion-bridge-status[data-state="held"] {
+  color: var(--tertiary);
+  background: var(--tertiary-low, var(--primary-low));
+}
+
 .discussion-bridge-direction-cards,
 .discussion-bridge-connection-grid {
   display: grid;
@@ -204,6 +266,25 @@
     border-radius: var(--d-border-radius);
     background: var(--secondary);
   }
+}
+
+.discussion-bridge-connections__header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+
+  .d-page-subheader {
+    flex: 1 1 auto;
+  }
+
+  > .btn {
+    flex: 0 0 auto;
+  }
+}
+
+.discussion-bridge-connection-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .discussion-bridge-direction-cards > section {
@@ -278,6 +359,20 @@
   dd code,
   dd > span:not(.discussion-bridge-direction) {
     display: block;
+  }
+
+  .discussion-bridge-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .btn {
+      justify-content: center;
+      width: 100%;
+    }
+
+    &__credential {
+      margin-inline-start: 0;
+    }
   }
 }
 
@@ -371,6 +466,11 @@
   textarea {
     box-sizing: border-box;
     width: 100%;
+  }
+
+  input[type="checkbox"] {
+    width: auto;
+    min-height: 0;
   }
 
   input,
@@ -637,6 +737,8 @@
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
   padding: 0.85rem 1rem;
   border: 1px solid var(--primary-low);
@@ -644,7 +746,15 @@
   background: var(--secondary);
 
   input {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 0;
     margin-block-start: 0.2rem;
+  }
+
+  span {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   span,
@@ -663,8 +773,18 @@
   align-items: center;
   gap: 0.55rem;
 
+  > label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    margin: 0;
+  }
+
   input {
     flex: 0 0 auto;
+    width: auto;
+    min-height: 0;
     margin: 0;
   }
 }
@@ -721,6 +841,23 @@
 }
 
 @media (width <= 50rem) {
+  .discussion-bridge-connections__header {
+    align-items: stretch;
+    flex-direction: column;
+
+    > .btn {
+      align-self: flex-start;
+    }
+  }
+
+  .discussion-bridge-connection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discussion-bridge-connection-card .discussion-bridge-actions {
+    grid-template-columns: 1fr;
+  }
+
   .discussion-bridge-secret__row {
     grid-template-columns: 1fr;
   }

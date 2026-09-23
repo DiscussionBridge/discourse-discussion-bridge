@@ -18,7 +18,24 @@ module DiscussionBridge
       ).call
     end
 
-    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane:, native_materialization:)
+    def self.call_for_connection(connection:, topic_id:, expected_source_revision:, external_id:,
+                                 canonical_url:, lane: nil, native_materialization: false)
+      new(
+        user: nil,
+        connection_id: connection.id,
+        topic_id: topic_id,
+        external_id: external_id,
+        canonical_url: canonical_url,
+        lane: lane,
+        native_materialization: native_materialization,
+        expected_source_revision: expected_source_revision,
+        public_connection_id: connection.id,
+        publication_program: "forum_sync",
+      ).call
+    end
+
+    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane:, native_materialization:,
+                   expected_source_revision: nil, public_connection_id: nil, publication_program: "legacy")
       @user = user
       @connection_id = connection_id
       @topic_id = topic_id
@@ -26,6 +43,9 @@ module DiscussionBridge
       @canonical_url = canonical_url
       @lane = lane
       @native_materialization = native_materialization
+      @expected_source_revision = expected_source_revision
+      @public_connection_id = public_connection_id
+      @publication_program = publication_program
     end
 
     def call
@@ -41,7 +61,16 @@ module DiscussionBridge
         lane = resolved_lane(connection)
 
         topic = Topic.lock.find(@topic_id)
-        raise Discourse::InvalidAccess unless Guardian.new(@user).can_see?(topic)
+        if @public_connection_id
+          raise ArgumentError, "connection changed" unless connection.id == @public_connection_id
+          topic = PublicationTopicScope.find!(connection, topic.id)
+          first_post = topic.first_post
+          first_post.lock!
+          raise ArgumentError, "source revision changed" unless
+            @expected_source_revision == PublicationTopicScope.revision(topic, post: first_post.reload)
+        else
+          raise Discourse::InvalidAccess unless Guardian.new(@user).can_see?(topic)
+        end
         raise ArgumentError, "topic is unavailable" if
           topic.deleted_at || topic.first_post.nil? || topic.first_post.deleted_at
 
@@ -64,10 +93,14 @@ module DiscussionBridge
         retired_url = DiscussionBridgePresentationUrlHistory.where(
           old_canonical_url_digest: canonical_url_digest,
         )
-        if retired_url.exists?
+        retired_source_url = DiscussionBridgeSourceUrlHistory.where(
+          old_canonical_url_digest: canonical_url_digest,
+        )
+        if retired_url.exists? || retired_source_url.exists?
           current_owner = bindings.one? && bindings.first.state == "active" &&
             bindings.first.canonical_url_digest == canonical_url_digest &&
-            !retired_url.where.not(content_binding_id: bindings.first.id).exists?
+            !retired_url.where.not(content_binding_id: bindings.first.id).exists? &&
+            !retired_source_url.exists?
           raise ArgumentError, "publication URL is reserved by migration history" unless current_owner
         end
 
@@ -82,9 +115,31 @@ module DiscussionBridge
             binding.bridge_record.topic_id == topic.id
           raise ArgumentError, "binding identity conflict" unless valid
 
-          result = Result.new(record: binding.bridge_record, outcome: "resolved")
+          record = binding.bridge_record
+          if @publication_program == "forum_sync" && record.publication_program == "legacy"
+            record.update!(publication_program: "forum_sync_pending")
+          end
+          valid_program = record.publication_program == @publication_program ||
+            (@publication_program == "forum_sync" && record.publication_program == "forum_sync_pending")
+          raise ArgumentError, "publication program conflict" unless valid_program
+          visibility = topic.visible ? "listed" : "unlisted"
+          record.update!(
+            title: topic.title,
+            effective_actor_id: topic.user_id,
+            requested_visibility: visibility,
+            effective_visibility: visibility,
+          )
+          result = Result.new(record: record, outcome: "resolved")
           next
         end
+
+
+        existing_publication = DiscussionBridgeBridgeRecord.joins(:content_bindings).lock
+          .where(direction: "from_discourse", topic_id: topic.id)
+          .where(discussion_bridge_content_bindings: {
+            content_connection_id: connection.id, role: "presentation", state: "active",
+          }).first
+        raise ArgumentError, "publication identity changed; migration required" if existing_publication
 
         record = DiscussionBridgeBridgeRecord.create!(
           resource_id: SecureRandom.uuid,
@@ -96,6 +151,8 @@ module DiscussionBridge
           effective_actor_id: topic.user_id,
           requested_visibility: topic.visible ? "listed" : "unlisted",
           effective_visibility: topic.visible ? "listed" : "unlisted",
+          destination_state: @public_connection_id ? "pending" : nil,
+          publication_program: @publication_program,
         )
         DiscussionBridgeContentBinding.create!(
           bridge_record: record,

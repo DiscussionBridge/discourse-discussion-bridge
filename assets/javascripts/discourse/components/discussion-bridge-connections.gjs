@@ -30,10 +30,36 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked generateTopicToc = false;
   @tracked includeSourceInPublishedUrl = false;
   @tracked publicationSourcePath = "";
+  @tracked forumPublicationEnabled = false;
+  @tracked publicationIncludeUnlisted = false;
+  @tracked publicationCategoryMode = "all_except_selected";
+  @tracked publicationCategoryIds = [];
+  @tracked publicationExcludedCategoryIds = [];
+  @tracked publicationTagMode = "all";
+  @tracked publicationTagIds = [];
+  @tracked publicationExcludedTagIds = [];
+  @tracked publicationTagOptions = [];
+  @tracked publicationTagQuery = "";
+  @tracked destinationCategoryMappings = {};
+  @tracked destinationCategoryTermMappings = {};
+  @tracked destinationTagMappings = {};
+  @tracked unmappedCategoryPolicy = "hold";
+  @tracked defaultDestinationContainerId = "";
+  @tracked unmappedTagPolicy = "omit";
+  @tracked presentationMode = "native";
+  @tracked destinationAuthorshipPolicy = "service_author";
+  @tracked destinationAuthorId = "";
+  @tracked destinationSlugPolicy = "platform_default";
+  @tracked publicationPreview = null;
   @tracked issuedSecret = null;
   @tracked issuedConnectionId = null;
   @tracked copiedCredential = null;
   @tracked editingConnectionId = null;
+
+  constructor() {
+    super(...arguments);
+    this.publicationTagOptions = this.args.model.publication_tags ?? [];
+  }
 
   @action
   updateName(event) {
@@ -68,6 +94,11 @@ export default class DiscussionBridgeConnections extends Component {
   @action
   showAuthorsTab() {
     this.editingTab = "authors";
+  }
+
+  @action
+  showMappingTab() {
+    this.editingTab = "mapping";
   }
 
   @action
@@ -119,6 +150,153 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   @action
+  updateForumPublicationEnabled(event) {
+    this.forumPublicationEnabled = event.target.checked;
+  }
+
+  @action
+  updatePublicationIncludeUnlisted(event) {
+    this.publicationIncludeUnlisted = event.target.checked;
+  }
+
+  @action
+  updatePublicationCategoryMode(event) {
+    this.publicationCategoryMode = event.target.value;
+    this.publicationCategoryIds = [];
+    this.publicationExcludedCategoryIds = [];
+  }
+
+  @action
+  updatePublicationTagMode(event) {
+    this.publicationTagMode = event.target.value;
+    this.publicationTagIds = [];
+    this.publicationExcludedTagIds = [];
+  }
+
+  @action
+  togglePublicationCategory(categoryId, event) {
+    const key =
+      this.publicationCategoryMode === "only_selected"
+        ? "publicationCategoryIds"
+        : "publicationExcludedCategoryIds";
+    this[key] = event.target.checked
+      ? [...this[key], categoryId]
+      : this[key].filter((id) => id !== categoryId);
+  }
+
+  @action
+  togglePublicationTag(tagId, event) {
+    const key =
+      this.publicationTagMode === "only_selected"
+        ? "publicationTagIds"
+        : "publicationExcludedTagIds";
+    this[key] = event.target.checked
+      ? [...this[key], tagId]
+      : this[key].filter((id) => id !== tagId);
+  }
+
+  @action
+  async searchPublicationTags(event) {
+    this.publicationTagQuery = event.target.value;
+    try {
+      const result = await ajax(
+        "/discussion-bridge/admin/publication-tags.json",
+        {
+          data: { q: this.publicationTagQuery, page: 1 },
+        },
+      );
+      const byId = new Map(
+        this.publicationTagOptions.map((tag) => [tag.id, tag]),
+      );
+      for (const tag of result.tags) {
+        byId.set(tag.id, tag);
+      }
+      this.publicationTagOptions = [...byId.values()].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
+    } catch (error) {
+      popupAjaxError(error);
+    }
+  }
+
+  @action
+  updateDestinationCategory(categoryId, event) {
+    this.destinationCategoryMappings = {
+      ...this.destinationCategoryMappings,
+      [categoryId]: event.target.value,
+    };
+    this.destinationCategoryTermMappings = {
+      ...this.destinationCategoryTermMappings,
+      [categoryId]: "",
+    };
+  }
+
+  @action
+  updateDestinationCategoryTerm(categoryId, event) {
+    this.destinationCategoryTermMappings = {
+      ...this.destinationCategoryTermMappings,
+      [categoryId]: event.target.value,
+    };
+  }
+
+  @action
+  updateDestinationTag(tagId, event) {
+    this.destinationTagMappings = {
+      ...this.destinationTagMappings,
+      [tagId]: event.target.value,
+    };
+  }
+
+  @action
+  updateUnmappedCategoryPolicy(event) {
+    this.unmappedCategoryPolicy = event.target.value;
+  }
+
+  @action
+  updateDefaultDestinationContainer(event) {
+    this.defaultDestinationContainerId = event.target.value;
+  }
+
+  @action
+  updateUnmappedTagPolicy(event) {
+    this.unmappedTagPolicy = event.target.value;
+  }
+
+  @action
+  updatePresentationMode(event) {
+    this.presentationMode = event.target.value;
+  }
+
+  @action
+  updateDestinationAuthorshipPolicy(event) {
+    this.destinationAuthorshipPolicy = event.target.value;
+    if (this.destinationAuthorshipPolicy !== "fixed") {
+      this.destinationAuthorId = "";
+    }
+  }
+
+  @action
+  updateDestinationAuthor(event) {
+    this.destinationAuthorId = event.target.value;
+  }
+
+  @action
+  updateDestinationSlugPolicy(event) {
+    this.destinationSlugPolicy = event.target.value;
+  }
+
+  @action
+  async loadPublicationPreview() {
+    try {
+      this.publicationPreview = await ajax(
+        `/discussion-bridge/admin/content-connections/${this.editingConnectionId}/publication-preview.json`,
+      );
+    } catch (error) {
+      popupAjaxError(error);
+    }
+  }
+
+  @action
   async copyCredential(kind, value) {
     try {
       await navigator.clipboard.writeText(value);
@@ -145,26 +323,38 @@ export default class DiscussionBridgeConnections extends Component {
     }
     try {
       const editing = this.editingConnectionId;
+      const attributes = {
+        name: this.name,
+        platform: this.platform,
+        author_username: this.authorUsername,
+        authorship_mode: this.authorshipMode,
+        unmapped_author_policy: this.unmappedAuthorPolicy,
+        generate_topic_toc: this.generateTopicToc,
+        include_source_in_published_url: this.includeSourceInPublishedUrl,
+        publication_source_path: this.publicationSourcePath,
+        forum_publication_enabled: this.forumPublicationEnabled,
+        publication_include_unlisted: this.publicationIncludeUnlisted,
+        publication_category_mode: this.publicationCategoryMode,
+        publication_category_ids: this.publicationCategoryIds,
+        publication_excluded_category_ids: this.publicationExcludedCategoryIds,
+        publication_tag_mode: this.publicationTagMode,
+        publication_tag_ids: this.publicationTagIds,
+        publication_excluded_tag_ids: this.publicationExcludedTagIds,
+        allowed_origins: this.lines(this.origins),
+        allowed_directions: directions,
+        allowed_lanes: this.lines(this.lanes),
+        default_category_id: this.defaultCategoryId,
+      };
+      if (editing && this.editingConnection?.platform_catalog_revision) {
+        attributes.destination_mapping = this.destinationMappingPayload;
+      }
       const url = editing
         ? `/discussion-bridge/admin/content-connections/${editing}.json`
         : "/discussion-bridge/admin/content-connections.json";
       const result = await ajax(url, {
         type: editing ? "PUT" : "POST",
         data: {
-          content_connection: {
-            name: this.name,
-            platform: this.platform,
-            author_username: this.authorUsername,
-            authorship_mode: this.authorshipMode,
-            unmapped_author_policy: this.unmappedAuthorPolicy,
-            generate_topic_toc: this.generateTopicToc,
-            include_source_in_published_url: this.includeSourceInPublishedUrl,
-            publication_source_path: this.publicationSourcePath,
-            allowed_origins: this.lines(this.origins),
-            allowed_directions: directions,
-            allowed_lanes: this.lines(this.lanes),
-            default_category_id: this.defaultCategoryId,
-          },
+          content_connection: attributes,
         },
       });
       if (result.secret) {
@@ -193,7 +383,7 @@ export default class DiscussionBridgeConnections extends Component {
       connection.source_authors.map((author) => [
         author.id,
         author.discourse_username ?? "",
-      ])
+      ]),
     );
     this.origins = connection.allowed_origins.join("\n");
     this.lanes = connection.allowed_lanes.join("\n");
@@ -205,6 +395,57 @@ export default class DiscussionBridgeConnections extends Component {
     this.includeSourceInPublishedUrl =
       connection.include_source_in_published_url;
     this.publicationSourcePath = connection.publication_source_path ?? "";
+    this.forumPublicationEnabled = connection.forum_publication_enabled;
+    this.publicationIncludeUnlisted = connection.publication_include_unlisted;
+    this.publicationCategoryMode = connection.publication_category_mode;
+    this.publicationCategoryIds = connection.publication_category_ids ?? [];
+    this.publicationExcludedCategoryIds =
+      connection.publication_excluded_category_ids ?? [];
+    this.publicationTagMode = connection.publication_tag_mode;
+    this.publicationTagIds = connection.publication_tag_ids ?? [];
+    this.publicationExcludedTagIds =
+      connection.publication_excluded_tag_ids ?? [];
+    const mapping = connection.destination_mapping ?? {};
+    this.destinationCategoryMappings = Object.fromEntries(
+      (mapping.category_mappings ?? []).map((item) => [
+        item.source_category_id,
+        item.destination_container_id,
+      ]),
+    );
+    this.destinationCategoryTermMappings = Object.fromEntries(
+      (mapping.category_mappings ?? []).map((item) => [
+        item.source_category_id,
+        item.destination_taxonomy_id && item.destination_term_id
+          ? `${item.destination_taxonomy_id}|${item.destination_term_id}`
+          : "",
+      ]),
+    );
+    this.destinationTagMappings = Object.fromEntries(
+      (mapping.tag_mappings ?? []).map((item) => [
+        item.source_tag_id,
+        `${item.destination_taxonomy_id}|${item.destination_term_id}`,
+      ]),
+    );
+    this.unmappedCategoryPolicy = mapping.unmapped_category_policy ?? "hold";
+    this.defaultDestinationContainerId =
+      mapping.default_destination_container_id ?? "";
+    this.unmappedTagPolicy = mapping.unmapped_tag_policy ?? "omit";
+    this.presentationMode =
+      mapping.presentation_mode ??
+      connection.platform_catalog?.presentation_modes?.[0] ??
+      "native";
+    this.destinationAuthorshipPolicy =
+      mapping.authorship_policy ?? "service_author";
+    this.destinationAuthorId = mapping.destination_author_id ?? "";
+    this.destinationSlugPolicy = mapping.slug_policy ?? "platform_default";
+    this.publicationPreview = null;
+    this.scrollTo("discussion-bridge-connection-editor");
+  }
+
+  @action
+  beginAddConnection() {
+    this.resetForm();
+    this.scrollTo("discussion-bridge-connection-editor");
   }
 
   @action
@@ -220,7 +461,7 @@ export default class DiscussionBridgeConnections extends Component {
         {
           type: "PUT",
           data: { content_connection: { enabled: !connection.enabled } },
-        }
+        },
       );
       this.router.refresh();
     } catch (error) {
@@ -239,10 +480,24 @@ export default class DiscussionBridgeConnections extends Component {
     try {
       const result = await ajax(
         `/discussion-bridge/admin/content-connections/${connection.id}/rotate-secret.json`,
-        { type: "POST" }
+        { type: "POST" },
       );
       this.issuedSecret = result.secret;
       this.issuedConnectionId = connection.public_id;
+      this.scrollTo("discussion-bridge-issued-credential");
+    } catch (error) {
+      popupAjaxError(error);
+    }
+  }
+
+  @action
+  async requestCatalogRefresh(connection) {
+    try {
+      await ajax(
+        `/discussion-bridge/admin/content-connections/${connection.id}/request-catalog-refresh.json`,
+        { type: "POST" },
+      );
+      this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
     }
@@ -260,7 +515,7 @@ export default class DiscussionBridgeConnections extends Component {
               discourse_username: this.sourceMappings[sourceAuthor.id] ?? "",
             },
           },
-        }
+        },
       );
       this.router.refresh();
     } catch (error) {
@@ -292,6 +547,187 @@ export default class DiscussionBridgeConnections extends Component {
     this.generateTopicToc = false;
     this.includeSourceInPublishedUrl = false;
     this.publicationSourcePath = "";
+    this.forumPublicationEnabled = false;
+    this.publicationIncludeUnlisted = false;
+    this.publicationCategoryMode = "all_except_selected";
+    this.publicationCategoryIds = [];
+    this.publicationExcludedCategoryIds = [];
+    this.publicationTagMode = "all";
+    this.publicationTagIds = [];
+    this.publicationExcludedTagIds = [];
+    this.publicationTagQuery = "";
+    this.destinationCategoryMappings = {};
+    this.destinationCategoryTermMappings = {};
+    this.destinationTagMappings = {};
+    this.unmappedCategoryPolicy = "hold";
+    this.defaultDestinationContainerId = "";
+    this.unmappedTagPolicy = "omit";
+    this.presentationMode = "native";
+    this.destinationAuthorshipPolicy = "service_author";
+    this.destinationAuthorId = "";
+    this.destinationSlugPolicy = "platform_default";
+    this.publicationPreview = null;
+  }
+
+  get publicationCategories() {
+    return this.args.model.publication_categories.map((category) => ({
+      ...category,
+      selected:
+        this.publicationCategoryMode === "only_selected"
+          ? this.publicationCategoryIds.includes(category.id)
+          : this.publicationExcludedCategoryIds.includes(category.id),
+    }));
+  }
+
+  get publicationTags() {
+    const query = this.publicationTagQuery.trim().toLowerCase();
+    return this.publicationTagOptions
+      .filter((tag) => !query || tag.name.toLowerCase().includes(query))
+      .slice(0, 200)
+      .map((tag) => ({
+        ...tag,
+        selected:
+          this.publicationTagMode === "only_selected"
+            ? this.publicationTagIds.includes(tag.id)
+            : this.publicationExcludedTagIds.includes(tag.id),
+      }));
+  }
+
+  get editingConnection() {
+    return this.args.model.content_connections.find(
+      (connection) => connection.id === this.editingConnectionId,
+    );
+  }
+
+  get platformContainers() {
+    return this.editingConnection?.platform_catalog?.containers ?? [];
+  }
+
+  get platformTaxonomyTerms() {
+    return (this.editingConnection?.platform_catalog?.taxonomies ?? []).flatMap(
+      (taxonomy) =>
+        taxonomy.terms.map((term) => ({
+          value: `${taxonomy.id}|${term.id}`,
+          label: `${taxonomy.label} / ${term.label}`,
+          taxonomyId: taxonomy.id,
+        })),
+    );
+  }
+
+  get platformPresentationModes() {
+    return this.editingConnection?.platform_catalog?.presentation_modes ?? [];
+  }
+
+  get platformAuthors() {
+    return this.editingConnection?.platform_catalog?.authors ?? [];
+  }
+
+  get platformInventory() {
+    return this.editingConnection?.platform_catalog?.inventory;
+  }
+
+  get platformInventoryIncomplete() {
+    return (
+      this.platformInventory &&
+      (!this.platformInventory.authors_complete ||
+        !this.platformInventory.terms_complete)
+    );
+  }
+
+  get mappingSourceCategories() {
+    let categories;
+    if (this.publicationCategoryMode === "only_selected") {
+      categories = this.publicationCategories.filter(
+        (category) => category.selected,
+      );
+    } else {
+      categories = this.publicationCategories.filter(
+        (category) => !category.selected,
+      );
+    }
+    return categories.map((category) => {
+      const destinationId = this.destinationCategoryMappings[category.id] ?? "";
+      const container = this.platformContainers.find(
+        (candidate) => candidate.id === destinationId,
+      );
+      const supported = new Set(container?.taxonomy_ids ?? []);
+      return {
+        ...category,
+        destinationId,
+        destinationTermValue:
+          this.destinationCategoryTermMappings[category.id] ?? "",
+        destinationTermOptions: this.platformTaxonomyTerms.filter((term) =>
+          supported.has(term.taxonomyId),
+        ),
+      };
+    });
+  }
+
+  get mappingSourceTags() {
+    if (this.publicationTagMode === "only_selected") {
+      return this.publicationTags
+        .filter((tag) => this.publicationTagIds.includes(tag.id))
+        .map((tag) => ({
+          ...tag,
+          destinationValue: this.destinationTagMappings[tag.id] ?? "",
+        }));
+    }
+    if (this.publicationTagMode === "all_except_selected") {
+      return this.publicationTags
+        .filter((tag) => !this.publicationExcludedTagIds.includes(tag.id))
+        .map((tag) => ({
+          ...tag,
+          destinationValue: this.destinationTagMappings[tag.id] ?? "",
+        }));
+    }
+    return this.publicationTags.map((tag) => ({
+      ...tag,
+      destinationValue: this.destinationTagMappings[tag.id] ?? "",
+    }));
+  }
+
+  get destinationMappingPayload() {
+    return {
+      category_mappings: Object.entries(this.destinationCategoryMappings)
+        .filter(([, destinationId]) => destinationId)
+        .map(([sourceId, destinationId]) => {
+          const value = this.destinationCategoryTermMappings[sourceId] ?? "";
+          const [taxonomyId, termId] = value.split("|", 2);
+          return {
+            source_category_id: Number(sourceId),
+            destination_container_id: destinationId,
+            ...(taxonomyId && termId
+              ? {
+                  destination_taxonomy_id: taxonomyId,
+                  destination_term_id: termId,
+                }
+              : {}),
+          };
+        }),
+      tag_mappings: Object.entries(this.destinationTagMappings)
+        .filter(([, value]) => value)
+        .map(([sourceId, value]) => {
+          const [taxonomyId, termId] = value.split("|", 2);
+          return {
+            source_tag_id: Number(sourceId),
+            destination_taxonomy_id: taxonomyId,
+            destination_term_id: termId,
+          };
+        }),
+      unmapped_category_policy: this.unmappedCategoryPolicy,
+      default_destination_container_id:
+        this.unmappedCategoryPolicy === "default"
+          ? this.defaultDestinationContainerId
+          : null,
+      unmapped_tag_policy: this.unmappedTagPolicy,
+      presentation_mode: this.presentationMode,
+      authorship_policy: this.destinationAuthorshipPolicy,
+      destination_author_id:
+        this.destinationAuthorshipPolicy === "fixed"
+          ? this.destinationAuthorId
+          : null,
+      slug_policy: this.destinationSlugPolicy,
+    };
   }
 
   get publicationUrlPreview() {
@@ -318,7 +754,7 @@ export default class DiscussionBridgeConnections extends Component {
     return Boolean(
       connection.adapter_id &&
       connection.adapter_version &&
-      connection.last_seen_at
+      connection.last_seen_at,
     );
   }
 
@@ -326,17 +762,44 @@ export default class DiscussionBridgeConnections extends Component {
     return value ? new Date(value).toLocaleString() : "—";
   }
 
+  @action
+  connectionHealthLabel(connection) {
+    if (connection.health === "healthy") {
+      return i18n("discussion_bridge.admin.connection_operational");
+    }
+
+    return this.displayToken(connection.health);
+  }
+
+  scrollTo(id) {
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(id);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   <template>
     <section class="discussion-bridge-connections">
-      <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
-        @descriptionLabel={{i18n
-          "discussion_bridge.admin.connections_description"
-        }}
-      />
+      <div class="discussion-bridge-connections__header">
+        <DPageSubheader
+          @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
+          @descriptionLabel={{i18n
+            "discussion_bridge.admin.connections_description"
+          }}
+        />
+        <DButton
+          @label="discussion_bridge.admin.add_connection"
+          @action={{this.beginAddConnection}}
+          class="btn-primary"
+        />
+      </div>
 
       {{#if this.issuedSecret}}
-        <section class="discussion-bridge-secret" role="status">
+        <section
+          id="discussion-bridge-issued-credential"
+          class="discussion-bridge-secret"
+          role="status"
+        >
           <strong>{{i18n "discussion_bridge.admin.secret_shown_once"}}</strong>
           <div class="discussion-bridge-secret__row">
             <span>{{i18n "discussion_bridge.admin.connection_id"}}</span>
@@ -390,7 +853,7 @@ export default class DiscussionBridgeConnections extends Component {
               <span
                 class="discussion-bridge-status"
                 data-state={{connection.health}}
-              >{{this.displayToken connection.health}}</span>
+              >{{this.connectionHealthLabel connection}}</span>
             </header>
             <dl>
               <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd
@@ -447,14 +910,21 @@ export default class DiscussionBridgeConnections extends Component {
                     <code>{{origin.origin}}</code>
                     <span
                       class="discussion-bridge-status"
-                      data-state={{if origin.embeddable "healthy" "attention"}}
+                      data-state={{if origin.embeddable "healthy" "setup"}}
                     >
                       {{if
                         origin.embeddable
                         (i18n "discussion_bridge.admin.embed_host_ready")
-                        (i18n "discussion_bridge.admin.embeddable_host_missing")
+                        (i18n
+                          "discussion_bridge.admin.embedded_modes_unavailable"
+                        )
                       }}
                     </span>
+                    {{#unless origin.embeddable}}
+                      <small>{{i18n
+                          "discussion_bridge.admin.embeddable_host_explanation"
+                        }}</small>
+                    {{/unless}}
                   </span>
                 {{/each}}
               </dd>
@@ -479,6 +949,32 @@ export default class DiscussionBridgeConnections extends Component {
                   }}</code></dd>
               <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd
               >{{this.displayTimestamp connection.last_seen_at}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.platform_catalog"}}</dt><dd>
+                {{#if connection.platform_catalog_revision}}
+                  <span
+                    class="discussion-bridge-status"
+                    data-state={{if
+                      (eq connection.destination_mapping_state "current")
+                      "healthy"
+                      "attention"
+                    }}
+                  >
+                    {{if
+                      (eq connection.destination_mapping_state "current")
+                      (i18n "discussion_bridge.admin.mapping_ready")
+                      (i18n "discussion_bridge.admin.mapping_required")
+                    }}
+                  </span>
+                  <small>{{this.displayTimestamp
+                      connection.platform_catalog_observed_at
+                    }}</small>
+                {{else}}
+                  <span
+                    class="discussion-bridge-status"
+                    data-state="setup"
+                  >{{i18n "discussion_bridge.admin.catalog_pending"}}</span>
+                {{/if}}
+              </dd>
             </dl>
             <div
               class="discussion-bridge-actions"
@@ -505,6 +1001,11 @@ export default class DiscussionBridgeConnections extends Component {
                 @actionParam={{connection}}
                 class="discussion-bridge-actions__credential"
               />
+              <DButton
+                @label="discussion_bridge.admin.refresh_platform_setup"
+                @action={{this.requestCatalogRefresh}}
+                @actionParam={{connection}}
+              />
             </div>
           </article>
         {{else}}
@@ -513,6 +1014,7 @@ export default class DiscussionBridgeConnections extends Component {
       </div>
 
       <form
+        id="discussion-bridge-connection-editor"
         class="discussion-bridge-add-connection"
         {{on "submit" this.saveConnection}}
       >
@@ -538,6 +1040,11 @@ export default class DiscussionBridgeConnections extends Component {
               class={{if (eq this.editingTab "authors") "active"}}
               {{on "click" this.showAuthorsTab}}
             >{{i18n "discussion_bridge.admin.authors_tab"}}</button>
+            <button
+              type="button"
+              class={{if (eq this.editingTab "mapping") "active"}}
+              {{on "click" this.showMappingTab}}
+            >{{i18n "discussion_bridge.admin.mapping_tab"}}</button>
           </nav>
         {{/if}}
 
@@ -651,6 +1158,110 @@ export default class DiscussionBridgeConnections extends Component {
                   "discussion_bridge.admin.from_discourse"
                 }}</span></label>
           </fieldset>
+          {{#if this.fromDiscourse}}
+            <fieldset class="discussion-bridge-direction-options">
+              <legend>{{i18n
+                  "discussion_bridge.admin.forum_publication_scope"
+                }}</legend>
+              <label class="discussion-bridge-checkbox-setting"><input
+                  type="checkbox"
+                  checked={{this.forumPublicationEnabled}}
+                  {{on "change" this.updateForumPublicationEnabled}}
+                /><span><strong>{{i18n
+                      "discussion_bridge.admin.forum_publication_enabled"
+                    }}</strong><small>{{i18n
+                      "discussion_bridge.admin.forum_publication_enabled_description"
+                    }}</small></span></label>
+              {{#if this.forumPublicationEnabled}}
+                <label>{{i18n
+                    "discussion_bridge.admin.publication_category_mode"
+                  }}
+                  <select {{on "change" this.updatePublicationCategoryMode}}>
+                    <option
+                      value="only_selected"
+                      selected={{eq
+                        this.publicationCategoryMode
+                        "only_selected"
+                      }}
+                    >{{i18n
+                        "discussion_bridge.admin.only_selected_categories"
+                      }}</option>
+                    <option
+                      value="all_except_selected"
+                      selected={{eq
+                        this.publicationCategoryMode
+                        "all_except_selected"
+                      }}
+                    >{{i18n
+                        "discussion_bridge.admin.all_except_selected_categories"
+                      }}</option>
+                  </select>
+                </label>
+                <p>{{i18n
+                    "discussion_bridge.admin.publication_categories_description"
+                  }}</p>
+                {{#each this.publicationCategories as |category|}}
+                  <div class="discussion-bridge-direction-option">
+                    <label><input
+                        type="checkbox"
+                        checked={{category.selected}}
+                        {{on
+                          "change"
+                          (fn this.togglePublicationCategory category.id)
+                        }}
+                      />{{category.path}}</label>
+                  </div>
+                {{/each}}
+                <label>{{i18n "discussion_bridge.admin.publication_tag_mode"}}
+                  <select {{on "change" this.updatePublicationTagMode}}>
+                    <option
+                      value="all"
+                      selected={{eq this.publicationTagMode "all"}}
+                    >{{i18n "discussion_bridge.admin.all_tags"}}</option>
+                    <option
+                      value="only_selected"
+                      selected={{eq this.publicationTagMode "only_selected"}}
+                    >{{i18n
+                        "discussion_bridge.admin.only_selected_tags"
+                      }}</option>
+                    <option
+                      value="all_except_selected"
+                      selected={{eq
+                        this.publicationTagMode
+                        "all_except_selected"
+                      }}
+                    >{{i18n
+                        "discussion_bridge.admin.all_except_selected_tags"
+                      }}</option>
+                  </select>
+                </label>
+                {{#unless (eq this.publicationTagMode "all")}}
+                  <label>{{i18n "discussion_bridge.admin.search_tags"}}<input
+                      value={{this.publicationTagQuery}}
+                      {{on "input" this.searchPublicationTags}}
+                    /></label>
+                  {{#each this.publicationTags as |tag|}}
+                    <div class="discussion-bridge-direction-option">
+                      <label><input
+                          type="checkbox"
+                          checked={{tag.selected}}
+                          {{on "change" (fn this.togglePublicationTag tag.id)}}
+                        />{{tag.name}}</label>
+                    </div>
+                  {{/each}}
+                {{/unless}}
+                <label class="discussion-bridge-checkbox-setting"><input
+                    type="checkbox"
+                    checked={{this.publicationIncludeUnlisted}}
+                    {{on "change" this.updatePublicationIncludeUnlisted}}
+                  /><span><strong>{{i18n
+                        "discussion_bridge.admin.publication_include_unlisted"
+                      }}</strong><small>{{i18n
+                        "discussion_bridge.admin.publication_include_unlisted_description"
+                      }}</small></span></label>
+              {{/if}}
+            </fieldset>
+          {{/if}}
           <label class="discussion-bridge-checkbox-setting">
             <input
               type="checkbox"
@@ -664,7 +1275,7 @@ export default class DiscussionBridgeConnections extends Component {
                   "discussion_bridge.admin.generate_topic_toc_description"
                 }}</small></span>
           </label>
-        {{else}}
+        {{else if (eq this.editingTab "authors")}}
           <section class="discussion-bridge-authors-panel">
             <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>
             <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
@@ -744,6 +1355,267 @@ export default class DiscussionBridgeConnections extends Component {
                 {{/each}}
               </tbody>
             </table>
+          </section>
+        {{else}}
+          <section class="discussion-bridge-mapping-panel">
+            {{#if this.editingConnection.platform_catalog_revision}}
+              <p>{{i18n
+                  "discussion_bridge.admin.destination_mapping_description"
+                }}</p>
+              <dl>
+                <dt>{{i18n "discussion_bridge.admin.platform_catalog"}}</dt>
+                <dd><code
+                  >{{this.editingConnection.platform_catalog_revision}}</code></dd>
+                <dt>{{i18n "discussion_bridge.admin.adapter_identity"}}</dt>
+                <dd><code
+                  >{{this.editingConnection.platform_catalog_adapter_id}}</code>
+                  ·
+                  <code
+                  >{{this.editingConnection.platform_catalog_adapter_version}}</code></dd>
+                <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt>
+                <dd>{{this.displayTimestamp
+                    this.editingConnection.platform_catalog_observed_at
+                  }}</dd>
+              </dl>
+
+              {{#if this.platformInventoryIncomplete}}
+                <div class="alert alert-error">
+                  {{i18n
+                    "discussion_bridge.admin.platform_inventory_incomplete"
+                    authors=this.platformInventory.authors_observed
+                    terms=this.platformInventory.terms_observed
+                  }}
+                </div>
+              {{/if}}
+
+              <label>{{i18n "discussion_bridge.admin.presentation_mode"}}
+                <select {{on "change" this.updatePresentationMode}}>
+                  {{#each this.platformPresentationModes as |mode|}}
+                    <option
+                      value={{mode}}
+                      selected={{eq mode this.presentationMode}}
+                    >{{this.displayToken mode}}</option>
+                  {{/each}}
+                </select>
+              </label>
+
+              <label>{{i18n
+                  "discussion_bridge.admin.destination_authorship_policy"
+                }}
+                <select {{on "change" this.updateDestinationAuthorshipPolicy}}>
+                  <option
+                    value="service_author"
+                    selected={{eq
+                      this.destinationAuthorshipPolicy
+                      "service_author"
+                    }}
+                  >{{i18n
+                      "discussion_bridge.admin.destination_service_author"
+                    }}</option>
+                  <option
+                    value="fixed"
+                    selected={{eq this.destinationAuthorshipPolicy "fixed"}}
+                  >{{i18n
+                      "discussion_bridge.admin.destination_fixed_author"
+                    }}</option>
+                </select>
+              </label>
+              {{#if (eq this.destinationAuthorshipPolicy "fixed")}}
+                <label>{{i18n "discussion_bridge.admin.destination_author"}}
+                  <select required {{on "change" this.updateDestinationAuthor}}>
+                    <option value="">{{i18n
+                        "discussion_bridge.admin.select_destination_author"
+                      }}</option>
+                    {{#each this.platformAuthors as |author|}}
+                      <option
+                        value={{author.id}}
+                        selected={{eq author.id this.destinationAuthorId}}
+                      >{{author.label}}</option>
+                    {{/each}}
+                  </select>
+                </label>
+              {{/if}}
+
+              <label>{{i18n "discussion_bridge.admin.destination_url_policy"}}
+                <select {{on "change" this.updateDestinationSlugPolicy}}>
+                  <option
+                    value="platform_default"
+                    selected={{eq
+                      this.destinationSlugPolicy
+                      "platform_default"
+                    }}
+                  >{{i18n
+                      "discussion_bridge.admin.url_platform_default"
+                    }}</option>
+                  <option
+                    value="source_title"
+                    selected={{eq this.destinationSlugPolicy "source_title"}}
+                  >{{i18n "discussion_bridge.admin.url_source_title"}}</option>
+                  <option
+                    value="topic_id"
+                    selected={{eq this.destinationSlugPolicy "topic_id"}}
+                  >{{i18n "discussion_bridge.admin.url_topic_id"}}</option>
+                </select>
+              </label>
+
+              <h4>{{i18n
+                  "discussion_bridge.admin.category_destination_mapping"
+                }}</h4>
+              {{#each this.mappingSourceCategories as |category|}}
+                <label>{{category.path}}
+                  <select
+                    {{on
+                      "change"
+                      (fn this.updateDestinationCategory category.id)
+                    }}
+                  >
+                    <option value="">{{i18n
+                        "discussion_bridge.admin.hold_unmapped"
+                      }}</option>
+                    {{#each this.platformContainers as |container|}}
+                      <option
+                        value={{container.id}}
+                        selected={{eq category.destinationId container.id}}
+                      >{{container.label}}
+                        ·
+                        {{this.displayToken container.kind}}{{#if
+                          container.path
+                        }} · {{container.path}}{{/if}}</option>
+                    {{/each}}
+                  </select>
+                </label>
+                {{#if category.destinationTermOptions.length}}
+                  <label>{{i18n
+                      "discussion_bridge.admin.destination_section"
+                    }}
+                    <select
+                      {{on
+                        "change"
+                        (fn this.updateDestinationCategoryTerm category.id)
+                      }}
+                    >
+                      <option value="">{{i18n
+                          "discussion_bridge.admin.no_destination_section"
+                        }}</option>
+                      {{#each category.destinationTermOptions as |term|}}
+                        <option
+                          value={{term.value}}
+                          selected={{eq
+                            category.destinationTermValue
+                            term.value
+                          }}
+                        >{{term.label}}</option>
+                      {{/each}}
+                    </select>
+                  </label>
+                {{/if}}
+              {{/each}}
+
+              <label>{{i18n "discussion_bridge.admin.unmapped_category_policy"}}
+                <select {{on "change" this.updateUnmappedCategoryPolicy}}>
+                  <option
+                    value="hold"
+                    selected={{eq this.unmappedCategoryPolicy "hold"}}
+                  >{{i18n "discussion_bridge.admin.hold_unmapped"}}</option>
+                  <option
+                    value="default"
+                    selected={{eq this.unmappedCategoryPolicy "default"}}
+                  >{{i18n
+                      "discussion_bridge.admin.use_default_destination"
+                    }}</option>
+                </select>
+              </label>
+              {{#if (eq this.unmappedCategoryPolicy "default")}}
+                <label>{{i18n "discussion_bridge.admin.default_destination"}}
+                  <select
+                    required
+                    {{on "change" this.updateDefaultDestinationContainer}}
+                  >
+                    <option value="">{{i18n
+                        "discussion_bridge.admin.select_destination"
+                      }}</option>
+                    {{#each this.platformContainers as |container|}}
+                      <option
+                        value={{container.id}}
+                        selected={{eq
+                          container.id
+                          this.defaultDestinationContainerId
+                        }}
+                      >{{container.label}}
+                        ·
+                        {{this.displayToken container.kind}}</option>
+                    {{/each}}
+                  </select>
+                </label>
+              {{/if}}
+
+              <h4>{{i18n
+                  "discussion_bridge.admin.tag_destination_mapping"
+                }}</h4>
+              <label>{{i18n "discussion_bridge.admin.search_tags"}}<input
+                  value={{this.publicationTagQuery}}
+                  {{on "input" this.searchPublicationTags}}
+                /></label>
+              {{#each this.mappingSourceTags as |tag|}}
+                <label>{{tag.name}}
+                  <select {{on "change" (fn this.updateDestinationTag tag.id)}}>
+                    <option value="">{{i18n
+                        "discussion_bridge.admin.omit_unmapped"
+                      }}</option>
+                    {{#each this.platformTaxonomyTerms as |term|}}
+                      <option
+                        value={{term.value}}
+                        selected={{eq tag.destinationValue term.value}}
+                      >{{term.label}}</option>
+                    {{/each}}
+                  </select>
+                </label>
+              {{/each}}
+              <label>{{i18n "discussion_bridge.admin.unmapped_tag_policy"}}
+                <select {{on "change" this.updateUnmappedTagPolicy}}>
+                  <option
+                    value="omit"
+                    selected={{eq this.unmappedTagPolicy "omit"}}
+                  >{{i18n "discussion_bridge.admin.omit_unmapped"}}</option>
+                  <option
+                    value="hold"
+                    selected={{eq this.unmappedTagPolicy "hold"}}
+                  >{{i18n "discussion_bridge.admin.hold_unmapped"}}</option>
+                </select>
+              </label>
+
+              <DButton
+                @label="discussion_bridge.admin.preview_publication"
+                @action={{this.loadPublicationPreview}}
+              />
+              {{#if this.publicationPreview}}
+                <p class="discussion-bridge-publication-preview">
+                  <strong>{{i18n
+                      "discussion_bridge.admin.preview_result"
+                    }}</strong>
+                  {{this.publicationPreview.ready}}
+                  {{i18n "discussion_bridge.admin.ready"}}
+                  ·
+                  {{this.publicationPreview.held}}
+                  {{i18n "discussion_bridge.admin.held"}}
+                  {{#if this.publicationPreview.truncated}}
+                    ·
+                    {{i18n "discussion_bridge.admin.preview_truncated"}}{{/if}}
+                </p>
+                {{#each this.publicationPreview.held_samples as |sample|}}
+                  <p><a href={{sample.topic_url}}>{{sample.title}}</a>
+                    ·
+                    {{#each sample.reasons as |reason|}}{{this.displayToken
+                        reason
+                      }}
+                    {{/each}}</p>
+                {{/each}}
+              {{/if}}
+            {{else}}
+              <p>{{i18n
+                  "discussion_bridge.admin.catalog_required_for_mapping"
+                }}</p>
+            {{/if}}
           </section>
         {{/if}}
         <div class="discussion-bridge-add-connection__actions">

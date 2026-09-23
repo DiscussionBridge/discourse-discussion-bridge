@@ -92,7 +92,9 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("wordpress-discussion-bridge")
     expect(page).to have_content("0.2.0-alpha.20")
     expect(page).to have_content("Last seen")
-    expect(page).to have_content("Embeddable Host Missing")
+    expect(page).to have_content("Connection Operational")
+    expect(page).to have_content("Embedded Modes Unavailable")
+    expect(page).to have_content("Native publication and Simple presentation remain available.")
     expect(page.html).not_to include(@secret)
     expect(page).to have_css(".discussion-bridge-direction-option", count: 2)
     expect(page).to have_css(".discussion-bridge-direction[data-direction='to_discourse']")
@@ -102,6 +104,17 @@ describe "DiscussionBridge native product administration" do
         "Array.from(document.querySelectorAll('.discussion-bridge-direction-option')).every((label) => getComputedStyle(label).display === 'flex' && getComputedStyle(label).alignItems === 'center')",
       ),
     ).to eq(true)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-add-connection input[type=checkbox]')).every((input) => input.getBoundingClientRect().width < 64 && input.getBoundingClientRect().height < 64)",
+      ),
+    ).to eq(true)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-checkbox-setting')).every((label) => { const input = label.querySelector('input'); const copy = label.querySelector('span'); return getComputedStyle(label).display === 'flex' && copy.getBoundingClientRect().width > input.getBoundingClientRect().width; })",
+      ),
+    ).to eq(true)
+    expect(page).to have_css(".discussion-bridge-connections__header .btn-primary", text: "Add connection")
     expect(page).to have_css(".discussion-bridge-add-connection__actions .btn-primary", text: "Add connection")
   end
 
@@ -115,7 +128,9 @@ describe "DiscussionBridge native product administration" do
     select("ghost", from: "Platform")
     fill_in("Allowed origins (one per line)", with: "https://ghost.example")
     select(category.name, from: "Companion-topic category")
-    click_button("Add connection")
+    within(".discussion-bridge-add-connection") do
+      click_button("Add connection")
+    end
 
     expect(page).to have_content("Copy this connection credential now", wait: 30)
     expect(page).to have_button("Copy ID")
@@ -135,6 +150,14 @@ describe "DiscussionBridge native product administration" do
       click_button("Manage")
     end
     expect(page).to have_content("Manage connection")
+    check("Allow this adapter to publish eligible forum topics")
+    expect(page).to have_css(".discussion-bridge-direction-option > label", minimum: 2)
+    expect(
+      page.evaluate_script(
+        "Array.from(document.querySelectorAll('.discussion-bridge-direction-option > label')).every((label) => { const input = label.querySelector('input[type=checkbox]'); const style = getComputedStyle(label); return input && style.display === 'flex' && style.alignItems === 'center' && input.getBoundingClientRect().left < label.getBoundingClientRect().right; })",
+      ),
+    ).to eq(true)
+    uncheck("Allow this adapter to publish eligible forum topics")
     fill_in("Connection name", with: "Editorial Ghost Updated")
     check("Generate topic table of contents")
     check("Include source in published URL")
@@ -157,8 +180,16 @@ describe "DiscussionBridge native product administration" do
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
     expect(page).to have_css(".discussion-bridge-publishing", wait: 30)
+    expect(page).to have_css(".discussion-bridge-publishing__hero strong.is-ready", text: "Publisher ready")
     expect(page).to have_select("Publishing connection", selected: "Select a connection")
     expect(page).to have_css(".discussion-bridge-publishing__topic-id input[max='999999999999']")
+    fill_in("Local topic ID", with: topic.id)
+    select("Main publication · wordpress", from: "Publishing connection")
+    fill_in("Platform content ID", with: "clear-this-form")
+    click_button("Cancel")
+    expect(page).to have_field("Local topic ID", with: "")
+    expect(page).to have_select("Publishing connection", selected: "Select a connection")
+    expect(page).to have_field("Platform content ID", with: "")
     fill_in("Local topic ID", with: topic.id)
     select("Main publication · wordpress", from: "Publishing connection")
     fill_in("Platform content ID", with: "from-the-forum")
@@ -172,16 +203,16 @@ describe "DiscussionBridge native product administration" do
     expect(binding.native_materialization).to eq(true)
     expect(binding.bridge_record.topic_id).to eq(topic.id)
 
-    within(".discussion-bridge-publishing__recent") do
+    within(".discussion-bridge-publishing__recent--records") do
       expect(page).to have_content("Recent platform publications (latest 20)")
       expect(page).to have_link("Browse all Bridge Records")
       expect(page).to have_link("Topic #{topic.id} · From the forum")
       expect(page).to have_css("th", text: "Actions")
-      click_button("Migrate publication URL")
+      click_button("Change publication URL")
       within(".discussion-bridge-publishing__correction-row") do
         expect(page).to have_content("Old URL:")
         expect(page).to have_content("https://example.com/from-the-forum/")
-        expect(page).to have_button("Verify redirect and migrate")
+        expect(page).to have_button("Verify redirect and change URL")
         fill_in("New platform URL", with: "https://example.com/discussionbridge/from-the-forum/")
       end
     end
@@ -203,9 +234,9 @@ describe "DiscussionBridge native product administration" do
     visit("/")
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/publishing')")
 
-    within(".discussion-bridge-publishing__recent") do
-      expect(page).to have_button("Verify older publication and migrate URL", wait: 30)
-      click_button("Verify older publication and migrate URL")
+    within(".discussion-bridge-publishing__recent--records") do
+      expect(page).to have_button("Verify older publication and change URL", wait: 30)
+      click_button("Verify older publication and change URL")
       within(".discussion-bridge-publishing__correction-row") do
         expect(page).to have_content("Platform content ID:")
         expect(page).to have_content("older-post")
@@ -213,7 +244,7 @@ describe "DiscussionBridge native product administration" do
         expect(page).to have_unchecked_field(
           "I verified the new page is this native platform publication and retains this Discourse topic.",
         )
-        expect(page).to have_button("Verify redirect and migrate")
+        expect(page).to have_button("Verify redirect and change URL")
       end
     end
   end
@@ -268,5 +299,34 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Operational truth is visible here")
     expect(page).to have_link("Export report")
     expect(page).to have_no_content("Care diagnostics")
+  end
+
+  it "manages per-connection publication policy from the native topic wrench menu" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    @connection.update!(forum_publication_enabled: true)
+    topic = Topic.find_by!(title: "Community Guide")
+    sign_in(admin)
+
+    visit(topic.url)
+    expect(page).to have_css(".toggle-admin-menu", wait: 30)
+    first(".toggle-admin-menu", visible: true).click
+    expect(page).to have_button("DiscussionBridge Status")
+    click_button("DiscussionBridge Status")
+
+    within(".discussion-bridge-topic-status") do
+      expect(page).to have_content("Main publication", wait: 30)
+      expect(page).to have_content("Included by connection rules")
+      expect(page).to have_content("Not yet published")
+      click_button("Stop publishing")
+      expect(page).to have_content("Topic publication policy saved.", wait: 30)
+      expect(page).to have_content("operator excluded")
+      click_button("Use connection rules")
+      expect(page).to have_content("Included by connection rules", wait: 30)
+    end
+
+    expect(DiscussionBridgePublicationOverride.where(
+      content_connection: @connection,
+      topic: topic,
+    )).to be_empty
   end
 end

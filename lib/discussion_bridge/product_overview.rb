@@ -6,6 +6,8 @@ module DiscussionBridge
       connections = DiscussionBridgeContentConnection.all
       records = DiscussionBridgeBridgeRecord.all
       issue_summary = BridgeReconciliationIndex.summary
+      work_counts = DiscussionBridgePublicationWorkItem.group(:state).count
+      publication_attention = work_counts.slice(*DiscussionBridgePublicationWorkItem::ATTENTION_STATES).values.sum
       actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase)
       default_author_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
         SiteSetting.discussion_bridge_service_username.to_s
@@ -48,12 +50,16 @@ module DiscussionBridge
         product: {
           name: "DiscussionBridge",
           version: DiscussionBridge::VERSION,
-          health: blockers.empty? && issue_summary[:total].zero? ? "healthy" : "attention",
+          health: blockers.empty? && issue_summary[:total].zero? && publication_attention.zero? ? "healthy" : "attention",
         },
         metrics: {
           content_connections: connections.count,
           bridge_records: records.count,
-          needs_attention: issue_summary[:total],
+          needs_attention: issue_summary[:total] + publication_attention,
+          reconciliation_issues: issue_summary[:total],
+          publication_work: DiscussionBridgePublicationWorkItem::STATES.index_with do |state|
+            work_counts.fetch(state, 0)
+          end,
           source_authors: DiscussionBridgeSourceAuthor.count,
           unmapped_source_authors: unresolved_authors.count,
         },

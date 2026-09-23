@@ -34,6 +34,15 @@ describe DiscussionBridge::PublisherController do
     payload
   end
 
+  def adapter_headers(connection: @connection, secret: @secret)
+    {
+      "X-DiscussionBridge-Connection" => connection.public_id,
+      "X-DiscussionBridge-Secret" => secret,
+      "X-DiscussionBridge-Adapter" => "#{connection.platform}-official",
+      "X-DiscussionBridge-Adapter-Version" => "1.0.0",
+    }
+  end
+
   it "requires a staff session" do
     sign_in(user)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
@@ -122,10 +131,7 @@ describe DiscussionBridge::PublisherController do
 
     sign_out
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
-        headers: {
-          "X-DiscussionBridge-Connection" => @connection.public_id,
-          "X-DiscussionBridge-Secret" => @secret,
-        }
+        headers: adapter_headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
   end
@@ -187,8 +193,13 @@ describe DiscussionBridge::PublisherController do
     original_id = binding.id
     old_url = binding.canonical_url
     new_url = "https://astro.example.com/new-roadmap/"
+    verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: old_url, new_url: new_url).and_return(301)
+      .with(old_url: old_url, new_url: new_url) do
+        verifier_calls += 1
+        raise ArgumentError, "network unavailable after committed transition" if verifier_calls > 1
+        301
+      end
 
     2.times do |attempt|
       put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
@@ -203,6 +214,7 @@ describe DiscussionBridge::PublisherController do
         "redirect_status" => 301,
       )
     end
+    expect(verifier_calls).to eq(1)
 
     expect(record.reload).to have_attributes(state: "healthy", topic_id: topic.id)
     expect(record.active_binding("presentation")).to have_attributes(
@@ -221,10 +233,7 @@ describe DiscussionBridge::PublisherController do
 
     sign_out
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
-        headers: {
-          "X-DiscussionBridge-Connection" => @connection.public_id,
-          "X-DiscussionBridge-Secret" => @secret,
-        }
+        headers: adapter_headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "bindings", 0, "url_migration")).to include(
       "old_url" => old_url,
@@ -254,8 +263,13 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeBridgeRecord.find_by!(resource_id: second_resource_id)
       .active_binding("presentation").canonical_url).to eq("https://astro.example.com/second/")
 
+    reverse_verifier_calls = 0
     allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call)
-      .with(old_url: new_url, new_url: old_url).and_return(308)
+      .with(old_url: new_url, new_url: old_url) do
+        reverse_verifier_calls += 1
+        raise ArgumentError, "redirect changed after committed transition" if reverse_verifier_calls > 1
+        308
+      end
     2.times do |attempt|
       put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
           params: { migration: { old_url: new_url, new_url: old_url } },
@@ -269,6 +283,7 @@ describe DiscussionBridge::PublisherController do
         "redirect_status" => 308,
       )
     end
+    expect(reverse_verifier_calls).to eq(1)
     expect(record.reload.active_binding("presentation")).to have_attributes(
       id: original_id,
       canonical_url: old_url,
@@ -436,10 +451,7 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeBridgeRecord.last.lane).to eq("statamic-demo")
 
     sign_out
-    headers = {
-      "X-DiscussionBridge-Connection" => scoped.public_id,
-      "X-DiscussionBridge-Secret" => secret,
-    }
+    headers = adapter_headers(connection: scoped, secret: secret)
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
@@ -504,5 +516,186 @@ describe DiscussionBridge::PublisherController do
     expect(response.parsed_body.dig("connections", 0, "public_id")).to eq(@connection.public_id)
     expect(response.parsed_body.dig("connections", 0, "allowed_lanes")).to eq([])
     expect(response.body).not_to include("X-DiscussionBridge-Secret")
+  end
+
+  it "paginates the complete publication queue in stable newest-first order" do
+    55.times do |index|
+      DiscussionBridgePublicationWorkItem.create!(
+        content_connection: @connection,
+        topic_id: 10_000 + index,
+        action: "publish",
+        state: "queued",
+        reason: "initial_publication",
+      )
+    end
+
+    sign_in(admin)
+    get "/discussion-bridge/admin/publishing.json", params: { publication_page: 2 }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("publication_work").length).to eq(5)
+    expect(response.parsed_body.fetch("publication_work_pagination")).to eq(
+      "page" => 2,
+      "per_page" => 50,
+      "total" => 55,
+      "pages" => 2,
+    )
+    expect(response.parsed_body.fetch("publication_work").map { |item| item.fetch("topic_id") })
+      .to eq((10_000..10_004).to_a.reverse)
+  end
+
+  it "lets staff requeue an exhausted publication and notifies operators when attention clears" do
+    SiteSetting.discussion_bridge_attention_groups = Group::AUTO_GROUPS[:admins].to_s
+    @connection.update!(forum_publication_enabled: true)
+    work = DiscussionBridgePublicationWorkItem.create!(
+      content_connection: @connection,
+      topic_id: topic.id,
+      action: "publish",
+      state: "failed",
+      reason: "delivery_failed",
+      source_revision: "post:#{first_post.id}:version:#{first_post.version}",
+      publication_revision: "a" * 64,
+      policy_revision: "b" * 64,
+      attempt_count: 3,
+      last_error_code: "adapter_failed",
+      last_error_detail: "The destination rejected the update.",
+    )
+    @connection.update!(
+      publication_attention_fingerprint: "c" * 64,
+      publication_attention_notified_at: 2.hours.ago,
+    )
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/publishing/work/#{work.id}/retry.json", as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("outcome" => "queued")
+    expect(work.reload).to have_attributes(
+      state: "queued",
+      reason: "operator_retry",
+      attempt_count: 0,
+      last_error_code: nil,
+      last_error_detail: nil,
+    )
+    expect(@connection.reload.publication_attention_fingerprint).to be_nil
+    expect(Notification.where(user: admin).order(:id).last.data).to include(
+      "discussion_bridge.notification.resolved_title",
+    )
+  end
+
+  it "reports every forum-publication connection and applies a durable per-topic override" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(admin)
+
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+
+    expect(response).to have_http_status(:ok)
+    status = response.parsed_body.fetch("connections").sole
+    expect(status.dig("connection", "id")).to eq(@connection.id)
+    expect(status.dig("override", "decision")).to eq("inherit")
+    expect(status.dig("effective", "basis")).to eq("connection_rules")
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.dig("connections", 0, "override")).to include(
+      "decision" => "exclude",
+      "set_by" => admin.username,
+    )
+    expect(response.parsed_body.dig("connections", 0, "effective")).to include(
+      "eligible" => false,
+      "reason" => "operator_excluded",
+      "basis" => "operator_override",
+    )
+    expect(DiscussionBridgePublicationOverride.find_by!(
+      content_connection: @connection,
+      topic: topic,
+    ).decision).to eq("exclude")
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "inherit" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("connections", 0, "override", "decision")).to eq("inherit")
+    expect(DiscussionBridgePublicationOverride.where(
+      content_connection: @connection,
+      topic: topic,
+    )).to be_empty
+  end
+
+  it "queues unpublish when staff excludes an existing platform publication" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication(native_materialization: true),
+         as: :json
+    expect(response).to have_http_status(:created)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(DiscussionBridgePublicationWorkItem.find_by!(
+      content_connection: @connection,
+      topic_id: topic.id,
+    )).to have_attributes(
+      action: "unpublish",
+      state: "queued",
+      reason: "operator_excluded",
+    )
+  end
+
+  it "lets an explicit publish override connection selection rules but not safety policy" do
+    selected_category = Fabricate(:category)
+    @connection.update!(
+      forum_publication_enabled: true,
+      publication_category_mode: "only_selected",
+      publication_category_ids: [selected_category.id],
+    )
+    sign_in(admin)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "publish" } },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.dig("connections", 0, "rule")).to include(
+      "eligible" => false,
+      "reason" => "category_not_selected",
+    )
+    expect(response.parsed_body.dig("connections", 0, "effective")).to include(
+      "eligible" => true,
+      "basis" => "operator_override",
+    )
+
+    expect(DiscussionBridge::PublicationTopicScope.relation(@connection)).to include(topic)
+
+    topic.update!(visible: false)
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "publish" } },
+        as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "topic cannot be published: topic_unlisted",
+    )
+  end
+
+  it "does not let a non-staff user inspect or change topic publication status" do
+    @connection.update!(forum_publication_enabled: true)
+    sign_in(user)
+
+    get "/discussion-bridge/v1/publisher/topics/#{topic.id}/status.json"
+    expect(response).to have_http_status(:forbidden)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(DiscussionBridgePublicationOverride.count).to eq(0)
   end
 end

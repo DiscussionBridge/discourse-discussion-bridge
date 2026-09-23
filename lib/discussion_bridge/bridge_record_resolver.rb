@@ -44,6 +44,10 @@ module DiscussionBridge
         if matches.any?
           return resolve_existing(matches, canonical, identity_digest, url_digest)
         end
+        if DiscussionBridgeSourceUrlHistory.exists?(old_canonical_url_digest: url_digest) ||
+            DiscussionBridgePresentationUrlHistory.exists?(old_canonical_url_digest: url_digest)
+          return result("reconciliation_required", "retired_url_reserved")
+        end
 
         adopted_topic = adoptable_core_embed_topic(canonical) if @request[:existing_topic_id]
 

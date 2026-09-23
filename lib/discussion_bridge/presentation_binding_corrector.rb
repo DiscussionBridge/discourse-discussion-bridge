@@ -41,7 +41,8 @@ module DiscussionBridge
         )
         raise ArgumentError, "presentation URL is reserved by migration history" if
           binding.canonical_url != canonical.source_url &&
-            DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?
+            (DiscussionBridgePresentationUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists? ||
+             DiscussionBridgeSourceUrlHistory.where(old_canonical_url_digest: canonical_url_digest).exists?)
         conflict = DiscussionBridgeContentBinding.where(
           canonical_url_digest: canonical_url_digest,
         ).where.not(id: binding.id).exists?

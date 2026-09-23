@@ -1,4 +1,4 @@
-# Publication URL migration
+# Publication URL change
 
 This is an operator-assisted cutover for an existing **native From Discourse**
 publication. It is not a connection change, a new platform content ID, or a
@@ -6,7 +6,7 @@ second Bridge Record. The Bridge retains the active binding, resource ID, topic
 and discussion. The old URL becomes reserved history.
 
 The receiver can prove public routing, not page authorship. Before using the
-**Migrate publication URL** action, an operator must verify that the new page
+**Change publication URL** action, an operator must verify that the new page
 is the intended platform record and still shows the same Discourse topic and
 Bridge discussion. Do not use an unrelated page merely because it returns 200.
 
@@ -23,8 +23,8 @@ Bridge discussion. Do not use an unrelated page merely because it returns 200.
    `Location` resolving directly to the exact new URL. A temporary redirect,
    redirect chain, missing destination or changed origin is not sufficient.
 4. In **The Bridge → DiscussionBridge → Publishing**, find that publication,
-   select **Migrate publication URL**, enter the new URL, and select **Verify
-   redirect and migrate**. The receiver independently checks the live HTTP
+   select **Change publication URL**, enter the new URL, and select **Verify
+   redirect and change URL**. The receiver independently checks the live HTTP
    responses before it changes the binding.
 5. Reopen the new page, check the same topic and replies, run an exact adapter
    retry/synchronization, and confirm it resolves the existing record without
@@ -62,7 +62,7 @@ result from outside the platform.
 ## Older publications
 
 Records created before native-publication classification may instead show
-**Verify older publication and migrate URL**. The operator must verify that
+**Verify older publication and change URL**. The operator must verify that
 the new page is the same platform record and still displays this Discourse
 topic, then type the exact platform content ID and confirm that observation.
 The receiver also requires the same permanent-redirect proof. Only after all
@@ -83,7 +83,7 @@ or remove the redirect**. That would leave the forum binding pointing at the
 new URL. Keep the new page and redirect in place while investigating. To
 return to the previous URL, move the **same** platform record back, reverse
 the permanent redirect so the currently bound URL points to the restored URL,
-verify both public routes and the resource/topic again, then run **Migrate
+verify both public routes and the resource/topic again, then run **Change
 publication URL** with the currently bound URL as old and the restored URL as
 new. This records a second verified move on the same binding. If the hosting
 layer cannot safely reverse the redirect, keep the current URL and escalate;

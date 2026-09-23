@@ -10,6 +10,7 @@ export default {
     }
 
     withPluginApi((api) => {
+      api.setAdminPluginIcon("discourse-discussion-bridge", "bridge");
       api.addAdminPluginConfigurationNav("discourse-discussion-bridge", [
         {
           label: "discussion_bridge.admin.health_nav",
