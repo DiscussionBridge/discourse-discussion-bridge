@@ -73,6 +73,14 @@ describe DiscussionBridge::PublicationSummary do
     expect(described_class.call(topic.reload)).to include(state: "attention", attention: 1)
   end
 
+  it "reflects connection eligibility changes made between summaries" do
+    expect(described_class.call(topic)).to include(state: "not_published", total: 2)
+
+    @second.update!(forum_publication_enabled: false)
+
+    expect(described_class.call(topic)).to include(state: "not_published", total: 1)
+  end
+
   it "supports administrator-only, staff, and configured-group badge audiences" do
     moderator = Fabricate(:moderator)
     editors = Fabricate(:group)

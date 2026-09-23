@@ -45,7 +45,7 @@ describe DiscussionBridge do
       File.read(File.expand_path("../discussionbridge-release.json", __dir__), encoding: "UTF-8"),
     )
 
-    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.45")
+    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.46")
     expect(manifest.dig("component", "version")).to eq(DiscussionBridge::VERSION)
     expect(manifest.dig("family", "version")).to eq(
       DiscussionBridge::VERSION.sub(".alpha.", "-alpha."),
