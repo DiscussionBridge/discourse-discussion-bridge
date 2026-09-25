@@ -27,6 +27,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
     find_or_create_by!(singleton_key: SINGLETON_KEY) do |record|
       record.installation_id = SecureRandom.uuid
       record.enrollment_id = SecureRandom.uuid
+      record.provider_id = DiscussionBridge::OperatorProviderRegistry::DEFAULT_PROVIDER_ID
     end
   rescue ActiveRecord::RecordNotUnique
     find_by!(singleton_key: SINGLETON_KEY)
