@@ -10,6 +10,7 @@ describe DiscussionBridgeOperatorService do
              entitlement_version: 1, operator_email: operator.email)
     {
       "status" => status,
+      "provider_id" => "discussionbridge",
       "entitlement_id" => SecureRandom.uuid,
       "operator_identity_id" => "discussionbridge-support-1",
       "operator_email" => operator_email,
@@ -28,6 +29,7 @@ describe DiscussionBridgeOperatorService do
     second = described_class.instance
 
     expect(second.id).to eq(first.id)
+    expect(first.provider_id).to eq("discussionbridge")
     expect(described_class.where(singleton_key: described_class::SINGLETON_KEY).count).to eq(1)
     expect do
       described_class.create!(
@@ -36,6 +38,21 @@ describe DiscussionBridgeOperatorService do
         enrollment_id: SecureRandom.uuid,
       )
     end.to raise_error(ActiveRecord::RecordNotUnique)
+  end
+
+  it "accepts only an approved provider and locks provider changes after enrollment" do
+    service = described_class.instance
+
+    expect do
+      service.select_provider!("unapproved-partner")
+    end.to raise_error(ArgumentError, "operator service provider is invalid")
+
+    service.select_provider!("discussionbridge")
+    service.enable!
+    service.request!(user: admin)
+
+    expect(service.reload.provider_locked?).to eq(true)
+    expect { service.select_provider!("discussionbridge") }.not_to raise_error
   end
 
   it "requires explicit administrator opt-in before an entitlement grants access" do

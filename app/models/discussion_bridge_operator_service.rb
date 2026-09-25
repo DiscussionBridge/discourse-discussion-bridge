@@ -21,11 +21,13 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
   validates :entitlement_version, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
   validates :entitlement_digest, length: { is: 64 }, allow_nil: true
   validates :operator_email, length: { maximum: 254 }, allow_nil: true
+  validates :provider_id, inclusion: { in: DiscussionBridge::OperatorProviderRegistry.provider_ids }
 
   def self.instance
     find_or_create_by!(singleton_key: SINGLETON_KEY) do |record|
       record.installation_id = SecureRandom.uuid
       record.enrollment_id = SecureRandom.uuid
+      record.provider_id = DiscussionBridge::OperatorProviderRegistry::DEFAULT_PROVIDER_ID
     end
   rescue ActiveRecord::RecordNotUnique
     find_by!(singleton_key: SINGLETON_KEY)
@@ -49,6 +51,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
     with_lock do
       raise ArgumentError, "operator service must be enabled before requesting enrollment" unless enabled?
       raise ArgumentError, "operator service enrollment has already been requested" unless request_available?
+      DiscussionBridge::OperatorProviderRegistry.fetch_available(provider_id)
 
       update!(
         status: entitlement_id.present? ? status : "pending",
@@ -59,6 +62,21 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
         notification_error: nil,
       )
     end
+  end
+
+  def select_provider!(new_provider_id)
+    provider = DiscussionBridge::OperatorProviderRegistry.fetch_available(new_provider_id)
+    with_lock do
+      if provider_locked? && provider[:id] != provider_id
+        raise ArgumentError, "operator service provider is locked after enrollment is requested"
+      end
+
+      update!(provider_id: provider[:id])
+    end
+  end
+
+  def provider_locked?
+    requested_at.present? || entitlement_id.present?
   end
 
   def disable!
@@ -76,6 +94,12 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
 
   def apply_entitlement!(claims)
     with_lock do
+      claimed_provider_id = claims.fetch(
+        "provider_id",
+        DiscussionBridge::OperatorProviderRegistry::DEFAULT_PROVIDER_ID,
+      )
+      raise ArgumentError, "entitlement provider does not match enrollment" if claimed_provider_id != provider_id
+
       new_entitlement_version = claims.fetch("entitlement_version")
       new_identity_version = claims.fetch("identity_version")
       raise ArgumentError, "entitlement version is stale" if new_entitlement_version <= entitlement_version
@@ -89,6 +113,7 @@ class DiscussionBridgeOperatorService < ActiveRecord::Base
 
       update!(
         status: claims.fetch("status"),
+        provider_id: claimed_provider_id,
         entitlement_id: claims.fetch("entitlement_id"),
         operator_identity_id: claims.fetch("operator_identity_id"),
         operator_email: claims.fetch("operator_email"),
@@ -174,6 +199,7 @@ end
 #  operator_identity_id :string(100)
 #  operator_user_id     :bigint
 #  plan_id              :string(100)
+#  provider_id          :string(64)       default("discussionbridge"), not null
 #  requested_by_id      :bigint
 #
 # Indexes
@@ -181,6 +207,7 @@ end
 #  idx_discussion_bridge_operator_service_enrollment              (enrollment_id) UNIQUE
 #  idx_discussion_bridge_operator_service_entitlement             (entitlement_id) UNIQUE WHERE (entitlement_id IS NOT NULL)
 #  idx_discussion_bridge_operator_service_installation            (installation_id) UNIQUE
+#  idx_discussion_bridge_operator_service_provider                (provider_id)
 #  idx_discussion_bridge_operator_service_singleton               (singleton_key) UNIQUE
 #  index_discussion_bridge_operator_services_on_operator_user_id  (operator_user_id)
 #

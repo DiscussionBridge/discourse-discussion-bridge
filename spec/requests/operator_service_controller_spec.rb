@@ -35,11 +35,26 @@ describe DiscussionBridge::OperatorServiceController do
     expect(response.parsed_body).to include(
       "enabled" => true,
       "status" => "inactive",
+      "selected_provider_id" => "discussionbridge",
+      "selected_provider_name" => "DiscussionBridge Operator Service",
+      "selected_provider_organization" => "DiscussionBridge / WebSynergetics",
+      "provider_locked" => false,
       "service_request_email" => "servicerequest@discussionbridge.dev",
       "grace_period_days" => 14,
       "notification_state" => "not_sent",
       "request_available" => true,
       "request_submitted" => false,
+    )
+    expect(response.parsed_body.fetch("providers")).to contain_exactly(
+      include(
+        "id" => "discussionbridge",
+        "available" => true,
+        "selected" => true,
+      ),
+    )
+    expect(response.parsed_body.fetch("partner_program")).to include(
+      "display_name" => "Approved Operator Partners",
+      "availability" => "planned",
     )
     expect(operator_notification_jobs).to be_empty
 
@@ -49,6 +64,7 @@ describe DiscussionBridge::OperatorServiceController do
       "enabled" => true,
       "status" => "pending",
       "notification_state" => "queued",
+      "provider_locked" => true,
       "request_available" => false,
       "request_submitted" => true,
     )
@@ -72,6 +88,41 @@ describe DiscussionBridge::OperatorServiceController do
         as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to include("enabled" => false, "status" => "inactive")
+  end
+
+  it "allows only a registry-approved single provider and locks it after a request" do
+    sign_in(admin)
+
+    put "/discussion-bridge/admin/operator-service/provider.json",
+        params: { operator_service: { provider_id: "unapproved-partner" } },
+        as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "operator service provider is invalid",
+    )
+
+    put "/discussion-bridge/admin/operator-service/provider.json",
+        params: { operator_service: { provider_id: "discussionbridge" } },
+        as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      "selected_provider_id" => "discussionbridge",
+      "provider_locked" => false,
+    )
+
+    put "/discussion-bridge/admin/operator-service.json",
+        params: { operator_service: { enabled: true } },
+        as: :json
+    post "/discussion-bridge/admin/operator-service/request.json", as: :json
+
+    put "/discussion-bridge/admin/operator-service/provider.json",
+        params: { operator_service: { provider_id: "discussionbridge" } },
+        as: :json
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include(
+      "selected_provider_id" => "discussionbridge",
+      "provider_locked" => true,
+    )
   end
 
   it "rejects enrollment requests until an administrator enables the local capability" do

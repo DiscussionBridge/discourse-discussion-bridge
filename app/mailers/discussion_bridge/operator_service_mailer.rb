@@ -2,14 +2,15 @@
 
 module DiscussionBridge
   class OperatorServiceMailer < ActionMailer::Base
-    SERVICE_REQUEST_EMAIL = "servicerequest@discussionbridge.dev"
-
     def service_event(service:, event:, requested_by:)
+      provider = DiscussionBridge::OperatorProviderRegistry.fetch_available(service.provider_id)
       subject = "DiscussionBridge Operator service #{event}: #{Discourse.base_url}"
       body = <<~TEXT
         DiscussionBridge Operator service event
 
         Event: #{event}
+        Provider ID: #{provider[:id]}
+        Provider: #{provider[:display_name]}
         Forum: #{Discourse.base_url}
         Installation ID: #{service.installation_id}
         Enrollment ID: #{service.enrollment_id}
@@ -23,7 +24,7 @@ module DiscussionBridge
       TEXT
 
       mail(
-        to: SERVICE_REQUEST_EMAIL,
+        to: provider[:service_request_email],
         from: SiteSetting.notification_email,
         subject: subject,
         body: body,

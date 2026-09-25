@@ -1,20 +1,42 @@
 # DiscussionBridge Operator service
 
-DiscussionBridge Operator is an explicitly opted-in, payment-controlled support
-role. It does not make the operator a Discourse administrator or staff member.
-It does not control automatic publication synchronization.
+DiscussionBridge Operator is an explicitly opted-in support role supplied by
+one selected Operator service provider. The service may be paid or unpaid. It
+does not make the operator a Discourse administrator or staff member, and it
+does not control automatic publication synchronization.
+
+## Provider model
+
+Each forum can have exactly one selected Operator service provider and at most
+one active Operator service enrollment. The receiver stores that provider on
+its database-enforced singleton service record. A payment, provider request,
+or remote event cannot select a provider or enable service.
+
+The current Alpha catalog offers **DiscussionBridge Operator Service** from
+**DiscussionBridge / WebSynergetics**. The administration page also identifies
+**Approved Operator Partners** as planned. A future partner must be added to
+the receiver's approved provider registry with its service-request address and
+allowed operator email domain before it can be selected or receive a signed
+entitlement. A provider cannot register, approve, or expand its own authority.
+
+The selected provider is locked after the first enrollment request. A future
+provider transfer must be an explicit, audited identity and entitlement
+transition; it must not silently replace the bound operator.
 
 ## Enrollment
 
-An administrator opens **DiscussionBridge → Operator service** and first turns
-on **Enable DiscussionBridge Operator service**. This is local opt-in only: it
-does not submit a request or send a notification. The administrator then
-separately selects **Request Operator service**. The receiver records a stable
-installation ID and enrollment ID, then queues one email to
-`servicerequest@discussionbridge.dev`. The message contains the forum URL,
-installation and enrollment IDs, requesting administrator username and email,
-plugin version, and timestamp. It contains no forum credentials, Content
-Connection secrets, topic content, or user census.
+An administrator opens **DiscussionBridge → Operator service**, confirms the
+single selected provider, and then turns on **Enable DiscussionBridge Operator
+service**. This is local opt-in only: it does not submit a request or send a
+notification. The administrator then separately selects **Request Operator
+service**. The receiver records a stable installation ID and enrollment ID,
+then queues one email to the selected provider's registry-controlled service
+address. For the current first-party provider, that address is
+`servicerequest@discussionbridge.dev`. The message contains the selected
+provider ID, forum URL, installation and enrollment IDs, requesting
+administrator username and email, plugin version, and timestamp. It contains
+no forum credentials, Content Connection secrets, topic content, or user
+census.
 
 The switch is off by default. A payment or remote event cannot enable it. A
 request cannot be submitted while the switch is off, and switching it on never
@@ -32,17 +54,18 @@ RSA/SHA-256. The receiver verifies it with the public key installed in the
 server-only environment variable
 `DISCOURSE_DISCUSSION_BRIDGE_OPERATOR_ENTITLEMENT_PUBLIC_KEY`.
 
-The exact payload fields are:
+New entitlements use schema 2. The exact payload fields are:
 
-- `schema` — `1`
+- `schema` — `2`
 - `issuer` — `https://discussionbridge.dev/operator-service`
 - `audience` — `discourse-discussion-bridge`
+- `provider_id` — the exact provider selected locally before enrollment
 - `installation_id`
 - `enrollment_id`
 - `entitlement_id`
 - `operator_identity_id`
-- `operator_email` — a DiscussionBridge-controlled `@discussionbridge.dev`
-  address
+- `operator_email` — an address in the selected provider's approved registry
+  domain; currently `@discussionbridge.dev`
 - `identity_version`
 - `entitlement_version`
 - `plan_id`
@@ -53,10 +76,15 @@ The exact payload fields are:
 - `grace_expires_at` — exactly 14 days after `paid_through_at`
 - `site_url` — the exact forum base URL
 
-Every field is signed. Installation, enrollment, forum URL, issuer, audience,
-email domain, timestamps, grace policy, and monotonic versions fail closed.
-Payment-state updates increment `entitlement_version`. Replacing the operator
-identity also increments `identity_version`.
+Every field is signed. Provider, installation, enrollment, forum URL, issuer,
+audience, provider-specific email domain, timestamps, grace policy, and
+monotonic versions fail closed. Payment-state updates increment
+`entitlement_version`. Replacing the operator identity also increments
+`identity_version`.
+
+Schema 1 remains accepted only as a compatibility form for the original
+`discussionbridge` provider. The receiver normalizes it to that provider; it
+cannot be used for an approved partner.
 
 ## Account binding
 

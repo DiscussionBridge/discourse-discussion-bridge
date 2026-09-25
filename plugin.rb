@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.50
+# version: 0.2.0.alpha.51
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -53,7 +53,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.50"
+    VERSION = "0.2.0.alpha.51"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -84,6 +84,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/topic_publication_state"
   require_relative "lib/discussion_bridge/publication_status_access"
   require_relative "lib/discussion_bridge/publication_summary"
+  require_relative "lib/discussion_bridge/operator_provider_registry"
   require_relative "app/models/discussion_bridge_operator_service"
   require_relative "app/models/discussion_bridge_operator_event"
   require_relative "lib/discussion_bridge/operator_service_access"
@@ -457,6 +458,7 @@ after_initialize do
     post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
     get "/admin/operator-service" => "operator_service#show"
     put "/admin/operator-service" => "operator_service#update"
+    put "/admin/operator-service/provider" => "operator_service#select_provider"
     post "/admin/operator-service/request" => "operator_service#request_service"
     put "/v1/operator-entitlements/current" => "operator_entitlements#update"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
