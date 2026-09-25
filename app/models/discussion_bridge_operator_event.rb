@@ -5,7 +5,7 @@ class DiscussionBridgeOperatorEvent < ActiveRecord::Base
 
   DETAIL_KEYS = %w[
     action decision entitlement_id entitlement_version identity_version operator_identity_id
-    previous_identity_id resource_id status
+    previous_identity_id previous_provider_id provider_id resource_id status
   ].freeze
 
   belongs_to :operator_service, class_name: "DiscussionBridgeOperatorService"
