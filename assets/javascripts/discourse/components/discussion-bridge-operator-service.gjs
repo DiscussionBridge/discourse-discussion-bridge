@@ -66,6 +66,32 @@ export default class DiscussionBridgeOperatorService extends Component {
     }
   }
 
+  @action
+  async selectProvider(providerId) {
+    if (this.working || this.state.provider_locked) {
+      return;
+    }
+
+    this.working = true;
+    this.notice = "";
+    try {
+      this.state = await ajax(
+        "/discussion-bridge/admin/operator-service/provider.json",
+        {
+          type: "PUT",
+          data: { operator_service: { provider_id: providerId } },
+        }
+      );
+      this.notice = i18n(
+        "discussion_bridge.admin.operator_service_provider_selected"
+      );
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.working = false;
+    }
+  }
+
   displayDate(value) {
     return value ? new Date(value).toLocaleString() : "—";
   }
@@ -93,6 +119,59 @@ export default class DiscussionBridgeOperatorService extends Component {
       />
 
       <section class="discussion-bridge-operator-service__panel">
+        <h3>{{i18n "discussion_bridge.admin.operator_service_provider"}}</h3>
+        <p>{{i18n
+            "discussion_bridge.admin.operator_service_provider_description"
+          }}</p>
+        <div class="discussion-bridge-operator-service__providers">
+          {{#each this.state.providers as |provider|}}
+            <article data-provider-id={{provider.id}}>
+              <header>
+                <div>
+                  <h4>{{provider.display_name}}</h4>
+                  <p>{{provider.organization_name}}</p>
+                </div>
+                <strong>
+                  {{#if provider.selected}}
+                    {{i18n "discussion_bridge.admin.operator_service_provider_selected_label"}}
+                  {{else}}
+                    {{i18n "discussion_bridge.admin.operator_service_provider_available"}}
+                  {{/if}}
+                </strong>
+              </header>
+              <p>{{provider.description}}</p>
+              {{#unless provider.selected}}
+                <DButton
+                  @translatedLabel={{i18n
+                    "discussion_bridge.admin.operator_service_provider_select"
+                    provider=provider.display_name
+                  }}
+                  @action={{fn this.selectProvider provider.id}}
+                  @disabled={{or this.working this.state.provider_locked}}
+                />
+              {{/unless}}
+            </article>
+          {{/each}}
+          <article data-provider-availability="planned">
+            <header>
+              <div>
+                <h4>{{this.state.partner_program.display_name}}</h4>
+              </div>
+              <strong>{{i18n
+                  "discussion_bridge.admin.operator_service_provider_planned"
+                }}</strong>
+            </header>
+            <p>{{this.state.partner_program.description}}</p>
+          </article>
+        </div>
+        {{#if this.state.provider_locked}}
+          <p class="discussion-bridge-operator-service__provider-lock">
+            {{i18n "discussion_bridge.admin.operator_service_provider_locked"}}
+          </p>
+        {{/if}}
+      </section>
+
+      <section class="discussion-bridge-operator-service__panel">
         <h3>{{i18n "discussion_bridge.admin.operator_service_local_control"}}</h3>
         <p>{{i18n
             "discussion_bridge.admin.operator_service_local_control_description"
@@ -112,6 +191,7 @@ export default class DiscussionBridgeOperatorService extends Component {
         <h3>{{i18n "discussion_bridge.admin.operator_service_enrollment"}}</h3>
         <p>{{i18n
             "discussion_bridge.admin.operator_service_disclosure"
+            provider=this.state.selected_provider_name
             email=this.state.service_request_email
           }}</p>
         {{#if this.state.request_available}}
@@ -138,6 +218,14 @@ export default class DiscussionBridgeOperatorService extends Component {
         <h3>{{i18n "discussion_bridge.admin.operator_service_status"}}</h3>
         <dl>
           <div><dt>{{i18n "discussion_bridge.admin.status"}}</dt><dd>{{this.state.status}}</dd></div>
+          <div>
+            <dt>{{i18n "discussion_bridge.admin.operator_service_provider"}}</dt>
+            <dd>
+              {{this.state.selected_provider_name}}
+              —
+              {{this.state.selected_provider_organization}}
+            </dd>
+          </div>
           <div><dt>{{i18n "discussion_bridge.admin.operator_service_request_destination"}}</dt><dd>{{this.state.service_request_email}}</dd></div>
           <div><dt>{{i18n "discussion_bridge.admin.operator_service_notification"}}</dt><dd>{{this.state.notification_state}}</dd></div>
           <div><dt>{{i18n "discussion_bridge.admin.operator_service_grace"}}</dt><dd>{{this.state.grace_period_days}} days</dd></div>

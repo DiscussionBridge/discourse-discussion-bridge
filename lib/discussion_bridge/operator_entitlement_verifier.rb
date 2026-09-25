@@ -12,11 +12,12 @@ module DiscussionBridge
     AUDIENCE = "discourse-discussion-bridge"
     GRACE_PERIOD_DAYS = DiscussionBridgeOperatorService::GRACE_PERIOD_DAYS
     STATUSES = %w[active past_due cancelled revoked].freeze
-    REQUIRED_KEYS = %w[
+    LEGACY_SCHEMA_KEYS = %w[
       schema issuer audience installation_id enrollment_id entitlement_id
       operator_identity_id operator_email identity_version entitlement_version plan_id status
       issued_at paid_through_at grace_period_days grace_expires_at site_url
     ].freeze
+    CURRENT_SCHEMA_KEYS = (LEGACY_SCHEMA_KEYS + ["provider_id"]).freeze
 
     def self.call(payload:, signature:, service:, public_key_pem: nil, now: Time.zone.now)
       claims = normalize_payload(payload)
@@ -31,6 +32,7 @@ module DiscussionBridge
         "paid_through_at" => Time.iso8601(claims.fetch("paid_through_at")),
         "grace_expires_at" => Time.iso8601(claims.fetch("grace_expires_at")),
       )
+      parsed["provider_id"] ||= DiscussionBridge::OperatorProviderRegistry::DEFAULT_PROVIDER_ID
       parsed["entitlement_digest"] = Digest::SHA256.hexdigest(encoded)
       parsed
     rescue ArgumentError, KeyError, JSON::ParserError, OpenSSL::PKey::PKeyError
@@ -56,15 +58,28 @@ module DiscussionBridge
     private_class_method :normalize_payload
 
     def self.validate_claims!(claims, service:, now:)
-      raise ArgumentError, "entitlement fields are invalid" unless claims.keys.sort == REQUIRED_KEYS.sort
-      raise ArgumentError, "entitlement schema is unsupported" unless claims["schema"] == 1
+      required_keys = case claims["schema"]
+                      when 1
+                        LEGACY_SCHEMA_KEYS
+                      when 2
+                        CURRENT_SCHEMA_KEYS
+                      else
+                        raise ArgumentError, "entitlement schema is unsupported"
+                      end
+      raise ArgumentError, "entitlement fields are invalid" unless claims.keys.sort == required_keys.sort
       raise ArgumentError, "entitlement issuer is invalid" unless claims["issuer"] == ISSUER
       raise ArgumentError, "entitlement audience is invalid" unless claims["audience"] == AUDIENCE
       raise ArgumentError, "entitlement installation is invalid" unless claims["installation_id"] == service.installation_id
       raise ArgumentError, "entitlement enrollment is invalid" unless claims["enrollment_id"] == service.enrollment_id
       raise ArgumentError, "entitlement site is invalid" unless claims["site_url"] == Discourse.base_url
       raise ArgumentError, "entitlement status is invalid" if STATUSES.exclude?(claims["status"])
-      raise ArgumentError, "entitlement email is invalid" unless claims["operator_email"].to_s.match?(/\A[^\s@]+@discussionbridge\.dev\z/i)
+      provider_id = claims["provider_id"] || DiscussionBridge::OperatorProviderRegistry::DEFAULT_PROVIDER_ID
+      raise ArgumentError, "entitlement provider is invalid" unless provider_id == service.provider_id
+      operator_email_allowed = DiscussionBridge::OperatorProviderRegistry.operator_email_allowed?(
+        provider_id: provider_id,
+        email: claims["operator_email"],
+      )
+      raise ArgumentError, "entitlement email is invalid" unless operator_email_allowed
       raise ArgumentError, "entitlement identity is invalid" if claims["operator_identity_id"].to_s.blank?
       raise ArgumentError, "entitlement id is invalid" if claims["entitlement_id"].to_s.blank?
       raise ArgumentError, "entitlement plan is invalid" if claims["plan_id"].to_s.blank?

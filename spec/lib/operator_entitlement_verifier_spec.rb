@@ -15,9 +15,10 @@ describe DiscussionBridge::OperatorEntitlementVerifier do
   def payload(overrides = {})
     paid_through = 30.days.from_now.change(usec: 0)
     {
-      "schema" => 1,
+      "schema" => 2,
       "issuer" => described_class::ISSUER,
       "audience" => described_class::AUDIENCE,
+      "provider_id" => "discussionbridge",
       "installation_id" => @service.installation_id,
       "enrollment_id" => @service.enrollment_id,
       "entitlement_id" => SecureRandom.uuid,
@@ -33,6 +34,34 @@ describe DiscussionBridge::OperatorEntitlementVerifier do
       "grace_expires_at" => (paid_through + 14.days).iso8601,
       "site_url" => Discourse.base_url,
     }.merge(overrides)
+  end
+
+  it "normalizes a legacy schema-one entitlement to the first-party provider" do
+    value = payload.except("provider_id").merge("schema" => 1)
+    claims = described_class.call(
+      payload: value,
+      signature: signature(value),
+      service: @service,
+      public_key_pem: @key.public_key.to_pem,
+    )
+
+    expect(claims.fetch("provider_id")).to eq("discussionbridge")
+  end
+
+  it "rejects a provider mismatch and an email outside the provider registry" do
+    [
+      payload("provider_id" => "unapproved-partner"),
+      payload("operator_email" => "operator@example.com"),
+    ].each do |invalid|
+      expect do
+        described_class.call(
+          payload: invalid,
+          signature: signature(invalid),
+          service: @service,
+          public_key_pem: @key.public_key.to_pem,
+        )
+      end.to raise_error(ArgumentError, "entitlement is invalid")
+    end
   end
 
   def signature(value)

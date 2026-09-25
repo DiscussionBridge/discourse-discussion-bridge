@@ -28,6 +28,7 @@ module DiscussionBridge
           identity_version: service.identity_version,
           operator_identity_id: service.operator_identity_id,
           previous_identity_id: previous_identity,
+          provider_id: service.provider_id,
           status: service.effective_status,
         },
       )
@@ -35,6 +36,7 @@ module DiscussionBridge
       render json: {
         outcome: "accepted",
         status: service.effective_status,
+        provider_id: service.provider_id,
         operator_account_ready: service.operator_matches?(service.operator_user),
         identity_version: service.identity_version,
         entitlement_version: service.entitlement_version,

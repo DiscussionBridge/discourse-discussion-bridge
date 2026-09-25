@@ -55,6 +55,49 @@
       font-weight: 700;
     }
   }
+
+  &__providers {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+
+    article {
+      border: 1px solid var(--primary-low);
+      border-radius: 0.5rem;
+      display: grid;
+      gap: 0.75rem;
+      padding: 1rem;
+    }
+
+    article[data-provider-availability="planned"] {
+      background: var(--primary-very-low);
+    }
+
+    header {
+      align-items: flex-start;
+      display: flex;
+      gap: 1rem;
+      justify-content: space-between;
+    }
+
+    h4,
+    p {
+      margin: 0;
+    }
+
+    strong {
+      background: var(--tertiary-low);
+      border-radius: 999px;
+      padding: 0.25rem 0.5rem;
+      white-space: nowrap;
+    }
+  }
+
+  &__provider-lock {
+    border-left: 0.25rem solid var(--tertiary);
+    margin-bottom: 0;
+    padding: 0.5rem 0.75rem;
+  }
 }
 
 .discussion-bridge-operator-console {

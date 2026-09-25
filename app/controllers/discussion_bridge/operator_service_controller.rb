@@ -21,11 +21,28 @@ module DiscussionBridge
       DiscussionBridge::OperatorAudit.record(
         event_type: "service_requested",
         actor: current_user,
-        details: { status: service.effective_status },
+        details: { provider_id: service.provider_id, status: service.effective_status },
       )
       enqueue_notification("requested")
       render json: payload(service.reload)
     rescue ArgumentError => error
+      render json: { errors: [error.message] }, status: :unprocessable_entity
+    end
+
+    def select_provider
+      previous_provider_id = service.provider_id
+      service.select_provider!(params.require(:operator_service).fetch(:provider_id))
+      DiscussionBridge::OperatorAudit.record(
+        event_type: "service_provider_selected",
+        actor: current_user,
+        details: {
+          previous_provider_id: previous_provider_id,
+          provider_id: service.provider_id,
+          status: service.effective_status,
+        },
+      )
+      render json: payload(service.reload)
+    rescue ActionController::ParameterMissing, ArgumentError => error
       render json: { errors: [error.message] }, status: :unprocessable_entity
     end
 
@@ -42,7 +59,7 @@ module DiscussionBridge
       DiscussionBridge::OperatorAudit.record(
         event_type: "service_enabled",
         actor: current_user,
-        details: { status: service.effective_status },
+        details: { provider_id: service.provider_id, status: service.effective_status },
       )
     end
 
@@ -54,7 +71,7 @@ module DiscussionBridge
       DiscussionBridge::OperatorAudit.record(
         event_type: "service_disabled",
         actor: current_user,
-        details: { status: service.effective_status },
+        details: { provider_id: service.provider_id, status: service.effective_status },
       )
       if notify_service
         service.update!(notification_state: "queued", notification_error: nil)
@@ -73,12 +90,21 @@ module DiscussionBridge
 
     def payload(record)
       effective_status = record.effective_status
+      provider = DiscussionBridge::OperatorProviderRegistry.fetch(record.provider_id)
       {
         enabled: record.enabled,
         status: effective_status,
+        selected_provider_id: record.provider_id,
+        selected_provider_name: provider[:display_name],
+        selected_provider_organization: provider[:organization_name],
+        provider_locked: record.provider_locked?,
+        providers: DiscussionBridge::OperatorProviderRegistry.public_catalog(
+          selected_provider_id: record.provider_id,
+        ),
+        partner_program: DiscussionBridge::OperatorProviderRegistry::PARTNER_PROGRAM,
         installation_id: record.installation_id,
         enrollment_id: record.enrollment_id,
-        service_request_email: DiscussionBridge::OperatorServiceMailer::SERVICE_REQUEST_EMAIL,
+        service_request_email: provider[:service_request_email],
         grace_period_days: DiscussionBridgeOperatorService::GRACE_PERIOD_DAYS,
         requested_at: record.requested_at,
         requested_by: record.requested_by&.username,
