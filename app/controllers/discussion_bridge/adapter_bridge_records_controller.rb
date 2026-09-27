@@ -1,14 +1,7 @@
 # frozen_string_literal: true
 
 module DiscussionBridge
-  class AdapterBridgeRecordsController < ::ApplicationController
-    requires_plugin DiscussionBridge::PLUGIN_NAME
-    skip_before_action :check_xhr
-    skip_before_action :verify_authenticity_token
-    skip_before_action :redirect_to_login_if_required
-    before_action :ensure_json_request
-    before_action :ensure_enabled
-    before_action :authenticate_connection
+  class AdapterBridgeRecordsController < AdapterController
 
     PER_PAGE = 100
     MAX_PAGE = 10_000
@@ -18,7 +11,7 @@ module DiscussionBridge
       unless @content_connection.allows_direction?(data[:direction]) &&
           @content_connection.allows_lane?(data[:lane]) &&
           @content_connection.allows_origin?(data[:canonical_url])
-        render json: rejection("connection_scope_denied"), status: :forbidden
+        render_protocol_error("scope_denied")
         return
       end
 
@@ -32,7 +25,7 @@ module DiscussionBridge
       actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
       authorship = SourceAuthorship.resolve(connection: @content_connection, request: data)
       unless authorship.allowed?
-        render json: rejection(authorship.reason), status: :unprocessable_entity
+        render_protocol_error("policy_denied")
         return
       end
       author = authorship.author
@@ -58,28 +51,30 @@ module DiscussionBridge
         lane_resolution: lane_resolution,
       )
       result = BridgeRecordResolver.call(connection: @content_connection, request: data, policy: policy)
-      render json: result.to_h.merge(core_fallback: false), status: status_for(result.outcome)
-    rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid, ArgumentError
-      render json: rejection("invalid_request"), status: :unprocessable_entity
+      if result.outcome == "rejected"
+        render_protocol_error("policy_denied")
+      else
+        render_protocol_json(result.to_h.merge(core_fallback: false), status: status_for(result.outcome))
+      end
     end
 
     def index
       page = Integer(params[:page].presence || 1, exception: false)
-      raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
+      raise AdapterRequestBoundary::Error, "malformed_value" unless page&.between?(1, MAX_PAGE)
 
       records = scoped_records
       snapshot = AdapterFeedSnapshot.capture(records)
       token = params[:snapshot].presence
       if page > 1 && token.blank?
-        raise Discourse::InvalidParameters.new(:snapshot)
+        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
       end
       if token && !AdapterFeedSnapshot.valid?(token, connection: @content_connection, snapshot: snapshot)
-        raise Discourse::InvalidParameters.new(:snapshot)
+        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
       end
       token ||= AdapterFeedSnapshot.issue(connection: @content_connection, snapshot: snapshot)
       page_records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE).to_a
       unless AdapterFeedSnapshot.capture(scoped_records) == snapshot
-        raise Discourse::InvalidParameters.new(:snapshot)
+        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
       end
       payload = {
         bridge_records: page_records.map { |record| adapter_record(record) },
@@ -91,7 +86,7 @@ module DiscussionBridge
           snapshot: token,
         },
       }
-      render json: payload
+      render_protocol_json(payload)
     end
 
     def show
@@ -105,10 +100,10 @@ module DiscussionBridge
         )
         .find_by!(resource_id: params[:resource_id])
       unless record_within_connection_scope?(record)
-        render json: rejection("connection_scope_denied"), status: :forbidden
+        render_protocol_error("scope_denied")
         return
       end
-      render json: { bridge_record: adapter_record(record) }
+      render_protocol_json({ bridge_record: adapter_record(record) })
     end
 
     private
@@ -132,19 +127,37 @@ module DiscussionBridge
       records.where(origin_clause, *origin_patterns)
     end
 
-    def ensure_json_request
-      raise Discourse::InvalidParameters.new(:format) unless request.format.json?
+    def maximum_json_bytes
+      action_name == "create" ? BridgeRecordRequest::MAX_JSON_BYTES : nil
     end
 
-    def ensure_enabled
-      return if SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_endpoint_enabled
-
-      render json: rejection("endpoint_disabled"), status: :service_unavailable
+    def allowed_query_fields
+      action_name == "index" ? %w[page snapshot] : []
     end
 
-    def authenticate_connection
-      @content_connection = ContentConnectionAuthenticator.call(request)
-      render json: rejection("unauthorized"), status: :unauthorized unless @content_connection
+    def allowed_body_fields
+      action_name == "create" ? ["bridge_record"] : []
+    end
+
+    def require_known_nested_body_fields
+      return unless action_name == "create"
+
+      bridge_record = request.request_parameters["bridge_record"]
+      return unless bridge_record.respond_to?(:keys)
+
+      unknown = bridge_record.keys.map(&:to_s) - BridgeRecordRequest::ALLOWED_KEYS
+      raise AdapterRequestBoundary::Error, "unknown_field" if unknown.any?
+
+      Array(bridge_record["source_authors"]).each do |author|
+        next unless author.respond_to?(:keys)
+
+        unknown_author_fields = author.keys.map(&:to_s) - %w[id name profile_url]
+        raise AdapterRequestBoundary::Error, "unknown_field" if unknown_author_fields.any?
+      end
+    end
+
+    def body_correlation_id
+      request.request_parameters.dig("bridge_record", "correlation_id")
     end
 
     def policy_request(data)
@@ -211,10 +224,6 @@ module DiscussionBridge
           profile_url: author ? "#{Discourse.base_url}/u/#{author.username_lower}" : nil,
         },
       }
-    end
-
-    def rejection(reason)
-      { outcome: "rejected", reason: reason, core_fallback: false }
     end
 
     def status_for(outcome)

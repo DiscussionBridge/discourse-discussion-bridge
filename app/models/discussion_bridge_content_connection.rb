@@ -7,7 +7,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
 
   PLATFORMS = %w[astro discourse ghost hugo statamic wordpress].freeze
   DIRECTIONS = %w[to_discourse from_discourse].freeze
-  PUBLIC_ID_PATTERN = /\Adbc_[a-z0-9]{24}\z/
+  PUBLIC_ID_PATTERN = DiscussionBridge::AdapterRequestBoundary::CONNECTION_ID_PATTERN
   MAX_ORIGINS = 50
   MAX_LANES = 50
   AUTHORSHIP_MODES = %w[fixed mapped].freeze

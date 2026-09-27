@@ -3,22 +3,20 @@
 module DiscussionBridge
   class ContentConnectionAuthenticator
     def self.call(request)
-      public_id = request.headers["X-DiscussionBridge-Connection"]
-      secret = request.headers["X-DiscussionBridge-Secret"]
-      return unless public_id.is_a?(String) && public_id.bytesize <= 64
+      public_id = request.headers[AdapterRequestBoundary::CONNECTION_HEADER]
+      secret = request.headers[AdapterRequestBoundary::SECRET_HEADER]
+      return unless public_id.is_a?(String) && AdapterRequestBoundary::CONNECTION_ID_PATTERN.match?(public_id)
 
       connection = DiscussionBridgeContentConnection.find_by(public_id: public_id, enabled: true)
       return unless connection&.authenticate_secret?(secret)
 
       adapter_id = request.headers["X-DiscussionBridge-Adapter"]
       adapter_version = request.headers["X-DiscussionBridge-Adapter-Version"]
-      if adapter_id.present? || adapter_version.present?
-        return unless valid_adapter_value?(adapter_id) && valid_adapter_value?(adapter_version)
-      end
-
       attributes = { last_seen_at: Time.zone.now, updated_at: Time.zone.now }
-      attributes[:adapter_id] = adapter_id if adapter_id.present?
-      attributes[:adapter_version] = adapter_version if adapter_version.present?
+      if valid_adapter_value?(adapter_id) && valid_adapter_value?(adapter_version)
+        attributes[:adapter_id] = adapter_id
+        attributes[:adapter_version] = adapter_version
+      end
       connection.update_columns(**attributes)
       connection
     end

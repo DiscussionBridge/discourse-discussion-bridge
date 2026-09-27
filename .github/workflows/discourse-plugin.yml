@@ -11,6 +11,20 @@ permissions:
   contents: read
 
 jobs:
+  adapter-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout plugin
+        uses: actions/checkout@v6
+      - name: Checkout released Adapter Protocol
+        uses: actions/checkout@v6
+        with:
+          repository: DiscussionBridge/discussionbridge-adapter-contract
+          ref: v0.2.0-alpha.21
+          path: .adapter-contract
+      - name: Verify exact request boundary
+        run: ruby script/verify_adapter_contract.rb .adapter-contract/contract.json
+
   ci:
     uses: discourse/.github/.github/workflows/discourse-plugin.yml@bee9ee78c8e6fd574a8496f415e08c6eb412d3df
     with:

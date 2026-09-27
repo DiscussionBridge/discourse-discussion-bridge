@@ -23,12 +23,15 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     )
   end
 
-  def headers(secret: @secret)
+  def headers(secret: @secret, correlation: "delivery-1")
     {
       "X-DiscussionBridge-Connection" => @connection.public_id,
       "X-DiscussionBridge-Secret" => secret,
+      "X-DiscussionBridge-Contract" => DiscussionBridge::CONTRACT_VERSION,
+      "X-DiscussionBridge-Correlation" => correlation,
       "X-DiscussionBridge-Adapter" => "wordpress-official",
       "X-DiscussionBridge-Adapter-Version" => "1.0.0",
+      "HTTPS" => "on",
     }
   end
 
@@ -232,8 +235,11 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          headers: headers,
          params: authored_payload,
          as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body).to include("reason" => "source_author_unmapped")
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body).to include(
+      "error_code" => "policy_denied",
+      "correlation_id" => "delivery-1",
+    )
     expect(Topic.count).to eq(0)
     source_author = @connection.source_authors.find_by!(source_author_id: "astro:phil")
     expect(source_author).to have_attributes(
@@ -418,13 +424,14 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(@connection.last_seen_at).to be_present
   end
 
-  it "rejects incomplete adapter presence headers" do
+  it "does not treat incomplete diagnostic adapter headers as authentication" do
     invalid_headers = headers.except("X-DiscussionBridge-Adapter-Version")
 
     get "/discussion-bridge/v1/bridge-records.json", headers: invalid_headers
 
-    expect(response).to have_http_status(:unauthorized)
-    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil, last_seen_at: nil)
+    expect(response).to have_http_status(:ok)
+    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil)
+    expect(@connection.last_seen_at).to be_present
   end
 
   it "does not attach Discourse publisher provenance to a To Discourse record" do
@@ -445,7 +452,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     @connection.update!(allowed_directions: ["from_discourse"])
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:forbidden)
-    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("bridge_records")).to be_empty
@@ -453,7 +460,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     @connection.update!(allowed_directions: ["to_discourse"], allowed_lanes: ["news"])
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:forbidden)
-    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response.parsed_body.fetch("bridge_records")).to be_empty
   end
@@ -643,6 +650,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
         headers: {
           "X-DiscussionBridge-Connection" => target.public_id,
           "X-DiscussionBridge-Secret" => target_secret,
+          "X-DiscussionBridge-Contract" => DiscussionBridge::CONTRACT_VERSION,
+          "X-DiscussionBridge-Correlation" => "delivery-1",
+          "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
   end
@@ -660,7 +670,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(snapshot).to be_present
 
     get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
-    expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:conflict)
 
     get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
     expect(response).to have_http_status(:ok)
@@ -669,7 +679,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     expect(response).to have_http_status(:created)
     get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
-    expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:conflict)
 
     get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
     expect(response).to have_http_status(:bad_request)
