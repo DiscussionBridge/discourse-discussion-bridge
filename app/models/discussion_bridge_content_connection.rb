@@ -149,11 +149,14 @@ end
 #  allowed_lanes          :jsonb            not null
 #  allowed_origins        :jsonb            not null
 #  authorship_mode        :string(32)       default("fixed"), not null
+#  catalog_required       :boolean          default(FALSE), not null
+#  destination_policies   :jsonb            not null
 #  enabled                :boolean          default(TRUE), not null
 #  generate_topic_toc     :boolean          default(FALSE), not null
 #  last_seen_at           :datetime
 #  name                   :string(120)      not null
 #  platform               :string(32)       not null
+#  policy_revision        :string(255)
 #  secret_digest          :string(64)       not null
 #  unmapped_author_policy :string(32)       default("fallback"), not null
 #  created_at             :datetime         not null

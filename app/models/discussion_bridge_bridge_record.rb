@@ -44,13 +44,22 @@ end
 # Table name: discussion_bridge_bridge_records
 #
 #  id                       :bigint           not null, primary key
+#  content_disposition      :string(16)
+#  delivered_content_sha256 :string(64)
 #  direction                :string(32)       not null
 #  effective_visibility     :string(32)       default("unlisted"), not null
 #  lane                     :string(64)
+#  presentation_mode        :string(32)
 #  requested_visibility     :string(32)       default("unlisted"), not null
 #  reservation_token        :string(64)
 #  retry_authorized_at      :datetime
 #  source_authors           :jsonb            not null
+#  source_content_bytes     :bigint
+#  source_content_sha256    :string(64)
+#  source_created_at        :datetime
+#  source_revision          :string(255)
+#  source_revision_sequence :bigint
+#  source_updated_at        :datetime
 #  state                    :string(32)       default("reserved"), not null
 #  title                    :string(1024)     not null
 #  created_at               :datetime         not null
