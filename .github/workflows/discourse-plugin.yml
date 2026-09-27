@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - codex/alpha21-contract-successor
   pull_request:
 
 permissions:
