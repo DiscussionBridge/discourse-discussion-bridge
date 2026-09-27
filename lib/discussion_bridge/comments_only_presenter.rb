@@ -50,7 +50,7 @@ module DiscussionBridge
     end
 
     def self.requested_for?(topic_id:, source_presentation: false)
-      FullInteractiveReadiness.ready? && (
+      InteractiveReadiness.ready? && (
         mapped_topic?(topic_id: topic_id) ||
           (source_presentation && source_presentation_topic?(topic_id: topic_id))
       )

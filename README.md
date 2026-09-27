@@ -152,7 +152,7 @@ The response never includes another connection's record.
 - `discussion_bridge_effective_tags`
 - `discussion_bridge_lane_policies`
 - `discussion_bridge_default_visibility`
-- `discussion_bridge_comments_only_full_interactive`
+- `discussion_bridge_comments_only_interactive`
 
 The endpoint and plugin switches are independently default-disabled. The
 operating identity and forum-default author must be active, non-system Discourse
