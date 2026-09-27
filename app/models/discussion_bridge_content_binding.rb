@@ -11,6 +11,13 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
 
   validates :role, inclusion: { in: ROLES }
   validates :state, inclusion: { in: STATES }
+  before_validation :assign_binding_id, on: :create
+  validates :binding_id, presence: true, uniqueness: true,
+                         format: { with: DiscussionBridge::AdapterProtocolRecords::BINDING_ID_PATTERN }
+  validates :presentation_mode, inclusion: { in: DiscussionBridge::ConnectionCapability::PRESENTATION_MODES }, allow_nil: true
+  validates :content_disposition, inclusion: { in: DiscussionBridge::BridgeRecordRequest::CONTENT_DISPOSITIONS }, allow_nil: true
+  validates :deployment_state, inclusion: { in: DiscussionBridge::AdapterProtocolRecords::DEPLOYMENT_STATES }
+  validates :verification_state, inclusion: { in: DiscussionBridge::AdapterProtocolRecords::VERIFICATION_STATES }
   validates :external_id, :canonical_url, :identity_digest, :canonical_url_digest, presence: true
   validates :external_id, length: { maximum: 255 }
   validates :canonical_url, length: { maximum: DiscussionBridge::CanonicalSource::MAX_SOURCE_URL_LENGTH }
@@ -26,6 +33,10 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
   end
 
   private
+
+  def assign_binding_id
+    self.binding_id ||= "dbb_#{SecureRandom.hex(16)}"
+  end
 
   def external_id_is_safe
     errors.add(:external_id, "is invalid") unless self.class.valid_external_id?(external_id)

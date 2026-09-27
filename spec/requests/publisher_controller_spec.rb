@@ -109,7 +109,7 @@ describe DiscussionBridge::PublisherController do
       .active_binding("presentation").canonical_url).to eq("https://astro.example.com/roadmap/")
   end
 
-  it "explicitly authorizes native materialization and exposes it to the adapter" do
+  it "explicitly authorizes native materialization without adding an undeclared adapter field" do
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
          params: publication(native_materialization: true),
@@ -130,7 +130,7 @@ describe DiscussionBridge::PublisherController do
           "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
+    expect(response.parsed_body.dig("bridge_record", "bindings")).to eq([])
   end
 
   it "rejects malformed native materialization authority" do
@@ -202,7 +202,7 @@ describe DiscussionBridge::PublisherController do
     expect(response).to have_http_status(:ok)
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("bridge_records").map { |record| record.fetch("resource_id") }).to include(resource_id)
+    expect(response.parsed_body.fetch("records").map { |record| record.fetch("resource_id") }).to include(resource_id)
   end
 
   it "requires an explicit allowed lane when a publishing connection permits several" do

@@ -1,18 +1,36 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
+require "time"
 
 module DiscussionBridge
   module BridgeRecordRequest
     MAX_JSON_BYTES = 64 * 1024
     MAX_CONTENT_HTML_BYTES = 48 * 1024
+    MAX_SOURCE_CONTENT_BYTES = 16 * 1024 * 1024
     MAX_EXTERNAL_ID_BYTES = 255
     MAX_CORRELATION_ID_BYTES = 200
     MAX_SOURCE_AUTHORS = 20
     MAX_SOURCE_AUTHOR_ID_BYTES = 255
     MAX_SOURCE_AUTHOR_NAME_BYTES = 200
     MAX_TOPIC_ID = 9_223_372_036_854_775_807
-    REQUIRED_KEYS = %w[direction external_id canonical_url title content_html published].freeze
+    REQUIRED_KEYS = %w[
+      direction
+      external_id
+      canonical_url
+      title
+      content_html
+      published
+      presentation_mode
+      source_revision
+      source_revision_sequence
+      source_created_at
+      source_updated_at
+      content_disposition
+      source_content_bytes
+      source_content_sha256
+    ].freeze
     ALLOWED_KEYS = (
       REQUIRED_KEYS + %w[
         lane
@@ -23,8 +41,13 @@ module DiscussionBridge
         source_authors
         primary_source_author_id
         existing_topic_id
+        read_more_url
       ]
     ).freeze
+    PRESENTATION_MODES = %w[simple full interactive].freeze
+    CONTENT_DISPOSITIONS = %w[complete excerpt].freeze
+    SHA256_PATTERN = /\A[a-f0-9]{64}\z/
+    RFC3339_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
 
@@ -45,6 +68,17 @@ module DiscussionBridge
         raise ArgumentError, "invalid title"
       end
       validate_content_html!(raw["content_html"])
+      validate_string!(raw["presentation_mode"], "presentation_mode", 32, identifier: true)
+      raise ArgumentError, "invalid presentation_mode" if PRESENTATION_MODES.exclude?(raw["presentation_mode"])
+      validate_string!(raw["source_revision"], "source_revision", 255, identifier: false)
+      sequence = raw["source_revision_sequence"]
+      unless sequence.is_a?(Integer) && sequence.between?(1, ConnectionRequest::MAX_SAFE_INTEGER)
+        raise ArgumentError, "invalid source_revision_sequence"
+      end
+      raw["source_created_at"] = validate_timestamp!(raw["source_created_at"], "source_created_at")
+      raw["source_updated_at"] = validate_timestamp!(raw["source_updated_at"], "source_updated_at")
+      raise ArgumentError, "invalid source_updated_at" if raw["source_updated_at"] < raw["source_created_at"]
+      validate_content_identity!(raw)
 
       %w[lane adapter_id adapter_version correlation_id visibility].each do |key|
         next unless raw.key?(key)
@@ -70,6 +104,46 @@ module DiscussionBridge
     rescue JSON::GeneratorError
       raise ArgumentError, "invalid bridge record payload"
     end
+
+    def self.validate_timestamp!(value, name)
+      unless value.is_a?(String) && RFC3339_UTC_PATTERN.match?(value)
+        raise AdapterRequestBoundary::Error, "malformed_value"
+      end
+
+      parsed = Time.iso8601(value)
+      parsed.change(nsec: (parsed.nsec / 1000) * 1000)
+    rescue ArgumentError
+      raise AdapterRequestBoundary::Error, "malformed_value"
+    end
+    private_class_method :validate_timestamp!
+
+    def self.validate_content_identity!(raw)
+      disposition = raw["content_disposition"]
+      raise ArgumentError, "invalid content_disposition" if CONTENT_DISPOSITIONS.exclude?(disposition)
+
+      source_bytes = raw["source_content_bytes"]
+      unless source_bytes.is_a?(Integer) && source_bytes.between?(0, MAX_SOURCE_CONTENT_BYTES)
+        raise ArgumentError, "invalid source_content_bytes"
+      end
+      sha256 = raw["source_content_sha256"]
+      raise ArgumentError, "invalid source_content_sha256" unless sha256.is_a?(String) && SHA256_PATTERN.match?(sha256)
+
+      content_html = raw.fetch("content_html")
+      if disposition == "complete"
+        raise ArgumentError, "read_more_url is not allowed for complete content" if raw.key?("read_more_url")
+        unless content_html.bytesize == source_bytes && Digest::SHA256.hexdigest(content_html) == sha256
+          raise AdapterRequestBoundary::Error, "integrity_failed"
+        end
+      else
+        read_more_url = raw["read_more_url"]
+        unless read_more_url == raw["canonical_url"] && source_bytes > content_html.bytesize &&
+            content_html.match?(/excerpt/i) && content_html.include?("Read More") &&
+            content_html.include?(read_more_url)
+          raise ArgumentError, "invalid excerpt"
+        end
+      end
+    end
+    private_class_method :validate_content_identity!
 
     def self.validate_string!(value, name, maximum, identifier:, strip: true)
       valid = value.is_a?(String) && value.valid_encoding? && value.present? &&

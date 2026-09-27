@@ -8,6 +8,9 @@ end
 
 contract = JSON.parse(File.read(contract_path, encoding: "UTF-8"))
 require_relative "../lib/discussion_bridge/adapter_request_boundary"
+require_relative "../lib/discussion_bridge/bridge_record_request"
+require_relative "../lib/discussion_bridge/connection_capability"
+require_relative "../lib/discussion_bridge/adapter_protocol_records"
 
 boundary = DiscussionBridge::AdapterRequestBoundary
 authentication = contract.fetch("authentication")
@@ -59,4 +62,83 @@ end
 abort "released Adapter Protocol error registry mismatch" unless boundary::ERROR_STATUSES == released_statuses
 abort "missing bounded static message" unless boundary::ERROR_MESSAGES.keys.sort == released_statuses.keys.sort
 
-puts "Adapter Protocol request boundary matches #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"
+resolve = contract.fetch("resolve")
+request = DiscussionBridge::BridgeRecordRequest
+abort "released resolve required fields mismatch" unless request::REQUIRED_KEYS == resolve.fetch("required_fields")
+abort "released resolve optional fields mismatch" unless
+  (request::ALLOWED_KEYS - request::REQUIRED_KEYS) == resolve.fetch("optional_fields")
+abort "released resolve JSON bound mismatch" unless request::MAX_JSON_BYTES == resolve.fetch("maximum_json_bytes")
+abort "released resolve content bound mismatch" unless
+  request::MAX_CONTENT_HTML_BYTES == resolve.dig("field_rules", "content_html_maximum_bytes")
+abort "released source content bound mismatch" unless
+  request::MAX_SOURCE_CONTENT_BYTES == resolve.fetch("source_content_maximum_bytes")
+abort "released presentation modes mismatch" unless
+  request::PRESENTATION_MODES == resolve.dig("field_rules", "presentation_mode")
+abort "released content dispositions mismatch" unless
+  request::CONTENT_DISPOSITIONS == resolve.dig("field_rules", "content_disposition")
+
+capability = contract.fetch("connection_capability")
+capability_impl = DiscussionBridge::ConnectionCapability
+abort "released profiles mismatch" unless capability_impl::PROFILES == contract.fetch("profiles")
+abort "released capability presentation modes mismatch" unless
+  capability_impl::PRESENTATION_MODES == contract.dig("configuration", "presentation_modes")
+abort "released supported operations mismatch" unless
+  capability_impl::SUPPORTED_OPERATIONS == capability.fetch("supported_operations")
+abort "released capability fields mismatch" unless
+  capability_impl::REQUIRED_FIELDS == capability.fetch("required_fields")
+abort "released destination policy fields mismatch" unless
+  capability_impl::POLICY_KEYS == capability.fetch("destination_policy_required_fields")
+policy_rules = capability.fetch("destination_policy_field_rules")
+abort "released container mapping fields mismatch" unless
+  capability_impl::CONTAINER_MAPPING_KEYS == policy_rules.fetch("container_mapping_required_fields")
+abort "released taxonomy mapping fields mismatch" unless
+  capability_impl::TAXONOMY_MAPPING_REQUIRED_KEYS == policy_rules.fetch("taxonomy_mapping_required_fields") &&
+    capability_impl::TAXONOMY_MAPPING_OPTIONAL_KEYS == policy_rules.fetch("taxonomy_mapping_optional_fields")
+abort "released author mapping fields mismatch" unless
+  capability_impl::AUTHOR_MAPPING_REQUIRED_KEYS == policy_rules.fetch("author_mapping_required_fields") &&
+    capability_impl::AUTHOR_MAPPING_OPTIONAL_KEYS == policy_rules.fetch("author_mapping_optional_fields")
+abort "released mapping modes mismatch" unless capability_impl::MAPPING_MODES == policy_rules.fetch("mapping_modes")
+abort "released native-limit policy fields mismatch" unless
+  capability_impl::NATIVE_LIMIT_POLICY_KEYS == policy_rules.fetch("native_limit_policy_required_fields")
+abort "released overflow behaviors mismatch" unless
+  capability_impl::OVERFLOW_BEHAVIORS == policy_rules.fetch("overflow_behaviors")
+released_bounds = {
+  resolve_json_bytes: resolve.fetch("maximum_json_bytes"),
+  source_content_bytes: contract.dig("common", "source_content_maximum_bytes"),
+  claim_maximum_items: contract.dig("publication_work", "claim", "maximum_items"),
+  lease_maximum_seconds: contract.dig("publication_work", "claim", "maximum_total_lease_seconds"),
+  catalog_segment_items: contract.dig("platform_catalog", "maximum_items_per_segment"),
+}
+abort "released capability bounds mismatch" unless capability_impl::BOUNDS == released_bounds
+
+records = contract.fetch("records")
+record_impl = DiscussionBridge::AdapterProtocolRecords
+abort "released resolve success fields mismatch" unless
+  record_impl::RESOLVE_SUCCESS_FIELDS == resolve.fetch("success_response_required_fields")
+abort "released resolve reconciliation fields mismatch" unless
+  record_impl::RESOLVE_RECONCILIATION_FIELDS == resolve.fetch("reconciliation_response_required_fields")
+abort "released record index fields mismatch" unless
+  record_impl::INDEX_RESPONSE_FIELDS == records.fetch("index_required_response_fields")
+abort "released record show fields mismatch" unless
+  record_impl::SHOW_RESPONSE_FIELDS == records.fetch("show_required_response_fields")
+abort "released record fields mismatch" unless
+  record_impl::REQUIRED_RECORD_FIELDS == records.fetch("required_record_fields")
+abort "released optional record fields mismatch" unless
+  record_impl::OPTIONAL_RECORD_FIELDS == records.fetch("optional_record_fields")
+abort "released binding fields mismatch" unless
+  record_impl::BINDING_FIELDS == records.fetch("destination_binding_fields")
+abort "released binding states mismatch" unless record_impl::BINDING_STATES == records.fetch("binding_states")
+abort "released binding roles mismatch" unless record_impl::BINDING_ROLES == records.fetch("binding_roles")
+released_binding_pattern = Regexp.new("\\A#{records.fetch("binding_id_pattern")}\\z")
+%w[dbb_11111111111111111111111111111111 dbb_abcdef0123456789abcdef0123456789].each do |value|
+  abort "released binding ID pattern mismatch for #{value}" unless
+    record_impl::BINDING_ID_PATTERN.match?(value) == released_binding_pattern.match?(value)
+end
+abort "released deployment states mismatch" unless
+  record_impl::DEPLOYMENT_STATES == records.fetch("deployment_states")
+abort "released verification states mismatch" unless
+  record_impl::VERIFICATION_STATES == records.fetch("verification_states")
+abort "released record page bound mismatch" unless record_impl::MAXIMUM_PAGE == records.fetch("maximum_page")
+abort "released record page size mismatch" unless record_impl::PER_PAGE == records.fetch("records_per_page")
+
+puts "Adapter Protocol request boundary and P2 records match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"

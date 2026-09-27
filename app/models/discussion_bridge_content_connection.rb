@@ -35,6 +35,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validate :scopes_are_valid
   validate :author_user_is_usable
   validate :default_category_is_available
+  validate :alpha21_capability_state_is_valid
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -90,6 +91,19 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   end
 
   private
+
+  def alpha21_capability_state_is_valid
+    unless policy_revision.nil? || DiscussionBridge::ConnectionCapability.valid_policy_revision?(policy_revision)
+      errors.add(:policy_revision, "is invalid")
+    end
+    unless destination_policies == [] || DiscussionBridge::ConnectionCapability.valid_destination_policies?(destination_policies)
+      errors.add(:destination_policies, "do not match the Adapter Protocol")
+    end
+    if destination_policies.present? &&
+        !DiscussionBridge::ConnectionCapability.policies_within_connection_scope?(self)
+      errors.add(:destination_policies, "exceed the connection direction or platform scope")
+    end
+  end
 
   def default_category_is_available
     return if default_category_id.blank? || Category.exists?(id: default_category_id)

@@ -3,8 +3,8 @@
 module DiscussionBridge
   class AdapterBridgeRecordsController < AdapterController
 
-    PER_PAGE = 100
-    MAX_PAGE = 10_000
+    PER_PAGE = AdapterProtocolRecords::PER_PAGE
+    MAX_PAGE = AdapterProtocolRecords::MAXIMUM_PAGE
 
     def create
       data = BridgeRecordRequest.call(params.require(:bridge_record))
@@ -54,7 +54,7 @@ module DiscussionBridge
       if result.outcome == "rejected"
         render_protocol_error("policy_denied")
       else
-        render_protocol_json(result.to_h.merge(core_fallback: false), status: status_for(result.outcome))
+        render_protocol_json(resolve_payload(result), status: status_for(result.outcome))
       end
     end
 
@@ -63,28 +63,12 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "malformed_value" unless page&.between?(1, MAX_PAGE)
 
       records = scoped_records
-      snapshot = AdapterFeedSnapshot.capture(records)
-      token = params[:snapshot].presence
-      if page > 1 && token.blank?
-        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
-      end
-      if token && !AdapterFeedSnapshot.valid?(token, connection: @content_connection, snapshot: snapshot)
-        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
-      end
-      token ||= AdapterFeedSnapshot.issue(connection: @content_connection, snapshot: snapshot)
+      total = records.distinct.count(:id)
       page_records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE).to_a
-      unless AdapterFeedSnapshot.capture(scoped_records) == snapshot
-        raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch"
-      end
       payload = {
-        bridge_records: page_records.map { |record| adapter_record(record) },
-        pagination: {
-          page: page,
-          per_page: PER_PAGE,
-          total: snapshot.total,
-          pages: [(snapshot.total.to_f / PER_PAGE).ceil, 1].max,
-          snapshot: token,
-        },
+        records: page_records.map { |record| adapter_record(record) },
+        page: page,
+        total_pages: [(total.to_f / PER_PAGE).ceil, 1].max,
       }
       render_protocol_json(payload)
     end
@@ -103,6 +87,10 @@ module DiscussionBridge
         render_protocol_error("scope_denied")
         return
       end
+      unless protocol_ready_record?(record)
+        render_protocol_error("temporarily_unavailable")
+        return
+      end
       render_protocol_json({ bridge_record: adapter_record(record) })
     end
 
@@ -113,6 +101,10 @@ module DiscussionBridge
         .joins(:content_bindings)
         .where(discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" })
         .where(direction: @content_connection.allowed_directions)
+        .where(
+          "discussion_bridge_bridge_records.direction = 'from_discourse' OR " \
+            "discussion_bridge_bridge_records.source_revision IS NOT NULL",
+        )
         .includes(topic: :first_post)
         .order(id: :asc)
       records = if Array(@content_connection.allowed_lanes).empty?
@@ -132,7 +124,7 @@ module DiscussionBridge
     end
 
     def allowed_query_fields
-      action_name == "index" ? %w[page snapshot] : []
+      action_name == "index" ? %w[page] : []
     end
 
     def allowed_body_fields
@@ -172,27 +164,29 @@ module DiscussionBridge
     def adapter_record(record)
       topic = record.topic
       first_post = topic&.first_post
-      {
+      revision = record.direction == "from_discourse" ? discourse_revision(first_post) : stored_revision(record)
+      payload = {
         resource_id: record.resource_id,
         direction: record.direction,
         state: record.state,
-        title: record.title,
+        title: record.direction == "from_discourse" ? topic.title : record.title,
         topic_id: record.topic_id,
         topic_url: topic&.url,
-        source_authors: record.source_authors,
-        primary_source_author_id: record.primary_source_author_id,
-        content_html: record.direction == "from_discourse" ? first_post&.cooked : nil,
-        source: record.direction == "from_discourse" ? discourse_source(topic, first_post) : nil,
-        bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
-          {
-            role: binding.role,
-            state: binding.state,
-            external_id: binding.external_id,
-            canonical_url: binding.canonical_url,
-            native_materialization: binding.native_materialization,
-          }
+        source_revision: revision.fetch(:source_revision),
+        source_revision_sequence: revision.fetch(:source_revision_sequence),
+        source_created_at: revision.fetch(:source_created_at),
+        source_updated_at: revision.fetch(:source_updated_at),
+        bindings: record.content_bindings.where(content_connection_id: @content_connection.id).filter_map do |binding|
+          adapter_binding(binding, record, first_post)
         end,
       }
+      if record.direction == "from_discourse"
+        payload[:content_disposition] = "complete"
+        payload[:content_transport] = inline_transport(first_post.cooked) if first_post.cooked.bytesize <= 1_048_576
+      elsif record.content_disposition.present?
+        payload[:content_disposition] = record.content_disposition
+      end
+      payload
     end
 
     def record_within_connection_scope?(record)
@@ -204,26 +198,86 @@ module DiscussionBridge
         @content_connection.allows_origin?(binding.canonical_url)
     end
 
-    def discourse_source(topic, first_post)
-      return nil unless topic && first_post
-
-      author = first_post.user
+    def discourse_revision(first_post)
       {
-        platform: "discourse",
-        origin: Discourse.base_url,
-        topic_id: topic.id,
-        topic_url: topic.url,
-        post_id: first_post.id,
-        post_number: first_post.post_number,
-        post_version: first_post.version,
-        revision: "post:#{first_post.id}:version:#{first_post.version}",
-        updated_at: first_post.updated_at&.iso8601(6),
-        author: {
-          username: author&.username,
-          name: author&.name.presence || author&.username,
-          profile_url: author ? "#{Discourse.base_url}/u/#{author.username_lower}" : nil,
-        },
+        source_revision: "post:#{first_post.id}:version:#{first_post.version}",
+        source_revision_sequence: first_post.version,
+        source_created_at: first_post.created_at.iso8601(6),
+        source_updated_at: first_post.updated_at.iso8601(6),
       }
+    end
+
+    def stored_revision(record)
+      {
+        source_revision: record.source_revision,
+        source_revision_sequence: record.source_revision_sequence,
+        source_created_at: record.source_created_at.iso8601(6),
+        source_updated_at: record.source_updated_at.iso8601(6),
+      }
+    end
+
+    def inline_transport(content_html)
+      {
+        mode: "inline",
+        media_type: "text/html; charset=utf-8",
+        byte_length: content_html.bytesize,
+        sha256: Digest::SHA256.hexdigest(content_html),
+        content_html: content_html,
+      }
+    end
+
+    def adapter_binding(binding, record, first_post)
+      return nil if binding.presentation_mode.blank?
+
+      dynamic = record.direction == "to_discourse"
+      {
+        binding_id: binding.binding_id,
+        connection_id: binding.content_connection.public_id,
+        role: binding.role,
+        state: external_binding_state(binding.state),
+        external_id: binding.external_id,
+        canonical_url: binding.canonical_url,
+        presentation_mode: binding.presentation_mode,
+        applied_source_revision: binding.applied_source_revision,
+        publication_revision: binding.publication_revision || (dynamic ? "post:#{first_post.id}:version:#{first_post.version}" : nil),
+        content_disposition: binding.content_disposition,
+        synchronized_at: binding.synchronized_at&.iso8601(6),
+        deployment_state: dynamic ? "not_required" : binding.deployment_state,
+        deployed_at: binding.deployed_at&.iso8601(6),
+        verification_state: dynamic ? "not_required" : binding.verification_state,
+        publicly_verified_at: binding.publicly_verified_at&.iso8601(6),
+      }
+    end
+
+    def external_binding_state(state)
+      { "prepared" => "pending", "active" => "active", "historical" => "retired" }.fetch(state)
+    end
+
+    def protocol_ready_record?(record)
+      record.direction == "from_discourse" || (
+        record.source_revision.present? && record.source_revision_sequence.present? &&
+          record.source_created_at.present? && record.source_updated_at.present?
+      )
+    end
+
+    def resolve_payload(result)
+      common = {
+        outcome: result.outcome,
+        reason: result.reason,
+        resource_id: result.resource_id,
+        topic_id: result.topic_id,
+        topic_url: result.topic_url,
+        direction: result.direction,
+      }
+      if result.outcome == "reconciliation_required"
+        common.merge(conflict_fields: result.conflict_fields || [], core_fallback: false)
+      else
+        common.merge(
+          accepted_source_revision: result.accepted_source_revision,
+          accepted_source_revision_sequence: result.accepted_source_revision_sequence,
+          core_fallback: false,
+        )
+      end
     end
 
     def status_for(outcome)

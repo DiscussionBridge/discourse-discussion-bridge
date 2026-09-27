@@ -36,14 +36,23 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   def payload(overrides = {})
+    content_html = overrides.delete(:content_html) || "<h2>Community guide</h2><p>A complete source article.</p>"
     {
       bridge_record: {
         direction: "to_discourse",
         external_id: "post-482",
         canonical_url: "https://example.com/articles/community-guide/",
         title: "A controlled companion discussion topic",
-        content_html: "<h2>Community guide</h2><p>A complete source article.</p>",
+        content_html: content_html,
         published: true,
+        presentation_mode: "interactive",
+        source_revision: "wordpress:post:482:revision:9",
+        source_revision_sequence: 9,
+        source_created_at: "2026-09-01T16:00:00Z",
+        source_updated_at: "2026-09-27T18:30:00Z",
+        content_disposition: "complete",
+        source_content_bytes: content_html.bytesize,
+        source_content_sha256: Digest::SHA256.hexdigest(content_html),
         visibility: "unlisted",
         lane: "articles",
         adapter_id: "wordpress-official",
@@ -393,22 +402,12 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "direction")).to eq("from_discourse")
-    expect(response.parsed_body.dig("bridge_record", "content_html")).to be_present
-    expect(response.parsed_body.dig("bridge_record", "source")).to include(
-      "platform" => "discourse",
-      "origin" => Discourse.base_url,
-      "topic_id" => topic.id,
-      "topic_url" => topic.url,
-      "post_id" => topic.first_post.id,
-      "post_number" => 1,
-      "post_version" => topic.first_post.version,
-      "revision" => "post:#{topic.first_post.id}:version:#{topic.first_post.version}",
-      "updated_at" => topic.first_post.updated_at.iso8601(6),
-      "author" => {
-        "username" => service_actor.username,
-        "name" => service_actor.name.presence || service_actor.username,
-        "profile_url" => "#{Discourse.base_url}/u/#{service_actor.username_lower}",
-      },
+    expect(response.parsed_body.dig("bridge_record", "content_transport", "content_html")).to be_present
+    expect(response.parsed_body.fetch("bridge_record")).to include(
+      "source_revision" => "post:#{topic.first_post.id}:version:#{topic.first_post.version}",
+      "source_revision_sequence" => topic.first_post.version,
+      "source_created_at" => topic.first_post.created_at.iso8601(6),
+      "source_updated_at" => topic.first_post.updated_at.iso8601(6),
     )
     expect(@connection.reload.last_seen_at).to be_present
   end
@@ -442,7 +441,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
 
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("bridge_record", "source")).to be_nil
+    expect(response.parsed_body.fetch("bridge_record")).not_to have_key("content_transport")
   end
 
   it "stops returning an existing record when its current connection scope is narrowed" do
@@ -455,14 +454,14 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("bridge_records")).to be_empty
+    expect(response.parsed_body.fetch("records")).to be_empty
 
     @connection.update!(allowed_directions: ["to_discourse"], allowed_lanes: ["news"])
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
-    expect(response.parsed_body.fetch("bridge_records")).to be_empty
+    expect(response.parsed_body.fetch("records")).to be_empty
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
@@ -660,26 +659,20 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   it "paginates a connection's record inventory and rejects invalid pages" do
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("pagination")).to include(
-      "page" => 1,
-      "per_page" => 100,
-      "total" => 0,
-      "pages" => 1,
-    )
-    snapshot = response.parsed_body.dig("pagination", "snapshot")
-    expect(snapshot).to be_present
-
-    get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
-    expect(response).to have_http_status(:conflict)
-
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
-    expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("pagination", "snapshot")).to eq(snapshot)
+    expect(response.parsed_body).to include("records" => [], "page" => 1, "total_pages" => 1)
 
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     expect(response).to have_http_status(:created)
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
-    expect(response).to have_http_status(:conflict)
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("records").length).to eq(1)
+
+    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: "obsolete" }, headers: headers
+    expect(response).to have_http_status(:bad_request)
+
+    get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("records" => [], "page" => 2, "total_pages" => 1)
 
     get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
     expect(response).to have_http_status(:bad_request)

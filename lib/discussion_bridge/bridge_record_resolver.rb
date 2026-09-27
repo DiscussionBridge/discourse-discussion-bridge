@@ -4,7 +4,17 @@ require "digest"
 
 module DiscussionBridge
   class BridgeRecordResolver
-    Result = Data.define(:outcome, :reason, :resource_id, :topic_id, :topic_url, :direction)
+    Result = Data.define(
+      :outcome,
+      :reason,
+      :resource_id,
+      :topic_id,
+      :topic_url,
+      :direction,
+      :accepted_source_revision,
+      :accepted_source_revision_sequence,
+      :conflict_fields,
+    )
 
     def self.call(connection:, request:, policy:, topic_creator: TopicCreator.new)
       new(connection: connection, request: request, policy: policy, topic_creator: topic_creator).call
@@ -59,9 +69,18 @@ module DiscussionBridge
           effective_visibility: @policy.effective_visibility,
           source_authors: Array(@request[:source_authors]),
           primary_source_author_id: @request[:primary_source_author_id],
+          presentation_mode: @request.fetch(:presentation_mode),
+          source_revision: @request.fetch(:source_revision),
+          source_revision_sequence: @request.fetch(:source_revision_sequence),
+          source_created_at: @request.fetch(:source_created_at),
+          source_updated_at: @request.fetch(:source_updated_at),
+          content_disposition: @request.fetch(:content_disposition),
+          source_content_bytes: @request.fetch(:source_content_bytes),
+          source_content_sha256: @request.fetch(:source_content_sha256),
+          delivered_content_sha256: Digest::SHA256.hexdigest(@request.fetch(:content_html)),
           reservation_token: adopted_topic ? nil : SecureRandom.hex(32),
         )
-        DiscussionBridgeContentBinding.create!(
+        binding = DiscussionBridgeContentBinding.create!(
           bridge_record: bridge_record,
           content_connection: @connection,
           role: "source",
@@ -71,8 +90,18 @@ module DiscussionBridge
           identity_digest: identity_digest,
           canonical_url_digest: url_digest,
           activated_at: Time.zone.now,
+          presentation_mode: @request.fetch(:presentation_mode),
+          applied_source_revision: @request.fetch(:source_revision),
+          content_disposition: @request.fetch(:content_disposition),
+          synchronized_at: Time.zone.now,
         )
-        unless adopted_topic
+        if adopted_topic
+          @topic_creator.update(
+            request: topic_request(canonical),
+            policy: @policy,
+            record: bridge_record,
+          )
+        else
           creation = @topic_creator.call(request: topic_request(canonical), policy: @policy)
           bridge_record.update!(
             topic_id: creation.topic.id,
@@ -80,6 +109,7 @@ module DiscussionBridge
             reservation_token: nil,
           )
         end
+        binding.update!(publication_revision: topic_revision(bridge_record.topic))
         write_audit!(
           bridge_record,
           identity_digest,
@@ -132,14 +162,24 @@ module DiscussionBridge
         binding.identity_digest == identity_digest && binding.canonical_url_digest == url_digest &&
         binding.external_id == @request.fetch(:external_id) && binding.canonical_url == canonical.source_url &&
         binding.role == "source" && binding.state == "active"
-      return result("reconciliation_required", "binding_identity_conflict") unless valid
+      return result(
+        "reconciliation_required",
+        "binding_identity_conflict",
+        nil,
+        %w[external_id canonical_url],
+      ) unless valid
 
       record = binding.bridge_record
+      if @request[:existing_topic_id].present? && @request[:existing_topic_id] != record.topic_id
+        return result("reconciliation_required", "binding_identity_conflict", record, ["existing_topic_id"])
+      end
       topic = Topic.find_by(id: record.topic_id)
       unless record.direction == "to_discourse" && record.state == "healthy" && topic &&
           topic.deleted_at.nil? && Post.exists?(topic_id: topic.id, post_number: 1, deleted_at: nil)
-        return result("reconciliation_required", "bridge_record_unavailable", record)
+        return result("reconciliation_required", "bridge_record_unavailable", record, ["topic_id"])
       end
+
+      apply_revision!(record, binding)
 
       update_connection_presence!
       write_audit!(record, identity_digest, "resolved", "existing_bridge_record")
@@ -158,6 +198,7 @@ module DiscussionBridge
         correlation_id: @request[:correlation_id],
         source_authors: Array(@request[:source_authors]),
         primary_source_author_id: @request[:primary_source_author_id],
+        source_revision: @request.fetch(:source_revision),
         generate_topic_toc: @connection.generate_topic_toc,
       }.compact
     end
@@ -184,7 +225,90 @@ module DiscussionBridge
       )
     end
 
-    def result(outcome, reason, record = nil)
+    def apply_revision!(record, binding)
+      status = revision_status(record)
+      return if status == :replay
+
+      first_post = @topic_creator.update(
+        request: topic_request(
+          CanonicalSource.call(
+            connection_id: @connection.public_id,
+            source_url: @request.fetch(:canonical_url),
+          ),
+        ),
+        policy: @policy,
+        record: record,
+      )
+      record.update!(revision_attributes.merge(title: @request.fetch(:title)))
+      binding.update!(
+        presentation_mode: @request.fetch(:presentation_mode),
+        applied_source_revision: @request.fetch(:source_revision),
+        publication_revision: "post:#{first_post.id}:version:#{first_post.version}",
+        content_disposition: @request.fetch(:content_disposition),
+        synchronized_at: Time.zone.now,
+      )
+    end
+
+    def revision_status(record)
+      return :update if record.source_revision.blank? || record.source_revision_sequence.blank?
+
+      requested_sequence = @request.fetch(:source_revision_sequence)
+      stored_sequence = record.source_revision_sequence
+      raise AdapterRequestBoundary::Error, "revision_conflict" if requested_sequence < stored_sequence
+
+      if requested_sequence == stored_sequence
+        raise AdapterRequestBoundary::Error, "revision_conflict" unless exact_replay?(record)
+
+        return :replay
+      end
+
+      if @request.fetch(:source_revision) == record.source_revision ||
+          @request.fetch(:source_created_at) != record.source_created_at ||
+          @request[:lane].to_s != record.lane.to_s
+        raise AdapterRequestBoundary::Error, "revision_conflict"
+      end
+
+      :update
+    end
+
+    def exact_replay?(record)
+      record.source_revision == @request.fetch(:source_revision) &&
+        record.source_created_at == @request.fetch(:source_created_at) &&
+        record.source_updated_at == @request.fetch(:source_updated_at) &&
+        record.source_content_bytes == @request.fetch(:source_content_bytes) &&
+        record.source_content_sha256 == @request.fetch(:source_content_sha256) &&
+        record.delivered_content_sha256 == Digest::SHA256.hexdigest(@request.fetch(:content_html)) &&
+        record.content_disposition == @request.fetch(:content_disposition) &&
+        record.presentation_mode == @request.fetch(:presentation_mode) &&
+        record.title == @request.fetch(:title) &&
+        record.lane.to_s == @request[:lane].to_s &&
+        record.requested_visibility == @request.fetch(:visibility, "unlisted") &&
+        record.source_authors == Array(@request[:source_authors]).map(&:stringify_keys) &&
+        record.primary_source_author_id == @request[:primary_source_author_id]
+    end
+
+    def revision_attributes
+      {
+        presentation_mode: @request.fetch(:presentation_mode),
+        source_revision: @request.fetch(:source_revision),
+        source_revision_sequence: @request.fetch(:source_revision_sequence),
+        source_created_at: @request.fetch(:source_created_at),
+        source_updated_at: @request.fetch(:source_updated_at),
+        content_disposition: @request.fetch(:content_disposition),
+        source_content_bytes: @request.fetch(:source_content_bytes),
+        source_content_sha256: @request.fetch(:source_content_sha256),
+        delivered_content_sha256: Digest::SHA256.hexdigest(@request.fetch(:content_html)),
+        source_authors: Array(@request[:source_authors]),
+        primary_source_author_id: @request[:primary_source_author_id],
+      }
+    end
+
+    def topic_revision(topic)
+      post = topic&.first_post
+      post ? "post:#{post.id}:version:#{post.version}" : nil
+    end
+
+    def result(outcome, reason, record = nil, conflict_fields = nil)
       Result.new(
         outcome: outcome,
         reason: reason,
@@ -192,6 +316,9 @@ module DiscussionBridge
         topic_id: record&.topic_id,
         topic_url: record&.topic&.url,
         direction: record&.direction || @request[:direction],
+        accepted_source_revision: outcome == "reconciliation_required" ? nil : @request[:source_revision],
+        accepted_source_revision_sequence: outcome == "reconciliation_required" ? nil : @request[:source_revision_sequence],
+        conflict_fields: conflict_fields,
       )
     end
   end

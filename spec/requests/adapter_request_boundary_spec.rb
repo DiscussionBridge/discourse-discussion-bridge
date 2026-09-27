@@ -33,14 +33,23 @@ describe "DiscussionBridge Adapter Protocol request boundary" do
   end
 
   def protocol_payload(correlation: "boundary-1")
+    content_html = "<p>Bounded request content.</p>"
     {
       bridge_record: {
         direction: "to_discourse",
         external_id: "boundary-post-1",
         canonical_url: "https://example.com/articles/boundary/",
         title: "Adapter request boundary",
-        content_html: "<p>Bounded request content.</p>",
+        content_html: content_html,
         published: true,
+        presentation_mode: "interactive",
+        source_revision: "wordpress:boundary:revision:1",
+        source_revision_sequence: 1,
+        source_created_at: "2026-09-01T16:00:00Z",
+        source_updated_at: "2026-09-27T18:30:00Z",
+        content_disposition: "complete",
+        source_content_bytes: content_html.bytesize,
+        source_content_sha256: Digest::SHA256.hexdigest(content_html),
         visibility: "unlisted",
         lane: "articles",
         correlation_id: correlation,

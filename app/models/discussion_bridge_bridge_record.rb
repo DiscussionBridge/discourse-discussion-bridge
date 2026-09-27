@@ -22,6 +22,17 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
   validates :title, length: { maximum: DiscussionBridge::ConnectionRequest::MAX_TITLE_BYTES }
   validates :primary_source_author_id, length: { maximum: 255 }, allow_nil: true
   validates :reservation_token, length: { is: 64 }, allow_nil: true
+  validates :presentation_mode, inclusion: { in: DiscussionBridge::ConnectionCapability::PRESENTATION_MODES }, allow_nil: true
+  validates :source_revision, length: { maximum: 255 }, allow_nil: true
+  validates :source_revision_sequence, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :content_disposition, inclusion: { in: DiscussionBridge::BridgeRecordRequest::CONTENT_DISPOSITIONS }, allow_nil: true
+  validates :source_content_bytes, numericality: {
+    only_integer: true,
+    greater_than_or_equal_to: 0,
+    less_than_or_equal_to: DiscussionBridge::BridgeRecordRequest::MAX_SOURCE_CONTENT_BYTES,
+  }, allow_nil: true
+  validates :source_content_sha256, format: { with: DiscussionBridge::BridgeRecordRequest::SHA256_PATTERN }, allow_nil: true
+  validates :delivered_content_sha256, format: { with: DiscussionBridge::BridgeRecordRequest::SHA256_PATTERN }, allow_nil: true
 
   def active_binding(role)
     content_bindings.find_by(role: role, state: "active")

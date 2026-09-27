@@ -75,4 +75,30 @@ describe DiscussionBridgeContentConnection do
     connection.default_category_id = 9_999_999
     expect(connection).not_to be_valid
   end
+
+  it "does not allow a capability policy to expand the stored direction or platform scope" do
+    connection, = described_class.issue!(
+      name: "Scoped WordPress",
+      platform: "wordpress",
+      allowed_origins: ["https://scoped.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: ["articles"],
+    )
+    connection.policy_revision = "policy:1"
+    connection.destination_policies = [
+      {
+        "destination_policy_id" => "destination:ghost:articles:1",
+        "profile" => "ghost",
+        "presentation_mode" => "interactive",
+        "container_mapping" => { "source" => "site:articles", "destination" => "ghost:tag:articles" },
+        "taxonomy_mapping" => { "mode" => "mapped_only" },
+        "author_mapping" => { "mode" => "source_attribution" },
+        "native_limit_policy" => { "maximum_bytes" => 49_152, "overflow_behavior" => "excerpt_with_read_more" },
+        "catalog_revision" => "catalog:ghost:1",
+      },
+    ]
+
+    expect(connection).not_to be_valid
+    expect(connection.errors[:destination_policies]).to include("exceed the connection direction or platform scope")
+  end
 end

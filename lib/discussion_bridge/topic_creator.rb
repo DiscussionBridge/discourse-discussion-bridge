@@ -43,6 +43,34 @@ module DiscussionBridge
       creation.post_creator.enqueue_jobs
     end
 
+    def update(request:, policy:, record:)
+      actor = User.find(policy.operating_actor_id)
+      first_post = record.topic&.first_post
+      raise ArgumentError, "bridge record topic is unavailable" unless first_post
+
+      source_url = CanonicalSource.call(
+        connection_id: request.fetch(:connection_id),
+        source_url: request.fetch(:source_url),
+      ).source_url
+      revised = PostRevisor.new(first_post).revise!(
+        actor,
+        {
+          title: request.fetch(:title),
+          raw: companion_post(
+            source_url,
+            request.fetch(:content_html),
+            request[:source_authors],
+            request.fetch(:generate_topic_toc, false),
+          ),
+          edit_reason: "DiscussionBridge source revision #{request.fetch(:source_revision)}",
+        },
+        bypass_rate_limiter: true,
+      )
+      raise ActiveRecord::RecordInvalid, first_post unless revised || first_post.errors.empty?
+
+      first_post.reload
+    end
+
     private
 
     def companion_post(source_url, content_html, source_authors, generate_topic_toc)

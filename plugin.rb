@@ -62,6 +62,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/canonical_source"
   require_relative "lib/discussion_bridge/connection_request"
   require_relative "lib/discussion_bridge/bridge_record_request"
+  require_relative "lib/discussion_bridge/adapter_protocol_records"
+  require_relative "lib/discussion_bridge/connection_capability"
   require_relative "lib/discussion_bridge/site_setting_label_formatter_extension"
   require_relative "lib/discussion_bridge/lane_policies"
   require_relative "lib/discussion_bridge/policy_evaluator"
@@ -74,7 +76,6 @@ after_initialize do
   require_relative "lib/discussion_bridge/interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
-  require_relative "lib/discussion_bridge/adapter_feed_snapshot"
   require_relative "lib/discussion_bridge/adapter_request_boundary"
   require_relative "lib/discussion_bridge/content_connection_authenticator"
   require_relative "lib/discussion_bridge/source_authorship"
@@ -89,6 +90,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_bridge_record"
   require_relative "app/models/discussion_bridge_content_binding"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
+  require_relative "app/controllers/discussion_bridge/adapter_connection_controller"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
@@ -305,6 +307,7 @@ after_initialize do
     TopicsController < DiscussionBridge::TopicControllerInteractiveGuard
 
   DiscussionBridge::Engine.routes.draw do
+    get "/v1/connection" => "adapter_connection#show"
     post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
     get "/v1/bridge-records" => "adapter_bridge_records#index"
     get "/v1/bridge-records/:resource_id" => "adapter_bridge_records#show"
