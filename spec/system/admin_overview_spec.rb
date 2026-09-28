@@ -242,4 +242,24 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Operator credentials and entitlements never grant Content Connection scope")
     expect(page).to have_unchecked_field("Enable Operator Service")
   end
+
+  it "renders the default-off Discourse network and enables its protected identity explicitly" do
+    sign_in(admin)
+    visit("/")
+    page.execute_script(
+      "window.location.assign('/admin/plugins/discourse-discussion-bridge/network')",
+    )
+
+    expect(page).to have_css(".discussion-bridge-network", wait: 30)
+    expect(page).to have_content("Protected forum identity")
+    expect(page).to have_content("No network identity exists")
+    expect(page).to have_content("No peers are authorized")
+    click_button("Enable network")
+
+    identity = DiscussionBridgeForumIdentity.current
+    expect(page).to have_content("Discourse network enabled", wait: 30)
+    expect(page).to have_content(identity.forum_id)
+    expect(page).to have_content("Synchronize authorized first posts", exact: false)
+    expect(identity).to be_ready
+  end
 end

@@ -71,7 +71,7 @@ module DiscussionBridge
         catalog_required: connection.catalog_required,
         policy_revision: connection.policy_revision,
       }
-      if connection.allows_direction?("from_discourse")
+      if connection.allows_direction?("from_discourse") || connection.network_enabled
         forum_name = ENV["DISCUSSIONBRIDGE_FORUM_NAME"]
         raise AdapterRequestBoundary::Error, "temporarily_unavailable" unless valid_label?(forum_name, 200)
 
@@ -104,7 +104,14 @@ module DiscussionBridge
       allowed_profiles << "discourse_as_publisher" if connection.allows_direction?("to_discourse")
       if connection.allows_direction?("from_discourse")
         allowed_profiles.concat(
-          connection.platform == "statamic" ? %w[statamic_db statamic_flat statamic_ssg] : [connection.platform],
+          case connection.platform
+          when "statamic"
+            %w[statamic_db statamic_flat statamic_ssg]
+          when "discourse"
+            ["discourse_as_publisher"]
+          else
+            [connection.platform]
+          end,
         )
       end
       Array(connection.destination_policies).all? do |policy|

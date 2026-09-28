@@ -18,6 +18,7 @@ require_relative "../lib/discussion_bridge/adapter_protocol_records"
 require_relative "../lib/discussion_bridge/source_publication_protocol"
 require_relative "../lib/discussion_bridge/platform_catalog_protocol"
 require_relative "../lib/discussion_bridge/publication_work_protocol"
+require_relative "../lib/discussion_bridge/discourse_network_protocol"
 require_relative "../lib/discussion_bridge/operator_provider_registry"
 require_relative "../lib/discussion_bridge/operator_service_contract"
 require_relative "../lib/discussion_bridge/operator_entitlement_verifier"
@@ -264,6 +265,34 @@ abort "released worker bound mismatch" unless
 abort "released failure detail bound mismatch" unless
   work_impl::ERROR_DETAIL_MAXIMUM_BYTES == work.dig("failure", "error_detail_maximum_bytes")
 
+network = contract.fetch("discourse_network")
+network_impl = DiscussionBridge::DiscourseNetworkProtocol
+abort "released network profile mismatch" unless
+  network.fetch("enabled_profile") == "discourse_as_publisher" &&
+    contract.fetch("profiles").include?(network.fetch("enabled_profile"))
+abort "released network provenance fields mismatch" unless
+  network_impl::PROVENANCE_FIELDS == network.fetch("required_provenance_fields")
+abort "released network relationships mismatch" unless
+  network_impl::RELATIONSHIPS == network.fetch("relationships")
+abort "released network managed scopes mismatch" unless
+  network_impl::MANAGED_SCOPES == network.fetch("managed_scopes")
+released_forum_id_pattern = Regexp.new("\\A#{network.fetch("forum_id_pattern")}\\z")
+released_operation_id_pattern = Regexp.new("\\A#{network.fetch("operation_id_pattern")}\\z")
+%w[dbf_11111111111111111111111111111111 dbf_abcdef0123456789abcdef0123456789].each do |value|
+  abort "released forum ID pattern mismatch for #{value}" unless
+    network_impl::FORUM_ID_PATTERN.match?(value) == released_forum_id_pattern.match?(value)
+end
+%w[dbo_11111111111111111111111111111111 dbo_abcdef0123456789abcdef0123456789].each do |value|
+  abort "released operation ID pattern mismatch for #{value}" unless
+    network_impl::OPERATION_ID_PATTERN.match?(value) == released_operation_id_pattern.match?(value)
+end
+abort "released network forum-name bound mismatch" unless
+  network_impl::ORIGIN_FORUM_NAME_MAXIMUM_BYTES == network.fetch("origin_forum_name_maximum_bytes")
+abort "released network route bound mismatch" unless
+  network_impl::ROUTE_MAXIMUM_FORUMS == network.fetch("route_maximum_forums")
+abort "released network replay retention mismatch" unless
+  network_impl::REPLAY_RETENTION == network.dig("operation_replay", "retention_seconds")
+
 operator = DiscussionBridge::OperatorEntitlementVerifier
 released_entitlement = operator_contract.fetch("entitlement")
 abort "released operator contract version mismatch" unless
@@ -294,4 +323,4 @@ abort "released operator audit fields mismatch" unless
 abort "released operator audit outcomes mismatch" unless
   DiscussionBridge::OperatorServiceContract::AUDIT_OUTCOMES == operator_contract.dig("audit", "outcomes")
 
-puts "Adapter Protocol request boundary, P2 records, P3 source publication, P4 catalog/work, and P6 Operator Service match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"
+puts "Adapter Protocol request boundary, P2 records, P3 source publication, P4 catalog/work, P6 Operator Service, and P7 Discourse network match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"

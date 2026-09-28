@@ -286,7 +286,7 @@ module DiscussionBridge
 
     def policies
       Array(@connection.destination_policies).map(&:deep_stringify_keys).select do |policy|
-        policy["profile"] != "discourse_as_publisher"
+        policy["profile"] != "discourse_as_publisher" || @connection.network_enabled
       end
     end
 
@@ -302,6 +302,9 @@ module DiscussionBridge
     end
 
     def resolved_attributes(policy:, source_revision_record:)
+      return resolved_discourse_network_attributes(policy, source_revision_record) if
+        policy.fetch("profile") == "discourse_as_publisher"
+
       catalog = PlatformCatalogRegistry.catalog(
         connection: @connection,
         platform_profile: policy.fetch("profile"),
@@ -330,6 +333,27 @@ module DiscussionBridge
         native_limit_policy: native_limit,
       }
       [attributes, resolution_error]
+    end
+
+    def resolved_discourse_network_attributes(policy, source_revision_record)
+      native_limit = policy.fetch("native_limit_policy")
+      resolution_error = if source_revision_record &&
+          source_revision_record.byte_length > native_limit.fetch("maximum_bytes") &&
+          native_limit.fetch("overflow_behavior") != "excerpt_with_read_more"
+        "content_unsupported"
+      end
+      [
+        {
+          resolved_container: {
+            "id" => policy.dig("container_mapping", "destination"),
+            "kind" => "discourse_category",
+          },
+          resolved_taxonomy: [],
+          resolved_author: { "mode" => "source_attribution", "destination_id" => nil },
+          native_limit_policy: native_limit,
+        },
+        resolution_error,
+      ]
     end
 
     def catalog_item(catalog, segment_type, identifier)

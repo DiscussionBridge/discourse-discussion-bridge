@@ -56,6 +56,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validate :author_user_is_usable
   validate :default_category_is_available
   validate :alpha21_capability_state_is_valid
+  validate :discourse_network_state_is_valid
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -125,6 +126,28 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
     end
   end
 
+  def discourse_network_state_is_valid
+    values = [network_peer_forum_id, network_relationship]
+    if !network_enabled && values.any?(&:present?)
+      errors.add(:network_enabled, "must be enabled when network peer configuration is present")
+      return
+    end
+    return unless network_enabled
+
+    errors.add(:platform, "must be discourse for a network connection") unless platform == "discourse"
+    unless DiscussionBridge::DiscourseNetworkProtocol::FORUM_ID_PATTERN.match?(network_peer_forum_id.to_s)
+      errors.add(:network_peer_forum_id, "is invalid")
+    end
+    if DiscussionBridge::DiscourseNetworkProtocol::RELATIONSHIPS.exclude?(network_relationship)
+      errors.add(:network_relationship, "is invalid")
+    end
+    unless Array(destination_policies).any? do |policy|
+      policy.stringify_keys["profile"] == "discourse_as_publisher"
+    end
+      errors.add(:destination_policies, "must include discourse_as_publisher")
+    end
+  end
+
   def default_category_is_available
     return if default_category_id.blank? || Category.exists?(id: default_category_id)
 
@@ -175,6 +198,8 @@ end
 #  generate_topic_toc                    :boolean          default(FALSE), not null
 #  last_seen_at                          :datetime
 #  name                                  :string(120)      not null
+#  network_enabled                       :boolean          default(FALSE), not null
+#  network_relationship                  :string(32)
 #  platform                              :string(32)       not null
 #  platform_catalog_refresh_requested_at :datetime
 #  policy_revision                       :string(255)
@@ -185,6 +210,7 @@ end
 #  adapter_id                            :string(100)
 #  author_user_id                        :bigint
 #  default_category_id                   :bigint
+#  network_peer_forum_id                 :string(36)
 #  public_id                             :string(64)       not null
 #
 # Indexes
@@ -192,6 +218,7 @@ end
 #  idx_db_content_connections_author            (author_user_id)
 #  idx_db_content_connections_default_category  (default_category_id)
 #  idx_db_content_connections_name              (name) UNIQUE
+#  idx_db_content_connections_network_peer      (network_peer_forum_id,network_relationship)
 #  idx_db_content_connections_platform          (platform)
 #  idx_db_content_connections_public_id         (public_id) UNIQUE
 #

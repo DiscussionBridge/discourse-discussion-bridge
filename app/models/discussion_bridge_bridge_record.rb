@@ -69,6 +69,7 @@ end
 #  direction                :string(32)       not null
 #  effective_visibility     :string(32)       default("unlisted"), not null
 #  lane                     :string(64)
+#  network_provenance       :jsonb
 #  presentation_mode        :string(32)
 #  requested_visibility     :string(32)       default("unlisted"), not null
 #  reservation_token        :string(64)

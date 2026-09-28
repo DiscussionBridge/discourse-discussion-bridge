@@ -28,6 +28,9 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked toDiscourse = true;
   @tracked fromDiscourse = true;
   @tracked generateTopicToc = false;
+  @tracked networkEnabled = false;
+  @tracked networkPeerForumId = "";
+  @tracked networkRelationship = "hub_to_spoke";
   @tracked issuedSecret = null;
   @tracked issuedConnectionId = null;
   @tracked copiedCredential = null;
@@ -110,6 +113,21 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   @action
+  updateNetworkEnabled(event) {
+    this.networkEnabled = event.target.checked;
+  }
+
+  @action
+  updateNetworkPeerForumId(event) {
+    this.networkPeerForumId = event.target.value;
+  }
+
+  @action
+  updateNetworkRelationship(event) {
+    this.networkRelationship = event.target.value;
+  }
+
+  @action
   async copyCredential(kind, value) {
     try {
       await navigator.clipboard.writeText(value);
@@ -153,6 +171,13 @@ export default class DiscussionBridgeConnections extends Component {
             allowed_directions: directions,
             allowed_lanes: this.lines(this.lanes),
             default_category_id: this.defaultCategoryId,
+            network_enabled: this.networkEnabled,
+            network_peer_forum_id: this.networkEnabled
+              ? this.networkPeerForumId
+              : null,
+            network_relationship: this.networkEnabled
+              ? this.networkRelationship
+              : null,
           },
         },
       });
@@ -191,6 +216,10 @@ export default class DiscussionBridgeConnections extends Component {
     this.fromDiscourse =
       connection.allowed_directions.includes("from_discourse");
     this.generateTopicToc = connection.generate_topic_toc;
+    this.networkEnabled = connection.network_enabled;
+    this.networkPeerForumId = connection.network_peer_forum_id ?? "";
+    this.networkRelationship =
+      connection.network_relationship ?? "hub_to_spoke";
   }
 
   @action
@@ -307,6 +336,9 @@ export default class DiscussionBridgeConnections extends Component {
     this.toDiscourse = true;
     this.fromDiscourse = true;
     this.generateTopicToc = false;
+    this.networkEnabled = false;
+    this.networkPeerForumId = "";
+    this.networkRelationship = "hub_to_spoke";
   }
 
   displayToken(value) {
@@ -471,6 +503,12 @@ export default class DiscussionBridgeConnections extends Component {
                   "discussion_bridge.admin.publication_attention"
                 }}</dt><dd
               >{{connection.publication_work.operator_attention}}</dd>
+              {{#if connection.network_enabled}}
+                <dt>{{i18n "discussion_bridge.admin.network_nav"}}</dt><dd
+                >{{this.displayToken connection.network_relationship}}
+                  ·
+                  <code>{{connection.network_peer_forum_id}}</code></dd>
+              {{/if}}
             </dl>
             <div class="discussion-bridge-actions">
               <DButton
@@ -647,6 +685,48 @@ export default class DiscussionBridgeConnections extends Component {
                   "discussion_bridge.admin.generate_topic_toc_description"
                 }}</small></span>
           </label>
+          {{#if (eq this.platform "discourse")}}
+            <fieldset class="discussion-bridge-direction-options">
+              <legend>{{i18n
+                  "discussion_bridge.admin.network_connection"
+                }}</legend>
+              <label class="discussion-bridge-direction-option">
+                <input
+                  type="checkbox"
+                  checked={{this.networkEnabled}}
+                  {{on "change" this.updateNetworkEnabled}}
+                />
+                <span>{{i18n
+                    "discussion_bridge.admin.network_connection_enable"
+                  }}</span>
+              </label>
+              {{#if this.networkEnabled}}
+                <label>{{i18n
+                    "discussion_bridge.admin.network_peer_forum_id"
+                  }}<input
+                    required
+                    value={{this.networkPeerForumId}}
+                    {{on "input" this.updateNetworkPeerForumId}}
+                  /></label>
+                <label>{{i18n "discussion_bridge.admin.network_relationship"}}
+                  <select {{on "change" this.updateNetworkRelationship}}>
+                    <option
+                      value="hub_to_spoke"
+                      selected={{eq this.networkRelationship "hub_to_spoke"}}
+                    >{{i18n
+                        "discussion_bridge.admin.network_hub_to_spoke"
+                      }}</option>
+                    <option
+                      value="spoke_to_hub"
+                      selected={{eq this.networkRelationship "spoke_to_hub"}}
+                    >{{i18n
+                        "discussion_bridge.admin.network_spoke_to_hub"
+                      }}</option>
+                  </select>
+                </label>
+              {{/if}}
+            </fieldset>
+          {{/if}}
         {{else}}
           <section class="discussion-bridge-authors-panel">
             <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>

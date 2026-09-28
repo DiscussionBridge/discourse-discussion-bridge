@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.53
+# version: 0.2.0.alpha.54
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -16,6 +16,7 @@ register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
 register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
 register_asset "stylesheets/common/discussion-bridge-operator-service.scss"
+register_asset "stylesheets/common/discussion-bridge-network.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
@@ -52,7 +53,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.53"
+    VERSION = "0.2.0.alpha.54"
     CONTRACT_VERSION = "0.2.0-alpha.21"
 
     class Engine < ::Rails::Engine
@@ -109,6 +110,13 @@ after_initialize do
   require_relative "lib/discussion_bridge/operator_entitlement_verifier"
   require_relative "lib/discussion_bridge/operator_audit"
   require_relative "lib/discussion_bridge/operator_service_access"
+  require_relative "lib/discussion_bridge/discourse_network_protocol"
+  require_relative "lib/discussion_bridge/network_secret"
+  require_relative "lib/discussion_bridge/network_replay_registry"
+  require_relative "lib/discussion_bridge/network_source_detail"
+  require_relative "lib/discussion_bridge/network_receiver"
+  require_relative "lib/discussion_bridge/network_peer_client"
+  require_relative "lib/discussion_bridge/network_worker"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/models/discussion_bridge_content_connection"
@@ -131,8 +139,12 @@ after_initialize do
   require_relative "app/models/discussion_bridge_operator_entitlement"
   require_relative "app/models/discussion_bridge_operator_approval"
   require_relative "app/models/discussion_bridge_operator_audit_record"
+  require_relative "app/models/discussion_bridge_forum_identity"
+  require_relative "app/models/discussion_bridge_network_peer"
+  require_relative "app/models/discussion_bridge_network_replay"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_topic"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_category"
+  require_relative "app/jobs/scheduled/discussion_bridge_network_poll"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
   require_relative "app/controllers/discussion_bridge/adapter_connection_controller"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
@@ -145,6 +157,7 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
   require_relative "app/controllers/discussion_bridge/operator_service_controller"
+  require_relative "app/controllers/discussion_bridge/admin_network_controller"
 
   publication_summary_condition = lambda do
     scope.user&.staff? && SiteSetting.discussion_bridge_enabled &&
@@ -452,6 +465,13 @@ after_initialize do
     delete "/admin/operator-service/entitlements/current" => "operator_service#revoke_entitlement"
     post "/admin/operator-service/approvals" => "operator_service#create_approval"
     get "/admin/operator-service/audits" => "operator_service#audits"
+    get "/admin/network" => "admin_network#show"
+    post "/admin/network/enable" => "admin_network#enable"
+    post "/admin/network/disable" => "admin_network#disable"
+    post "/admin/network/rotate" => "admin_network#rotate"
+    post "/admin/network/peers" => "admin_network#create_peer"
+    put "/admin/network/peers/:id" => "admin_network#update_peer"
+    post "/admin/network/peers/:id/disable" => "admin_network#disable_peer"
   end
 
   Discourse::Application.routes.append do

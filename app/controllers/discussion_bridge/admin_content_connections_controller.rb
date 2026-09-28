@@ -27,7 +27,7 @@ module DiscussionBridge
 
     def update
       connection = DiscussionBridgeContentConnection.find(params[:id])
-      connection.update!(connection_params)
+      connection.update!(connection_params(existing: connection))
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -92,7 +92,7 @@ module DiscussionBridge
 
     private
 
-    def connection_params
+    def connection_params(existing: nil)
       raw = params.require(:content_connection).permit(
         :name,
         :platform,
@@ -104,6 +104,9 @@ module DiscussionBridge
         :adapter_id,
         :adapter_version,
         :enabled,
+        :network_enabled,
+        :network_peer_forum_id,
+        :network_relationship,
         allowed_origins: [],
         allowed_directions: [],
         allowed_lanes: [],
@@ -119,7 +122,43 @@ module DiscussionBridge
       raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
       raw[:allowed_lanes] = Array(raw[:allowed_lanes]).map(&:to_s) if raw.key?(:allowed_lanes)
+      configure_discourse_network!(raw, existing: existing) if raw.key?(:network_enabled)
       raw
+    end
+
+    def configure_discourse_network!(raw, existing:)
+      enabled = ActiveModel::Type::Boolean.new.cast(raw[:network_enabled])
+      raw[:network_enabled] = enabled
+      unless enabled
+        raw[:network_peer_forum_id] = nil
+        raw[:network_relationship] = nil
+        if (raw[:platform] || existing&.platform) == "discourse"
+          raw[:destination_policies] = []
+          raw[:policy_revision] = nil
+          raw[:catalog_required] = false
+        end
+        return
+      end
+
+      raise ArgumentError, "network identity is not enabled" unless
+        DiscussionBridgeForumIdentity.current&.ready?
+      platform = raw[:platform] || existing&.platform
+      raise ArgumentError, "network connections require the Discourse platform" unless platform == "discourse"
+
+      peer_forum_id = raw[:network_peer_forum_id] || existing&.network_peer_forum_id
+      relationship = raw[:network_relationship] || existing&.network_relationship
+      policy = DiscourseNetworkProtocol.destination_policy(
+        peer_forum_id: peer_forum_id,
+        relationship: relationship,
+      )
+      raw[:destination_policies] = [policy]
+      raw[:policy_revision] = DiscourseNetworkProtocol.policy_revision(
+        peer_forum_id: peer_forum_id,
+        relationship: relationship,
+      )
+      raw[:catalog_required] = false
+    rescue AdapterRequestBoundary::Error
+      raise ArgumentError, "network peer configuration is invalid"
     end
 
     def author_user!(username)
@@ -163,6 +202,9 @@ module DiscussionBridge
         allowed_lanes: connection.allowed_lanes,
         adapter_id: connection.adapter_id,
         adapter_version: connection.adapter_version,
+        network_enabled: connection.network_enabled,
+        network_peer_forum_id: connection.network_peer_forum_id,
+        network_relationship: connection.network_relationship,
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
         attention_count: attention_records,

@@ -1,0 +1,233 @@
+# frozen_string_literal: true
+
+require "cgi"
+
+module DiscussionBridge
+  class NetworkReceiver
+    def self.call(peer:, source_detail:, policy_revision:, content_html: nil)
+      new(
+        peer: peer,
+        source_detail: source_detail,
+        policy_revision: policy_revision,
+        content_html: content_html,
+      ).call
+    end
+
+    def initialize(peer:, source_detail:, policy_revision:, content_html:)
+      @peer = peer
+      @source_detail = source_detail
+      @policy_revision = policy_revision
+      @content_html = content_html
+    end
+
+    def call
+      raise AdapterRequestBoundary::Error, "scope_denied" unless @peer.operational?
+
+      identity = DiscussionBridgeForumIdentity.current
+      detail = NetworkSourceDetail.call(payload: @source_detail, content_html: @content_html)
+      provenance = DiscourseNetworkProtocol.validate_provenance!(
+        detail.fetch("network_provenance"),
+        peer: @peer,
+        local_identity: identity,
+      )
+      raise AdapterRequestBoundary::Error, "integrity_failed" unless
+        provenance.fetch("origin_topic_url") == detail.fetch("topic_url")
+      immutable = DiscourseNetworkProtocol.immutable_operation(
+        source_detail: detail,
+        provenance: provenance,
+        policy_revision: @policy_revision,
+      )
+      result = nil
+      DiscussionBridgeNetworkReplay.transaction do
+        replay = NetworkReplayRegistry.reserve!(
+          peer: @peer,
+          provenance: provenance,
+          immutable_operation: immutable,
+          correlation_id: detail.fetch("correlation_id"),
+        )
+        if replay.replay
+          raise AdapterRequestBoundary::Error, "operation_replay_mismatch" if
+            replay.record.retained_result.blank?
+
+          result = replay.record.retained_result.merge("mutated" => false)
+          next
+        end
+
+        prior_revision = existing_record(detail)&.source_revision
+        resolved = resolve!(detail, provenance)
+        appended = DiscourseNetworkProtocol.append_local_route!(provenance, local_identity: identity)
+        record = DiscussionBridgeBridgeRecord.find_by!(resource_id: resolved.resource_id)
+        record.update!(network_provenance: appended)
+        result = {
+          "outcome" => resolved.outcome,
+          "resource_id" => resolved.resource_id,
+          "topic_id" => resolved.topic_id,
+          "mutated" => resolved.outcome == "created" || prior_revision != detail.fetch("source_revision"),
+          "route_forum_ids" => appended.fetch("route_forum_ids"),
+        }
+        NetworkReplayRegistry.retain!(record: replay.record, result: result)
+      end
+      result
+    end
+
+    private
+
+    def existing_record(detail)
+      external_id = "network:#{@peer.remote_forum_id}:#{detail.fetch("resource_id")}"
+      DiscussionBridgeBridgeRecord.joins(:content_bindings).find_by(
+        discussion_bridge_content_bindings: {
+          content_connection_id: @peer.content_connection_id,
+          external_id: external_id,
+          role: "source",
+          state: "active",
+        },
+      )
+    end
+
+    def resolve!(detail, provenance)
+      connection = @peer.content_connection
+      request = destination_request(detail, provenance, connection)
+      author = connection.effective_author
+      actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase)
+      lane = request[:lane]
+      lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: lane)
+      authority = ForumAuthority.call(
+        actor: actor,
+        category_id: lane_resolution.category_id || connection.default_category_id ||
+          SiteSetting.discussion_bridge_effective_category_id,
+        tags: lane_resolution.tags || SiteSetting.discussion_bridge_effective_tags,
+      ) if actor
+      policy = PolicyEvaluator.call(
+        request: {
+          connection_id: connection.public_id,
+          source_url: request.fetch(:canonical_url),
+          visibility: request.fetch(:visibility),
+        },
+        settings: PolicyEvaluator::Settings.new(
+          enabled: SiteSetting.discussion_bridge_enabled,
+          endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
+          connection_id: connection.public_id,
+          trusted_origins: connection.allowed_origins,
+          service_username: SiteSetting.discussion_bridge_service_username,
+        ),
+        actor: actor,
+        author: author,
+        authority: authority,
+        lane_resolution: lane_resolution,
+      )
+      result = BridgeRecordResolver.call(connection: connection, request: request, policy: policy)
+      raise AdapterRequestBoundary::Error, "scope_denied" if result.outcome == "rejected"
+      raise AdapterRequestBoundary::Error, "reconciliation_required" if
+        result.outcome == "reconciliation_required"
+
+      result
+    end
+
+    def destination_request(detail, provenance, connection)
+      content = content_for_destination(detail, provenance, connection)
+      {
+        direction: "to_discourse",
+        external_id: "network:#{provenance.fetch("origin_forum_id")}:#{detail.fetch("resource_id")}",
+        canonical_url: provenance.fetch("origin_topic_url"),
+        title: detail.fetch("title"),
+        content_html: content.fetch(:content_html),
+        published: true,
+        presentation_mode: detail.fetch("presentation_mode"),
+        source_revision: detail.fetch("source_revision"),
+        source_revision_sequence: detail.fetch("source_revision_sequence"),
+        source_created_at: detail.fetch("source_created_at"),
+        source_updated_at: detail.fetch("source_updated_at"),
+        content_disposition: content.fetch(:content_disposition),
+        source_content_bytes: detail.fetch("content_transport").fetch("byte_length"),
+        source_content_sha256: detail.fetch("content_transport").fetch("sha256"),
+        read_more_url: content[:read_more_url],
+        lane: resolved_lane(connection),
+        correlation_id: detail.fetch("correlation_id"),
+        visibility: "unlisted",
+        source_authors: [],
+      }.compact
+    end
+
+    def content_for_destination(detail, provenance, connection)
+      body = detail.fetch("content_html")
+      boundary = provenance_boundary(provenance)
+      maximum = destination_policy(connection).dig("native_limit_policy", "maximum_bytes")
+      effective_maximum = [maximum, BridgeRecordRequest::MAX_CONTENT_HTML_BYTES].min
+      if body.bytesize + boundary.bytesize <= effective_maximum
+        return { content_html: body + boundary, content_disposition: "complete" }
+      end
+
+      overflow = destination_policy(connection).dig("native_limit_policy", "overflow_behavior")
+      raise AdapterRequestBoundary::Error, "content_unsupported" unless overflow == "excerpt_with_read_more"
+
+      read_more = provenance.fetch("origin_topic_url")
+      suffix = %(<p><a href="#{CGI.escapeHTML(read_more)}">Read More</a></p>#{boundary})
+      text = ActionController::Base.helpers.strip_tags(body).squish
+      wrapper = "<p>…</p>"
+      source_credit = "\n\n---\n\nOriginally published at [#{read_more}](#{read_more})"
+      byte_budget = effective_maximum - suffix.bytesize - wrapper.bytesize
+      character_budget = SiteSetting.max_post_length - suffix.length - wrapper.length -
+        source_credit.length
+      raise AdapterRequestBoundary::Error, "content_unsupported" unless
+        byte_budget.positive? && character_budget.positive?
+
+      excerpt = escaped_excerpt(text, maximum_bytes: byte_budget, maximum_characters: character_budget)
+      {
+        content_html: %(<p>#{excerpt}…</p>#{suffix}),
+        content_disposition: "excerpt",
+        read_more_url: read_more,
+      }
+    end
+
+    def escaped_excerpt(text, maximum_bytes:, maximum_characters:)
+      characters = text.each_char.to_a
+      low = 0
+      high = characters.length
+      accepted = ""
+
+      while low <= high
+        midpoint = (low + high) / 2
+        candidate = CGI.escapeHTML(characters.first(midpoint).join)
+        if candidate.bytesize <= maximum_bytes && candidate.length <= maximum_characters
+          accepted = candidate
+          low = midpoint + 1
+        else
+          high = midpoint - 1
+        end
+      end
+
+      accepted
+    end
+
+    def provenance_boundary(provenance)
+      current_name = ENV["DISCUSSIONBRIDGE_FORUM_NAME"]
+      relationship = provenance.fetch("relationship") == "hub_to_spoke" ? "Hub to spoke" : "Spoke to hub"
+      origin_name = CGI.escapeHTML(provenance.fetch("origin_forum_name"))
+      origin_url = CGI.escapeHTML(provenance.fetch("origin_topic_url"))
+      current = CGI.escapeHTML(current_name.to_s)
+      <<~HTML
+        <aside class="discussion-bridge-network-provenance">
+          <p><strong>DiscussionBridge network publication</strong></p>
+          <p>Origin: <a href="#{origin_url}">#{origin_name}</a> · Relationship: #{relationship} · Current forum: #{current}</p>
+          <p>The first post is synchronized from the origin. Replies and moderation remain local to this forum.</p>
+        </aside>
+      HTML
+    end
+
+    def destination_policy(connection)
+      policies = Array(connection.destination_policies).select do |policy|
+        policy.stringify_keys["profile"] == "discourse_as_publisher"
+      end
+      raise AdapterRequestBoundary::Error, "policy_denied" unless policies.one?
+
+      policies.first.stringify_keys
+    end
+
+    def resolved_lane(connection)
+      lanes = Array(connection.allowed_lanes)
+      raise AdapterRequestBoundary::Error, "scope_denied" if lanes.length > 1
+
+      lanes.first
+    end
+  end
+end

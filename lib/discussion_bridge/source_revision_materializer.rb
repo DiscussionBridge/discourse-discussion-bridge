@@ -49,7 +49,7 @@ module DiscussionBridge
             content_html: content_html,
             byte_length: content_html.bytesize,
             content_sha256: Digest::SHA256.hexdigest(content_html),
-            network_provenance: nil,
+            network_provenance: network_provenance(payload),
           )
         end
         synchronize_record!(revision)
@@ -66,6 +66,7 @@ module DiscussionBridge
 
     def unavailability_reason
       return "policy_removed" unless @connection.enabled && @connection.allows_direction?("from_discourse")
+      return "policy_removed" if @connection.network_enabled && received_network_topic?
       return "operator_hold" if @record.state == "attention"
       return "operator_hold" if PublicationControl.excluded?(
         connection: @connection,
@@ -89,10 +90,15 @@ module DiscussionBridge
     private
 
     def fingerprint_payload(payload)
-      payload.merge(
+      result = payload.merge(
         source_created_at: payload.fetch(:source_created_at).utc.iso8601(6),
         source_updated_at: payload.fetch(:source_updated_at).utc.iso8601(6),
       )
+      basis = network_provenance_basis(payload)
+      basis ? result.merge(
+        network_provenance: basis,
+        network_policy_revision: @connection.policy_revision,
+      ) : result
     end
 
     def source_payload
@@ -111,6 +117,33 @@ module DiscussionBridge
         tags: source_tags,
         presentation_mode: presentation_mode,
         content_html: content_html,
+      }
+    end
+
+    def network_provenance(payload)
+      basis = network_provenance_basis(payload)
+      basis&.merge("operation_id" => DiscourseNetworkProtocol.operation_id)
+    end
+
+    def network_provenance_basis(payload)
+      return unless @connection.network_enabled
+
+      identity = DiscussionBridgeForumIdentity.current
+      raise AdapterRequestBoundary::Error, "temporarily_unavailable" unless identity&.ready?
+      forum_name = ENV["DISCUSSIONBRIDGE_FORUM_NAME"]
+      unless forum_name.is_a?(String) && forum_name.valid_encoding? && forum_name.present? &&
+          forum_name == forum_name.strip && forum_name.bytesize <= 200 && !/[\x00-\x1f\x7f]/.match?(forum_name)
+        raise AdapterRequestBoundary::Error, "temporarily_unavailable"
+      end
+
+      {
+        "origin_forum_id" => identity.forum_id,
+        "origin_forum_name" => forum_name,
+        "origin_topic_url" => payload.fetch(:topic_url),
+        "content_authority_forum_id" => identity.forum_id,
+        "relationship" => @connection.network_relationship,
+        "route_forum_ids" => [identity.forum_id],
+        "managed_scope" => "first_post",
       }
     end
 
@@ -204,6 +237,14 @@ module DiscussionBridge
     def absolute_topic_url
       relative = topic.url
       relative.start_with?("http://", "https://") ? relative : "#{Discourse.base_url}#{relative}"
+    end
+
+    def received_network_topic?
+      DiscussionBridgeBridgeRecord.where(
+        topic_id: @record.topic_id,
+        direction: "to_discourse",
+        state: "healthy",
+      ).where.not(network_provenance: nil).exists?
     end
   end
 end

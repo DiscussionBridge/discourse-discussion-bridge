@@ -39,7 +39,13 @@ export default {
         {
           label: "discussion_bridge.admin.operator_service_nav",
           route: "adminPlugins.show.discussion-bridge-operator-service",
-          description: "discussion_bridge.admin.operator_service_nav_description",
+          description:
+            "discussion_bridge.admin.operator_service_nav_description",
+        },
+        {
+          label: "discussion_bridge.admin.network_nav",
+          route: "adminPlugins.show.discussion-bridge-network",
+          description: "discussion_bridge.admin.network_nav_description",
         },
         {
           label: "discussion_bridge.admin.settings_nav",

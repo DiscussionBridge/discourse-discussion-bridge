@@ -1,0 +1,26 @@
+.discussion-bridge-network {
+  display: grid;
+  gap: 1rem;
+
+  &__panel {
+    border: 1px solid var(--primary-low);
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+
+  form,
+  dl {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  label,
+  dl div {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  code {
+    overflow-wrap: anywhere;
+  }
+}
