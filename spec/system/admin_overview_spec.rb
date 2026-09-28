@@ -227,4 +227,19 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_link("Export report")
     expect(page).to have_no_content("Care diagnostics")
   end
+
+  it "renders Operator Service as a separate default-off customer-controlled boundary" do
+    sign_in(admin)
+    visit("/")
+    page.execute_script(
+      "window.location.assign('/admin/plugins/discourse-discussion-bridge/operator-service')",
+    )
+
+    expect(page).to have_css(".discussion-bridge-operator-service", wait: 30)
+    expect(page).to have_content("Operator Service")
+    expect(page).to have_content("pending enrollment")
+    expect(page).to have_content("DiscussionBridge")
+    expect(page).to have_content("Operator credentials and entitlements never grant Content Connection scope")
+    expect(page).to have_unchecked_field("Enable Operator Service")
+  end
 end

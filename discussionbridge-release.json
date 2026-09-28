@@ -1,11 +1,11 @@
 {
   "family": {
     "name": "DiscussionBridge",
-    "version": "0.2.0-alpha.52"
+    "version": "0.2.0-alpha.53"
   },
   "component": {
     "name": "The Bridge — DiscussionBridge for Discourse",
-    "version": "0.2.0.alpha.52"
+    "version": "0.2.0.alpha.53"
   },
   "bridgeCompatibility": "0.2",
   "adapterProtocol": "0.2.0-alpha.21",

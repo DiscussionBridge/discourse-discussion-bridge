@@ -1,0 +1,44 @@
+.discussion-bridge-operator-service {
+  display: grid;
+  gap: 1rem;
+
+  &__hero,
+  &__hero > div,
+  &__panel dl > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  &__hero > div > span {
+    padding: 0.55rem;
+    border-radius: 0.4rem;
+    background: var(--primary);
+    color: var(--secondary);
+    font-weight: 700;
+  }
+
+  &__panel {
+    padding: 1rem;
+    border: 1px solid var(--primary-low);
+    border-radius: 0.4rem;
+
+    form {
+      display: grid;
+      gap: 0.75rem;
+      max-width: 52rem;
+    }
+
+    label,
+    input,
+    textarea {
+      width: 100%;
+    }
+
+    textarea {
+      min-height: 12rem;
+      font-family: monospace;
+    }
+  }
+}

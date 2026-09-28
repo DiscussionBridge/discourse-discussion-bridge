@@ -3,10 +3,14 @@
 require "json"
 
 contract_path = ARGV.fetch(0) do
-  abort "usage: ruby script/verify_adapter_contract.rb PATH_TO_CONTRACT_JSON"
+  abort "usage: ruby script/verify_adapter_contract.rb PATH_TO_CONTRACT_JSON PATH_TO_OPERATOR_CONTRACT_JSON"
+end
+operator_contract_path = ARGV.fetch(1) do
+  abort "usage: ruby script/verify_adapter_contract.rb PATH_TO_CONTRACT_JSON PATH_TO_OPERATOR_CONTRACT_JSON"
 end
 
 contract = JSON.parse(File.read(contract_path, encoding: "UTF-8"))
+operator_contract = JSON.parse(File.read(operator_contract_path, encoding: "UTF-8"))
 require_relative "../lib/discussion_bridge/adapter_request_boundary"
 require_relative "../lib/discussion_bridge/bridge_record_request"
 require_relative "../lib/discussion_bridge/connection_capability"
@@ -14,6 +18,9 @@ require_relative "../lib/discussion_bridge/adapter_protocol_records"
 require_relative "../lib/discussion_bridge/source_publication_protocol"
 require_relative "../lib/discussion_bridge/platform_catalog_protocol"
 require_relative "../lib/discussion_bridge/publication_work_protocol"
+require_relative "../lib/discussion_bridge/operator_provider_registry"
+require_relative "../lib/discussion_bridge/operator_service_contract"
+require_relative "../lib/discussion_bridge/operator_entitlement_verifier"
 
 boundary = DiscussionBridge::AdapterRequestBoundary
 authentication = contract.fetch("authentication")
@@ -257,4 +264,34 @@ abort "released worker bound mismatch" unless
 abort "released failure detail bound mismatch" unless
   work_impl::ERROR_DETAIL_MAXIMUM_BYTES == work.dig("failure", "error_detail_maximum_bytes")
 
-puts "Adapter Protocol request boundary, P2 records, P3 source publication, and P4 catalog/work match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"
+operator = DiscussionBridge::OperatorEntitlementVerifier
+released_entitlement = operator_contract.fetch("entitlement")
+abort "released operator contract version mismatch" unless
+  operator_contract.fetch("version") == boundary::CONTRACT_VERSION
+abort "released operator provider count mismatch" unless
+  operator_contract.dig("relationship", "maximum_active_providers_per_forum") ==
+    DiscussionBridge::OperatorServiceContract::MAXIMUM_ACTIVE_PROVIDERS_PER_FORUM
+abort "released current operator provider mismatch" unless
+  DiscussionBridge::OperatorProviderRegistry::PROVIDERS.values.one? &&
+    DiscussionBridge::OperatorProviderRegistry::PROVIDERS.values.first.fetch(:key) ==
+      operator_contract.dig("relationship", "current_provider")
+abort "released operator signing domain mismatch" unless
+  operator::SIGNING_DOMAIN == released_entitlement.fetch("signing_domain")
+abort "released operator entitlement fields mismatch" unless
+  operator::REQUIRED_FIELDS == released_entitlement.fetch("required_fields")
+abort "released operator entitlement version mismatch" unless
+  operator::ENTITLEMENT_VERSION == released_entitlement.fetch("entitlement_version")
+abort "released operator scopes mismatch" unless
+  operator::ALLOWED_SCOPES == released_entitlement.fetch("allowed_scopes")
+abort "released operator lifetime mismatch" unless
+  operator::MAXIMUM_LIFETIME_SECONDS == released_entitlement.fetch("maximum_lifetime_seconds")
+abort "released operator grace mismatch" unless
+  operator::MAXIMUM_GRACE_SECONDS == released_entitlement.fetch("maximum_grace_seconds")
+abort "released operator states mismatch" unless
+  DiscussionBridge::OperatorServiceContract::STATES == operator_contract.fetch("states")
+abort "released operator audit fields mismatch" unless
+  DiscussionBridge::OperatorServiceContract::AUDIT_FIELDS == operator_contract.dig("audit", "required_fields")
+abort "released operator audit outcomes mismatch" unless
+  DiscussionBridge::OperatorServiceContract::AUDIT_OUTCOMES == operator_contract.dig("audit", "outcomes")
+
+puts "Adapter Protocol request boundary, P2 records, P3 source publication, P4 catalog/work, and P6 Operator Service match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"

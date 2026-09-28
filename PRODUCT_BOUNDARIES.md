@@ -12,13 +12,17 @@
   visibility, and lane policy;
 - idempotency, collision rejection, persistence, audit, and reconciliation;
 - native Discourse administration for Overview, Connections, Bridge Records,
-  migration, and Reconciliation;
+  migration, Reconciliation, Publishing, and Operator Service;
 - authorized retrieval of From Discourse content by the relevant connection;
 - local publication of an existing Discourse topic as a From Discourse record
   for one or more independently authorized platform connections;
 - exact mapped-topic attestation for optional comments-only full-app
   presentation, including an explicit From Discourse source-presentation mode
   that omits the already-rendered first post while retaining its replies.
+- one default-off forum-local Operator Service enrollment, one current provider
+  and entitlement, protected Ed25519 issuer keys, exact expiring scopes,
+  customer approvals for apply actions, revocation/replacement, and retained
+  sanitized audit history.
 
 ## Discourse Core owns
 
@@ -71,6 +75,10 @@ an administrator creates a connection.
   requests fail before topic creation.
 - Secrets never appear in read APIs, health output, support bundles, logs, or
   client configuration.
+- Operator Service credentials and entitlements never grant Content Connection
+  scope or expose Content Connection secrets. Operator actions are bound to the
+  exact forum, provider, operator user, entitlement, scope, operation hash, and
+  required customer approval.
 - Loading an ordinary publishing page does not itself authorize topic creation;
   only its server-side adapter may call the authenticated endpoint after the
   platform has established publication.

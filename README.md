@@ -37,7 +37,7 @@ then makes the old binding historical when an administrator applies it.
 
 ## Native administration
 
-Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
+Administrators use six pages under **Admin → Plugins → DiscussionBridge**:
 
 - **Overview** — product health, connection and Bridge Record totals, both
   directions, readiness blockers, and a redacted support bundle.
@@ -49,8 +49,21 @@ Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
   From Discourse record, and perform a controlled migration.
 - **Reconciliation** — inspect operational inconsistencies and export a
   redacted report.
+- **Publishing** — create and inspect explicit From Discourse publications,
+  apply approved presentation corrections, and retry genuinely retryable work.
+- **Operator Service** — optionally enroll one approved operational-support
+  provider through a forum-local trusted Ed25519 key, signed expiring
+  entitlement, bound Discourse operator account, exact scopes, customer
+  approvals for apply actions, and retained audit history. It is default-off
+  and separate from Content Connection credentials and authority.
 
 The native Discourse Settings tab remains the editor for forum-wide policy.
+
+Operator Service removal or entitlement expiry does not disable ordinary
+DiscussionBridge operation. During the bounded grace period, only entitled
+observation scopes remain available. An entitlement never reveals a Content
+Connection secret, grants Content Connection scope, or authorizes changing the
+DiscussionBridge contract or product behavior.
 
 ## Adapter API
 

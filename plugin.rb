@@ -3,7 +3,7 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.52
+# version: 0.2.0.alpha.53
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
@@ -15,6 +15,7 @@ register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
 register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
+register_asset "stylesheets/common/discussion-bridge-operator-service.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
@@ -51,7 +52,7 @@ Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.52"
+    VERSION = "0.2.0.alpha.53"
     CONTRACT_VERSION = "0.2.0-alpha.21"
 
     class Engine < ::Rails::Engine
@@ -101,6 +102,13 @@ after_initialize do
   require_relative "lib/discussion_bridge/source_publication_lifecycle"
   require_relative "lib/discussion_bridge/publication_summary"
   require_relative "lib/discussion_bridge/product_overview"
+  require_relative "lib/discussion_bridge/operator_provider_registry"
+  require_relative "lib/discussion_bridge/operator_service_contract"
+  require_relative "lib/discussion_bridge/operator_encoding"
+  require_relative "lib/discussion_bridge/operator_canonical_json"
+  require_relative "lib/discussion_bridge/operator_entitlement_verifier"
+  require_relative "lib/discussion_bridge/operator_audit"
+  require_relative "lib/discussion_bridge/operator_service_access"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/models/discussion_bridge_content_connection"
@@ -118,6 +126,11 @@ after_initialize do
   require_relative "app/models/discussion_bridge_source_url_history"
   require_relative "app/models/discussion_bridge_presentation_url_history"
   require_relative "app/models/discussion_bridge_publication_override"
+  require_relative "app/models/discussion_bridge_operator_enrollment"
+  require_relative "app/models/discussion_bridge_operator_trusted_key"
+  require_relative "app/models/discussion_bridge_operator_entitlement"
+  require_relative "app/models/discussion_bridge_operator_approval"
+  require_relative "app/models/discussion_bridge_operator_audit_record"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_topic"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_category"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
@@ -131,6 +144,7 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
+  require_relative "app/controllers/discussion_bridge/operator_service_controller"
 
   publication_summary_condition = lambda do
     scope.user&.staff? && SiteSetting.discussion_bridge_enabled &&
@@ -430,6 +444,14 @@ after_initialize do
     put "/v1/publisher/topics/:topic_id/connections/:connection_id/policy" => "publisher#update_topic_policy"
     post "/v1/publisher/topics/:topic_id/connections/:connection_id/reconcile" => "publisher#reconcile_topic"
     post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
+    get "/admin/operator-service" => "operator_service#show"
+    put "/admin/operator-service" => "operator_service#update"
+    post "/admin/operator-service/trusted-keys" => "operator_service#enroll_key"
+    delete "/admin/operator-service/trusted-keys/:id" => "operator_service#revoke_key"
+    post "/admin/operator-service/entitlements" => "operator_service#enroll_entitlement"
+    delete "/admin/operator-service/entitlements/current" => "operator_service#revoke_entitlement"
+    post "/admin/operator-service/approvals" => "operator_service#create_approval"
+    get "/admin/operator-service/audits" => "operator_service#audits"
   end
 
   Discourse::Application.routes.append do
