@@ -39,7 +39,7 @@ end
 #
 # Indexes
 #
-#  idx_db_source_old_url              (old_canonical_url_digest)
+#  idx_db_source_retired_url          (old_canonical_url_digest)
 #  idx_db_source_url_history_binding  (content_binding_id)
 #  idx_db_source_url_history_record   (bridge_record_id)
 #

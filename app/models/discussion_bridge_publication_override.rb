@@ -27,8 +27,8 @@ end
 #
 # Indexes
 #
-#  idx_db_publication_override_connection_topic  (content_connection_id,topic_id) UNIQUE
-#  idx_db_publication_override_topic             (topic_id)
+#  idx_db_publication_overrides_topic   (topic_id)
+#  idx_db_publication_overrides_unique  (content_connection_id,topic_id) UNIQUE
 #
 # Foreign Keys
 #
