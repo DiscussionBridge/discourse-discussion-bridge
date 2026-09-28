@@ -14,6 +14,7 @@ enabled_site_setting :discussion_bridge_enabled
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
+register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
@@ -92,6 +93,13 @@ after_initialize do
   require_relative "lib/discussion_bridge/platform_catalog_registry"
   require_relative "lib/discussion_bridge/publication_work_protocol"
   require_relative "lib/discussion_bridge/publication_work_registry"
+  require_relative "lib/discussion_bridge/url_reservation"
+  require_relative "lib/discussion_bridge/publication_redirect_verifier"
+  require_relative "lib/discussion_bridge/verified_url_migrator"
+  require_relative "lib/discussion_bridge/source_url_proof"
+  require_relative "lib/discussion_bridge/publication_control"
+  require_relative "lib/discussion_bridge/source_publication_lifecycle"
+  require_relative "lib/discussion_bridge/publication_summary"
   require_relative "lib/discussion_bridge/product_overview"
   require_relative "app/models/discussion_bridge_connection"
   require_relative "app/models/discussion_bridge_audit_event"
@@ -107,6 +115,11 @@ after_initialize do
   require_relative "app/models/discussion_bridge_platform_catalog_segment"
   require_relative "app/models/discussion_bridge_publication_work"
   require_relative "app/models/discussion_bridge_publication_acknowledgement"
+  require_relative "app/models/discussion_bridge_source_url_history"
+  require_relative "app/models/discussion_bridge_presentation_url_history"
+  require_relative "app/models/discussion_bridge_publication_override"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_source_topic"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_source_category"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
   require_relative "app/controllers/discussion_bridge/adapter_connection_controller"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
@@ -118,6 +131,26 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
+
+  publication_summary_condition = lambda do
+    scope.user&.staff? && SiteSetting.discussion_bridge_enabled &&
+      SiteSetting.discussion_bridge_publisher_enabled
+  end
+  add_to_serializer(
+    :topic_list_item,
+    :discussion_bridge_publication_summary,
+    include_condition: publication_summary_condition,
+  ) { DiscussionBridge::PublicationSummary.call(object) }
+  add_to_serializer(
+    :suggested_topic,
+    :discussion_bridge_publication_summary,
+    include_condition: publication_summary_condition,
+  ) { DiscussionBridge::PublicationSummary.call(object) }
+  add_to_serializer(
+    :topic_view,
+    :discussion_bridge_publication_summary,
+    include_condition: publication_summary_condition,
+  ) { DiscussionBridge::PublicationSummary.call(object.topic) }
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -327,11 +360,40 @@ after_initialize do
   TopicsController.prepend(DiscussionBridge::TopicControllerInteractiveGuard) unless
     TopicsController < DiscussionBridge::TopicControllerInteractiveGuard
 
+  queue_publication_topic = lambda do |topic_id|
+    next unless SiteSetting.discussion_bridge_enabled &&
+      SiteSetting.discussion_bridge_publisher_enabled
+
+    DiscussionBridge::SourcePublicationLifecycle.enqueue_topic(topic_id) if topic_id.present?
+  end
+  on(:topic_created) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:post_edited) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:topic_tags_changed) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_status_updated) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_trashed) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:topic_recovered) { |topic, *| queue_publication_topic.call(topic.id) }
+  on(:post_destroyed) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:post_recovered) do |post, *|
+    queue_publication_topic.call(post.topic_id) if post.post_number == 1
+  end
+  on(:category_updated) do |category|
+    next unless SiteSetting.discussion_bridge_enabled &&
+      SiteSetting.discussion_bridge_publisher_enabled
+
+    DiscussionBridge::SourcePublicationLifecycle.enqueue_category(category.id) if
+      category.is_a?(Category)
+  end
+
   DiscussionBridge::Engine.routes.draw do
     get "/v1/connection" => "adapter_connection#show"
     post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
     get "/v1/bridge-records" => "adapter_bridge_records#index"
     get "/v1/bridge-records/:resource_id" => "adapter_bridge_records#show"
+    get "/v1/bridge-records/:resource_id/source-url-proof" => "adapter_bridge_records#source_url_proof"
     get "/v1/source-topics" => "adapter_source_publication#index"
     get "/v1/source-topics/:topic_id/content" => "adapter_source_publication#content"
     get "/v1/source-topics/:topic_id" => "adapter_source_publication#show"
@@ -349,18 +411,25 @@ after_initialize do
     post "/admin/content-connections" => "admin_content_connections#create"
     put "/admin/content-connections/:id" => "admin_content_connections#update"
     post "/admin/content-connections/:id/rotate-secret" => "admin_content_connections#rotate_secret"
+    post "/admin/content-connections/:id/request-catalog-refresh" => "admin_content_connections#request_catalog_refresh"
+    get "/admin/content-connections/:id/publication-preview" => "admin_content_connections#publication_preview"
     put "/admin/content-connections/:id/authors/:author_id" => "admin_content_connections#update_author"
     get "/admin/bridge-records" => "admin_bridge_records#index"
     post "/admin/bridge-records" => "admin_bridge_records#create"
     get "/admin/bridge-records/:id" => "admin_bridge_records#show"
     post "/admin/bridge-records/:id/migrations" => "admin_bridge_records#prepare_migration"
     post "/admin/bridge-records/:id/migrations/:binding_id/apply" => "admin_bridge_records#apply_migration"
+    put "/admin/bridge-records/:id/migrate-source-url" => "admin_bridge_records#migrate_source_url"
     get "/admin/reconciliation" => "reconciliation#index"
     get "/admin/reconciliation/report" => "reconciliation#report"
     get "/admin/publishing" => "publisher#overview"
     post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
     put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
+    put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"
     get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
+    put "/v1/publisher/topics/:topic_id/connections/:connection_id/policy" => "publisher#update_topic_policy"
+    post "/v1/publisher/topics/:topic_id/connections/:connection_id/reconcile" => "publisher#reconcile_topic"
+    post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
   end
 
   Discourse::Application.routes.append do

@@ -34,6 +34,7 @@ module DiscussionBridge
         DiscussionBridgeContentBinding.valid_external_id?(@external_id)
 
       result = nil
+      connection = nil
       DiscussionBridgeBridgeRecord.transaction do
         connection = DiscussionBridgeContentConnection.lock.find(@connection_id)
         raise ArgumentError, "connection does not permit From Discourse" unless
@@ -76,6 +77,10 @@ module DiscussionBridge
           result = Result.new(record: binding.bridge_record, outcome: "resolved")
           next
         end
+        UrlReservation.ensure_available!(
+          connection: connection,
+          canonical_url: canonical.source_url,
+        )
 
         record = DiscussionBridgeBridgeRecord.create!(
           resource_id: SecureRandom.uuid,
@@ -102,6 +107,7 @@ module DiscussionBridge
         )
         result = Result.new(record: record, outcome: "created")
       end
+      SourcePublicationLifecycle.enqueue_topic(result.record.topic_id)
       result
     rescue ActiveRecord::RecordNotUnique
       retry

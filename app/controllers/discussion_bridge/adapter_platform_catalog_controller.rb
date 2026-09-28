@@ -38,6 +38,8 @@ module DiscussionBridge
         base_catalog_revision: payload.fetch("base_catalog_revision"),
         segments: payload.fetch("segments"),
       )
+      @content_connection.update!(platform_catalog_refresh_requested_at: nil) if
+        @content_connection.platform_catalog_refresh_requested_at
       response.set_header("Cache-Control", "private, no-store")
       render_protocol_json({
         catalog_revision: catalog.catalog_revision,

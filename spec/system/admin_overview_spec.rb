@@ -158,16 +158,22 @@ describe "DiscussionBridge native product administration" do
     expect(binding.content_connection).to eq(@connection)
     expect(binding.native_materialization).to eq(true)
     expect(binding.bridge_record.topic_id).to eq(topic.id)
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call).and_return(308)
 
     within(".discussion-bridge-publishing__recent") do
       expect(page).to have_css("th", text: "Actions")
-      click_button("Edit presentation")
+      click_button("Migrate presentation URL")
       within(".discussion-bridge-publishing__correction-row") do
         fill_in("Presentation URL", with: "https://example.com/discussionbridge/from-the-forum/")
-        click_button("Save presentation URL")
+      end
+      within(".discussion-bridge-publishing__correction-row") do
+        find('input[type="checkbox"]', visible: :all).check
+      end
+      within(".discussion-bridge-publishing__correction-row") do
+        click_button("Verify and migrate URL")
       end
     end
-    expect(page).to have_content("Platform presentation URL corrected", wait: 30)
+    expect(page).to have_content("Platform presentation URL migration verified", wait: 30)
     expect(page).to have_css(".discussion-bridge-publishing__recent .discussion-bridge-publishing__notice")
     expect(page).to have_link(
       "Main publication",

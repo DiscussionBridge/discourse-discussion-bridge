@@ -101,6 +101,10 @@ module DiscussionBridge
 
           binding.update!(state: "prepared", activated_at: nil, retired_at: nil)
         else
+          UrlReservation.ensure_available!(
+            connection: connection,
+            canonical_url: canonical.source_url,
+          )
           binding = DiscussionBridgeContentBinding.create!(
             bridge_record: record,
             content_connection: connection,
@@ -148,6 +152,28 @@ module DiscussionBridge
       render json: { errors: errors }, status: :unprocessable_entity
     end
 
+    def migrate_source_url
+      input = params.require(:migration)
+      result = VerifiedUrlMigrator.call(
+        user: current_user,
+        resource_id: DiscussionBridgeBridgeRecord.find(params[:id]).resource_id,
+        role: "source",
+        old_url: input.fetch(:old_url),
+        new_url: input.fetch(:new_url),
+        external_id: input.fetch(:external_id),
+        native_identity_confirmed: boolean(input.fetch(:native_identity_confirmed)),
+        cross_origin_approved: boolean(input[:cross_origin_approved]),
+      )
+      render json: {
+        bridge_record: serialize(result.record, detailed: true),
+        outcome: result.outcome,
+        redirect_status: result.redirect_status,
+      }
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound,
+           AdapterRequestBoundary::Error, ArgumentError => error
+      render json: { errors: errors_for(error) }, status: :unprocessable_entity
+    end
+
     private
 
     def serialize(record, detailed: false)
@@ -189,6 +215,16 @@ module DiscussionBridge
         activated_at: binding.activated_at,
         retired_at: binding.retired_at,
       }
+    end
+
+    def boolean(value)
+      value == true || value == "true"
+    end
+
+    def errors_for(error)
+      return [error.error_code] if error.is_a?(AdapterRequestBoundary::Error)
+
+      error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
     end
   end
 end

@@ -94,6 +94,26 @@ module DiscussionBridge
       render_protocol_json({ bridge_record: adapter_record(record) })
     end
 
+    def source_url_proof
+      record = DiscussionBridgeBridgeRecord
+        .joins(:content_bindings)
+        .where(
+          direction: "to_discourse",
+          discussion_bridge_content_bindings: {
+            content_connection_id: @content_connection.id,
+            role: "source",
+            state: "active",
+          },
+        ).distinct.find_by!(resource_id: params[:resource_id])
+      proof = SourceUrlProof.call(
+        connection: @content_connection,
+        record: record,
+        from_url: params.require(:from_url),
+        to_url: params.require(:to_url),
+      )
+      render_protocol_json(proof)
+    end
+
     private
 
     def scoped_records
@@ -124,7 +144,10 @@ module DiscussionBridge
     end
 
     def allowed_query_fields
-      action_name == "index" ? %w[page] : []
+      return %w[page] if action_name == "index"
+      return %w[from_url to_url] if action_name == "source_url_proof"
+
+      []
     end
 
     def allowed_body_fields

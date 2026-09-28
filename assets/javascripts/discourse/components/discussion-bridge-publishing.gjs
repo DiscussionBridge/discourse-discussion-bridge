@@ -5,7 +5,7 @@ import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import { eq } from "discourse/truth-helpers";
+import { eq, not, or } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
@@ -25,6 +25,7 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked working = false;
   @tracked editingRecord = null;
   @tracked correctedCanonicalUrl = "";
+  @tracked nativeIdentityConfirmed = false;
   @tracked correctedPresentationUrls = {};
 
   @action
@@ -57,6 +58,7 @@ export default class DiscussionBridgePublishing extends Component {
   beginPresentationCorrection(record) {
     this.editingRecord = record;
     this.correctedCanonicalUrl = this.presentationUrl(record);
+    this.nativeIdentityConfirmed = false;
     this.notice = "";
     this.noticeContext = "";
   }
@@ -65,11 +67,17 @@ export default class DiscussionBridgePublishing extends Component {
   cancelPresentationCorrection() {
     this.editingRecord = null;
     this.correctedCanonicalUrl = "";
+    this.nativeIdentityConfirmed = false;
   }
 
   @action
   updateCorrectedCanonicalUrl(event) {
     this.correctedCanonicalUrl = event.target.value;
+  }
+
+  @action
+  updateNativeIdentityConfirmed(event) {
+    this.nativeIdentityConfirmed = event.target.checked;
   }
 
   @action
@@ -79,10 +87,17 @@ export default class DiscussionBridgePublishing extends Component {
     this.notice = "";
     try {
       const result = await ajax(
-        `/discussion-bridge/v1/publisher/publications/${this.editingRecord.resource_id}/presentation.json`,
+        `/discussion-bridge/v1/publisher/publications/${this.editingRecord.resource_id}/migrate-url.json`,
         {
           type: "PUT",
-          data: { publication: { canonical_url: this.correctedCanonicalUrl } },
+          data: {
+            migration: {
+              old_url: this.presentationUrl(this.editingRecord),
+              new_url: this.correctedCanonicalUrl,
+              external_id: this.editingRecord.external_id,
+              native_identity_confirmed: this.nativeIdentityConfirmed,
+            },
+          },
         }
       );
       this.createdRecord = result;
@@ -221,7 +236,8 @@ export default class DiscussionBridgePublishing extends Component {
                     <h4>{{i18n "discussion_bridge.admin.publisher_edit_presentation"}}</h4>
                     <p>{{i18n "discussion_bridge.admin.publisher_edit_presentation_description"}}</p>
                     <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.correctedCanonicalUrl}} {{on "input" this.updateCorrectedCanonicalUrl}} /></label>
-                    <DButton @type="submit" @label="discussion_bridge.admin.publisher_save_presentation" @disabled={{this.working}} class="btn-primary" />
+                    <label class="discussion-bridge-publishing__checkbox"><input required type="checkbox" checked={{this.nativeIdentityConfirmed}} {{on "change" this.updateNativeIdentityConfirmed}} /><span>{{i18n "discussion_bridge.admin.publisher_confirm_native_identity"}}</span></label>
+                    <DButton @type="submit" @label="discussion_bridge.admin.publisher_save_presentation" @disabled={{or this.working (not this.nativeIdentityConfirmed)}} class="btn-primary" />
                     <DButton @label="discussion_bridge.admin.cancel" @action={{this.cancelPresentationCorrection}} @disabled={{this.working}} />
                   </form>
                 </td></tr>

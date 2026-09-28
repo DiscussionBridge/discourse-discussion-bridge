@@ -1,0 +1,51 @@
+.discussion-bridge-publication-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: 0.45rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary-low);
+  color: var(--primary-high);
+  font-size: var(--font-down-2);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.discussion-bridge-publication-badge[data-state="published"] {
+  background: var(--success-low, var(--primary-low));
+  color: var(--success, var(--primary));
+}
+
+.discussion-bridge-publication-badge[data-state="pending"],
+.discussion-bridge-publication-badge[data-state="partial"] {
+  background: var(--tertiary-low, var(--primary-low));
+  color: var(--tertiary, var(--primary));
+}
+
+.discussion-bridge-publication-badge[data-state="attention"] {
+  background: var(--danger-low, var(--primary-low));
+  color: var(--danger, var(--primary));
+}
+
+.discussion-bridge-topic-status {
+  &__discussion,
+  &__publication {
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--primary-low-mid);
+    border-radius: 0.5rem;
+  }
+
+  &__publication header,
+  &__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  &__publication a {
+    overflow-wrap: anywhere;
+  }
+}

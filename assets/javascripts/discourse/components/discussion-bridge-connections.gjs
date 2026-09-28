@@ -32,6 +32,9 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked issuedConnectionId = null;
   @tracked copiedCredential = null;
   @tracked editingConnectionId = null;
+  @tracked previewConnectionId = null;
+  @tracked publicationPreview = null;
+  @tracked connectionActionId = null;
 
   @action
   updateName(event) { this.name = event.target.value; }
@@ -189,6 +192,37 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   @action
+  async requestCatalogRefresh(connection) {
+    this.connectionActionId = connection.id;
+    try {
+      await ajax(
+        `/discussion-bridge/admin/content-connections/${connection.id}/request-catalog-refresh.json`,
+        { type: "POST" }
+      );
+      this.router.refresh();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.connectionActionId = null;
+    }
+  }
+
+  @action
+  async loadPublicationPreview(connection) {
+    this.connectionActionId = connection.id;
+    try {
+      this.publicationPreview = await ajax(
+        `/discussion-bridge/admin/content-connections/${connection.id}/publication-preview.json`
+      );
+      this.previewConnectionId = connection.id;
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.connectionActionId = null;
+    }
+  }
+
+  @action
   async saveAuthorMapping(sourceAuthor) {
     try {
       await ajax(
@@ -233,6 +267,10 @@ export default class DiscussionBridgeConnections extends Component {
 
   adapterVerified(connection) {
     return Boolean(connection.adapter_id && connection.adapter_version && connection.last_seen_at);
+  }
+
+  canPublish(connection) {
+    return connection.allowed_directions.includes("from_discourse");
   }
 
   displayTimestamp(value) {
@@ -289,6 +327,8 @@ export default class DiscussionBridgeConnections extends Component {
               <dt>{{i18n "discussion_bridge.admin.adapter_identity"}}</dt><dd><code>{{this.displayToken connection.adapter_id}}</code></dd>
               <dt>{{i18n "discussion_bridge.admin.adapter_version"}}</dt><dd><code>{{this.displayToken connection.adapter_version}}</code></dd>
               <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd>{{this.displayTimestamp connection.last_seen_at}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.catalog_status"}}</dt><dd>{{if connection.catalog.required (if connection.catalog.refresh_requested_at (i18n "discussion_bridge.admin.catalog_refresh_pending") (i18n "discussion_bridge.admin.catalog_current")) (i18n "discussion_bridge.admin.catalog_not_required")}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.publication_attention"}}</dt><dd>{{connection.publication_work.operator_attention}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
               <DButton
@@ -306,7 +346,36 @@ export default class DiscussionBridgeConnections extends Component {
                 @action={{this.rotateSecret}}
                 @actionParam={{connection}}
               />
+              {{#if (this.canPublish connection)}}
+                <DButton
+                  @label="discussion_bridge.admin.publication_preview"
+                  @action={{this.loadPublicationPreview}}
+                  @actionParam={{connection}}
+                  @disabled={{eq this.connectionActionId connection.id}}
+                />
+              {{/if}}
+              {{#if connection.catalog.required}}
+                <DButton
+                  @label="discussion_bridge.admin.request_catalog_refresh"
+                  @action={{this.requestCatalogRefresh}}
+                  @actionParam={{connection}}
+                  @disabled={{eq this.connectionActionId connection.id}}
+                />
+              {{/if}}
             </div>
+            {{#if (eq this.previewConnectionId connection.id)}}
+              <section class="discussion-bridge-publication-preview">
+                <h4>{{i18n "discussion_bridge.admin.publication_preview"}}</h4>
+                <p>{{i18n
+                    "discussion_bridge.admin.publication_preview_summary"
+                    total=this.publicationPreview.total
+                    attention=this.publicationPreview.attention
+                  }}</p>
+                {{#if this.publicationPreview.truncated}}
+                  <p>{{i18n "discussion_bridge.admin.publication_preview_truncated"}}</p>
+                {{/if}}
+              </section>
+            {{/if}}
           </article>
         {{else}}
           <p>{{i18n "discussion_bridge.admin.no_connections"}}</p>

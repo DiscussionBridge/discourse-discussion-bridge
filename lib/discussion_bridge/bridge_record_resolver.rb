@@ -54,6 +54,10 @@ module DiscussionBridge
         if matches.any?
           return resolve_existing(matches, canonical, identity_digest, url_digest)
         end
+        UrlReservation.ensure_available!(
+          connection: @connection,
+          canonical_url: canonical.source_url,
+        )
 
         adopted_topic = adoptable_core_embed_topic(canonical) if @request[:existing_topic_id]
 

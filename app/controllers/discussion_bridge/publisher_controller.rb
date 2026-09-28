@@ -2,12 +2,18 @@
 
 module ::DiscussionBridge
   class PublisherController < ::ApplicationController
+    PUBLICATION_WORK_PAGE_SIZE = 50
+    MAX_PUBLICATION_WORK_PAGE = 10_000
+    PUBLICATION_WORK_FILTERS = %w[all attention].freeze
+
     requires_plugin DiscussionBridge::PLUGIN_NAME
     before_action :ensure_staff
     before_action :ensure_publisher_enabled
 
     def overview
       connections = available_connections
+      work_counts = DiscussionBridgePublicationWork.group(:state).count
+      work_page = publication_work_page
       render json: {
         product: {
           name: "DiscussionBridge",
@@ -20,8 +26,13 @@ module ::DiscussionBridge
           published_topics: from_discourse_records.distinct.count(:topic_id),
           presentations: from_discourse_records.count,
           connected_platforms: connections.map(&:platform).uniq.count,
+          publication_work: PublicationWorkProtocol::STATES.index_with do |state|
+            work_counts.fetch(state, 0)
+          end,
         },
         recent_records: recent_records,
+        publication_work: work_page.fetch(:items),
+        publication_work_pagination: work_page.except(:items),
       }
     end
 
@@ -44,16 +55,35 @@ module ::DiscussionBridge
     end
 
     def topic_status
-      topic = Topic.find(params.require(:topic_id))
-      guardian.ensure_can_see!(topic)
-      render json: {
-        topic_id: topic.id,
-        title: topic.title,
-        topic_url: topic.url,
-        publications: from_discourse_records.where(topic_id: topic.id).order(:id).map do |record|
-          publication_payload(record)
-        end,
-      }
+      render json: topic_status_payload(visible_topic)
+    end
+
+    def update_topic_policy
+      topic = visible_topic
+      connection = publication_connection!
+      PublicationControl.set!(
+        user: current_user,
+        connection: connection,
+        topic: topic,
+        decision: params.require(:publication_policy).fetch(:decision),
+      )
+      render json: topic_status_payload(topic)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound,
+           AdapterRequestBoundary::Error, ArgumentError => error
+      render_local_error(error)
+    end
+
+    def reconcile_topic
+      topic = visible_topic
+      connection = publication_connection!
+      record = PublicationControl.mapped_record(connection: connection, topic: topic)
+      raise ActiveRecord::RecordNotFound unless record
+
+      SourceRevocationRegistry.reconcile_record!(record: record, connection: connection)
+      render json: topic_status_payload(topic)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound,
+           AdapterRequestBoundary::Error, ArgumentError => error
+      render_local_error(error)
     end
 
     def correct_presentation
@@ -67,6 +97,43 @@ module ::DiscussionBridge
            ActiveRecord::RecordNotFound, ArgumentError => error
       errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
       render json: { errors: errors }, status: :unprocessable_entity
+    end
+
+    def migrate_presentation_url
+      input = params.require(:migration)
+      result = VerifiedUrlMigrator.call(
+        user: current_user,
+        resource_id: params.require(:resource_id),
+        role: "presentation",
+        old_url: input.fetch(:old_url),
+        new_url: input.fetch(:new_url),
+        external_id: input.fetch(:external_id),
+        native_identity_confirmed: boolean(input.fetch(:native_identity_confirmed)),
+        cross_origin_approved: boolean(input[:cross_origin_approved]),
+      )
+      render json: publication_payload(result.record).merge(
+        outcome: result.outcome,
+        redirect_status: result.redirect_status,
+      )
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound,
+           AdapterRequestBoundary::Error, ArgumentError => error
+      render_local_error(error)
+    end
+
+    def retry_publication_work
+      work = DiscussionBridgePublicationWork.find(params.require(:id))
+      PublicationWorkRegistry.manual_retry!(
+        work: work,
+        authorized_by: current_user,
+        condition_corrected: boolean(params.require(:retry).fetch(:condition_corrected)),
+      )
+      render json: {
+        outcome: "available",
+        publication_work: publication_work_payload(work.reload),
+      }
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound,
+           AdapterRequestBoundary::Error, ArgumentError => error
+      render_local_error(error)
     end
 
     private
@@ -87,6 +154,8 @@ module ::DiscussionBridge
       blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
       blockers << "from_discourse_connection" if connections.empty?
+      blockers << "publication_work_attention" if
+        DiscussionBridgePublicationWork.where(state: "operator_attention").exists?
       blockers
     end
 
@@ -99,6 +168,8 @@ module ::DiscussionBridge
         allowed_origins: connection.allowed_origins,
         allowed_lanes: connection.allowed_lanes,
         author_username: connection.effective_author&.username,
+        catalog_required: connection.catalog_required,
+        catalog_refresh_requested_at: connection.platform_catalog_refresh_requested_at,
       }
     end
 
@@ -117,6 +188,15 @@ module ::DiscussionBridge
         canonical_url: binding&.canonical_url,
         lane: record.lane,
         native_materialization: binding&.native_materialization || false,
+        source_revision: record.source_revision,
+        source_revision_sequence: record.source_revision_sequence,
+        source_updated_at: record.source_updated_at,
+        presentation_mode: binding&.presentation_mode || record.presentation_mode,
+        delivery: latest_work_payload(record, binding) || {
+          state: "pending",
+          action: nil,
+          failure_code: nil,
+        },
       }
     end
 
@@ -125,11 +205,142 @@ module ::DiscussionBridge
         .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
     end
 
+    def visible_topic
+      topic = Topic.includes(:category, :tags, :first_post).find(params.require(:topic_id))
+      guardian.ensure_can_see!(topic)
+      topic
+    end
+
+    def publication_connection!
+      connection = available_connections.find do |candidate|
+        candidate.id == params.require(:connection_id).to_i
+      end
+      raise ActiveRecord::RecordNotFound unless connection
+
+      connection
+    end
+
+    def topic_status_payload(topic)
+      records = from_discourse_records.where(topic_id: topic.id).includes(
+        :publication_works,
+        content_bindings: :content_connection,
+      ).order(:id)
+      publications = records.filter_map do |record|
+        binding = record.content_bindings.find do |candidate|
+          candidate.role == "presentation" && candidate.state == "active" &&
+            candidate.content_connection.enabled &&
+            candidate.content_connection.allows_direction?("from_discourse")
+        end
+        next unless binding
+
+        override = DiscussionBridgePublicationOverride.includes(:set_by).find_by(
+          content_connection_id: binding.content_connection_id,
+          topic_id: topic.id,
+        )
+        {
+          connection: connection_payload(binding.content_connection),
+          override: override ? {
+            decision: override.decision,
+            set_by: override.set_by.username,
+            updated_at: override.updated_at,
+          } : { decision: "inherit" },
+          effective: {
+            included: override&.decision != "exclude",
+            reason: override&.decision == "exclude" ? "operator_hold" : nil,
+          },
+          publication: publication_payload(record),
+        }
+      end
+      {
+        topic_id: topic.id,
+        title: topic.title,
+        topic_url: topic.url,
+        discussion: {
+          visible: topic.visible,
+          closed: topic.closed,
+          archived: topic.archived,
+          reply_count: [topic.posts_count.to_i - 1, 0].max,
+        },
+        publication_summary: PublicationSummary.call(topic),
+        publications: publications,
+      }
+    end
+
+    def latest_work_payload(record, binding)
+      work = binding && record.publication_works
+        .select { |item| item.content_connection_id == binding.content_connection_id }
+        .max_by(&:id)
+      work && publication_work_payload(work)
+    end
+
+    def publication_work_page
+      filter = params[:publication_filter].presence || "all"
+      raise Discourse::InvalidParameters.new(:publication_filter) if
+        PUBLICATION_WORK_FILTERS.exclude?(filter)
+      page = Integer(params[:publication_page].presence || 1, exception: false)
+      raise Discourse::InvalidParameters.new(:publication_page) unless
+        page&.between?(1, MAX_PUBLICATION_WORK_PAGE)
+
+      scope = DiscussionBridgePublicationWork.includes(
+        :content_connection,
+        bridge_record: :topic,
+      ).order(updated_at: :desc, id: :desc)
+      scope = scope.where(state: "operator_attention") if filter == "attention"
+      total = scope.count
+      {
+        items: scope.offset((page - 1) * PUBLICATION_WORK_PAGE_SIZE)
+          .limit(PUBLICATION_WORK_PAGE_SIZE).map { |work| publication_work_payload(work) },
+        page: page,
+        per_page: PUBLICATION_WORK_PAGE_SIZE,
+        total: total,
+        pages: [(total.to_f / PUBLICATION_WORK_PAGE_SIZE).ceil, 1].max,
+        filter: filter,
+      }
+    end
+
+    def publication_work_payload(work)
+      {
+        id: work.id,
+        work_id: work.work_id,
+        resource_id: work.bridge_record.resource_id,
+        topic_id: work.bridge_record.topic_id,
+        topic_url: work.bridge_record.topic&.url,
+        title: work.bridge_record.title,
+        connection_id: work.content_connection_id,
+        connection_name: work.content_connection.name,
+        platform: work.content_connection.platform,
+        action: work.action,
+        state: work.state,
+        attempt_count: work.attempt_count,
+        retry_generation: work.retry_generation,
+        failure_code: work.failure_code,
+        failure_detail: work.failure_detail,
+        available_at: work.available_at,
+        next_retry_at: work.next_retry_at,
+        updated_at: work.updated_at,
+      }
+    end
+
     def native_materialization(value)
       return false if value.nil? || value == false || value == "false"
       return true if value == true || value == "true"
 
       raise ArgumentError, "invalid native_materialization"
+    end
+
+    def boolean(value)
+      value == true || value == "true"
+    end
+
+    def render_local_error(error)
+      errors = if error.is_a?(AdapterRequestBoundary::Error)
+        [error.error_code]
+      elsif error.respond_to?(:record)
+        error.record.errors.full_messages
+      else
+        [error.message]
+      end
+      render json: { errors: errors }, status: :unprocessable_entity
     end
 
     def ensure_staff

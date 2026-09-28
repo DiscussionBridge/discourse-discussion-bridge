@@ -180,6 +180,81 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
     expect(PostRevision.where(post_id: post_id)).to exist
   end
 
+  it "migrates a source URL only after verification, proves its ancestry, and reserves the retired URL" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
+    expect(response).to have_http_status(:created), response.body
+    record = DiscussionBridgeBridgeRecord.last
+    binding = record.active_binding("source")
+    old_url = binding.canonical_url
+    new_url = "https://publisher.example/articles/community-guide-current/"
+    TopicEmbed.create!(
+      topic_id: record.topic_id,
+      post_id: record.topic.first_post.id,
+      embed_url: TopicEmbed.normalize_url(old_url),
+    )
+
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call).and_return(308)
+    sign_in(service_actor)
+    put "/discussion-bridge/admin/bridge-records/#{record.id}/migrate-source-url.json",
+        params: {
+          migration: {
+            old_url: old_url,
+            new_url: new_url,
+            external_id: binding.external_id,
+            native_identity_confirmed: true,
+          },
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("outcome" => "migrated", "redirect_status" => 308)
+    expect(binding.reload.canonical_url).to eq(new_url)
+    expect(record.source_url_histories.sole).to have_attributes(
+      old_canonical_url: old_url,
+      new_canonical_url: new_url,
+      redirect_status: 308,
+      verified_by_id: service_actor.id,
+    )
+    expect(TopicEmbed.find_by!(topic_id: record.topic_id).embed_url).to eq(
+      TopicEmbed.normalize_url(new_url),
+    )
+
+    sign_out
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}/source-url-proof.json",
+        headers: headers(correlation: "source-url-proof-1"),
+        params: { from_url: old_url, to_url: new_url }
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include(
+      "resource_id" => record.resource_id,
+      "external_id" => binding.external_id,
+      "from_url" => old_url,
+      "to_url" => new_url,
+      "verified" => true,
+      "transition_count" => 1,
+    )
+    expect(response.parsed_body.fetch("transitions").sole).to include(
+      "old_url" => old_url,
+      "new_url" => new_url,
+      "redirect_status" => 308,
+    )
+
+    conflicting = payload(
+      correlation: "retired-url-reuse-1",
+      external_id: "post:site-7:retired-reuse",
+      canonical_url: old_url,
+      source_revision: "wordpress:post:retired-reuse:revision:1",
+      source_revision_sequence: 1,
+    )
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers(correlation: "retired-url-reuse-1"),
+         params: conflicting,
+         as: :json
+    expect(response).to have_http_status(:gone)
+    expect(response.parsed_body.fetch("error_code")).to eq("url_retired")
+  end
+
   it "fails stale and same-sequence conflicting revisions closed without mutation" do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     record = DiscussionBridgeBridgeRecord.last

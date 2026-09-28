@@ -68,7 +68,7 @@ describe DiscussionBridge::PublisherController do
     expect(DiscussionBridgeContentBinding.last.native_materialization).to eq(false)
   end
 
-  it "lets staff correct only the presentation URL without replacing its identity" do
+  it "changes a presentation URL only after permanent-redirect and native-identity verification" do
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
          params: publication,
@@ -77,20 +77,54 @@ describe DiscussionBridge::PublisherController do
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: created.fetch("resource_id"))
     binding = record.active_binding("presentation")
 
-    put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/presentation.json",
-        params: { publication: { canonical_url: "https://astro.example.com/discussionbridge/roadmap/" } },
+    allow(DiscussionBridge::PublicationRedirectVerifier).to receive(:call).and_return(301)
+    put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/migrate-url.json",
+        params: {
+          migration: {
+            old_url: binding.canonical_url,
+            new_url: "https://astro.example.com/discussionbridge/roadmap/",
+            external_id: binding.external_id,
+            native_identity_confirmed: true,
+          },
+        },
         as: :json
 
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to include(
-      "outcome" => "presentation_corrected",
+      "outcome" => "migrated",
       "resource_id" => created.fetch("resource_id"),
       "topic_id" => topic.id,
       "external_id" => "roadmap",
       "canonical_url" => "https://astro.example.com/discussionbridge/roadmap/",
     )
     expect(binding.reload.canonical_url).to eq("https://astro.example.com/discussionbridge/roadmap/")
+    expect(record.presentation_url_histories.sole).to have_attributes(
+      old_canonical_url: "https://astro.example.com/roadmap/",
+      new_canonical_url: "https://astro.example.com/discussionbridge/roadmap/",
+      redirect_status: 301,
+      verified_by_id: admin.id,
+    )
     expect(DiscussionBridgeBridgeRecord.where(direction: "from_discourse").count).to eq(1)
+  end
+
+  it "refuses the legacy presentation correction route for URL changes" do
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
+         params: publication,
+         as: :json
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: response.parsed_body.fetch("resource_id"))
+
+    put "/discussion-bridge/v1/publisher/publications/#{record.resource_id}/presentation.json",
+        params: { publication: { canonical_url: "https://astro.example.com/discussionbridge/roadmap/" } },
+        as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "presentation URL changes require verified migration and native identity confirmation",
+    )
+    expect(record.active_binding("presentation").reload.canonical_url).to eq(
+      "https://astro.example.com/roadmap/",
+    )
   end
 
   it "rejects a corrected presentation URL outside the connection scope" do

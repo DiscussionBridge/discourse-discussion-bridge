@@ -67,6 +67,10 @@ module DiscussionBridge
     def unavailability_reason
       return "policy_removed" unless @connection.enabled && @connection.allows_direction?("from_discourse")
       return "operator_hold" if @record.state == "attention"
+      return "operator_hold" if PublicationControl.excluded?(
+        connection: @connection,
+        topic_id: @record.topic_id,
+      )
       return "scope_removed" unless @connection.allows_lane?(@record.lane)
 
       binding = source_binding

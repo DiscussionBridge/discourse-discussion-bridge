@@ -458,4 +458,136 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(response).to have_http_status(:bad_request)
     expect(response.parsed_body.fetch("error_code")).to eq("unknown_field")
   end
+
+  it "derives a new update from an authorized mapped topic without rewriting its source post" do
+    install_catalog
+    topic, source_post, record = create_source
+    materialize_source
+    claim(correlation: "lifecycle-initial-claim")
+    initial = response.parsed_body.fetch("publication_work").sole
+    correlation = "lifecycle-initial-ack"
+    put "/discussion-bridge/v1/publication-work/#{initial.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: correlation),
+        params: acknowledgement(initial, record, correlation: correlation),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    original_raw = source_post.raw
+    original_version = source_post.version
+    changed_at = 10.minutes.from_now
+    source_post.update_columns(cooked: "<p>Authorized wiki update</p>", updated_at: changed_at)
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(topic.id)
+
+    latest = record.publication_works.order(:id).last
+    expect(latest).to have_attributes(action: "update", state: "available")
+    expect(latest.source_revision_record.source_updated_at).to be_within(0.000001).of(changed_at)
+    expect(source_post.reload).to have_attributes(raw: original_raw, version: original_version)
+
+    unrelated = Fabricate(:topic, user: admin, category: category)
+    Fabricate(:post, topic: unrelated, user: admin, post_number: 1)
+    expect(DiscussionBridge::SourcePublicationLifecycle.enqueue_topic(unrelated.id)).to eq(false)
+  end
+
+  it "keeps discussion status separate while staff exclude and restore one mapped publication" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    install_catalog
+    topic, _, record = create_source
+    materialize_source
+    sign_in(admin)
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "exclude" } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("discussion")).to include(
+      "visible" => true,
+      "closed" => false,
+    )
+    publication = response.parsed_body.fetch("publications").sole
+    expect(publication.fetch("override")).to include("decision" => "exclude")
+    expect(publication.fetch("effective")).to include(
+      "included" => false,
+      "reason" => "operator_hold",
+    )
+    expect(record.source_revocations.where(restored_at: nil).sole.reason).to eq("operator_hold")
+    expect(record.publication_works.order(:id).last.action).to eq("hold")
+
+    put "/discussion-bridge/v1/publisher/topics/#{topic.id}/connections/#{@connection.id}/policy.json",
+        params: { publication_policy: { decision: "include" } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("publications").sole.fetch("override")).to include(
+      "decision" => "include",
+    )
+    expect(record.source_revocations.where(restored_at: nil)).to be_empty
+    expect(record.publication_works.order(:id).last.action).to eq("restore")
+  end
+
+  it "records a catalog refresh request, previews authoritative mappings, and clears the request on catalog receipt" do
+    install_catalog
+    _, _, record = create_source
+    materialize_source
+    sign_in(admin)
+
+    post "/discussion-bridge/admin/content-connections/#{@connection.id}/request-catalog-refresh.json",
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.dig("content_connection", "catalog", "refresh_requested_at")).to be_present
+
+    get "/discussion-bridge/admin/content-connections/#{@connection.id}/publication-preview.json"
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("total" => 1, "truncated" => false)
+    expect(response.parsed_body.fetch("items").sole).to include(
+      "resource_id" => record.resource_id,
+      "topic_id" => record.topic_id,
+      "decision" => "inherit",
+    )
+
+    sign_out
+    revision = @connection.platform_catalogs.find_by!(current: true).catalog_revision
+    correlation = "catalog-refresh-response-1"
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: correlation),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: revision,
+          segments: catalog_segments,
+          correlation_id: correlation,
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload.platform_catalog_refresh_requested_at).to be_nil
+  end
+
+  it "requires a staff-confirmed correction before retrying operator-attention work" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    install_catalog
+    create_source
+    materialize_source
+    work = DiscussionBridgePublicationWork.order(:id).last
+    work.update_columns(
+      state: "operator_attention",
+      failure_code: "destination_unavailable",
+      failure_detail: "Destination remained unavailable.",
+    )
+    sign_in(admin)
+
+    post "/discussion-bridge/admin/publishing/work/#{work.id}/retry.json",
+         params: { retry: { condition_corrected: false } },
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "condition correction must be confirmed",
+    )
+
+    post "/discussion-bridge/admin/publishing/work/#{work.id}/retry.json",
+         params: { retry: { condition_corrected: true } },
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("publication_work")).to include(
+      "state" => "available",
+      "retry_generation" => 1,
+      "attempt_count" => 1,
+    )
+  end
 end

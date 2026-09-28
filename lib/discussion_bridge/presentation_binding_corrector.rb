@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "digest"
-
 module DiscussionBridge
   class PresentationBindingCorrector
     def self.call(user:, resource_id:, canonical_url:)
@@ -32,20 +30,9 @@ module DiscussionBridge
         raise ArgumentError, "origin is outside connection scope" unless
           connection.allows_origin?(canonical.source_url)
 
-        canonical_url_digest = Digest::SHA256.hexdigest(
-          "#{connection.public_id}\n#{canonical.source_url}",
-        )
-        conflict = DiscussionBridgeContentBinding.where(
-          canonical_url_digest: canonical_url_digest,
-        ).where.not(id: binding.id).exists?
-        raise ArgumentError, "presentation URL is already bound" if conflict
-
         unless binding.canonical_url == canonical.source_url
-          binding.update!(
-            canonical_url: canonical.source_url,
-            canonical_url_digest: canonical_url_digest,
-          )
-          record.touch
+          raise ArgumentError,
+                "presentation URL changes require verified migration and native identity confirmation"
         end
       end
 

@@ -38,6 +38,46 @@ module DiscussionBridge
       render json: { content_connection: serialize(connection), secret: connection.rotate_secret! }
     end
 
+    def request_catalog_refresh
+      connection = DiscussionBridgeContentConnection.find(params[:id])
+      raise ArgumentError, "connection does not use a platform catalog" unless
+        connection.enabled && connection.catalog_required &&
+          connection.allows_direction?("from_discourse")
+
+      connection.update!(platform_catalog_refresh_requested_at: Time.zone.now)
+      render json: { content_connection: serialize(connection) }
+    rescue ActiveRecord::RecordInvalid, ArgumentError => error
+      render json: { errors: errors_for(error) }, status: :unprocessable_entity
+    end
+
+    def publication_preview
+      connection = DiscussionBridgeContentConnection.find(params[:id])
+      raise ArgumentError, "connection does not permit From Discourse" unless
+        connection.enabled && connection.allows_direction?("from_discourse")
+
+      scope = DiscussionBridgeBridgeRecord.joins(:content_bindings)
+        .where(
+          direction: "from_discourse",
+          discussion_bridge_content_bindings: {
+            content_connection_id: connection.id,
+            role: "presentation",
+            state: "active",
+          },
+        ).distinct.order(:id)
+      total = scope.count
+      records = scope.includes(:topic, :publication_works).limit(101).to_a
+      render json: {
+        content_connection_id: connection.id,
+        total: total,
+        truncated: total > 100,
+        items: records.first(100).map { |record| preview_item(connection, record) },
+        attention: connection.publication_works.where(state: "operator_attention").count,
+        catalog: catalog_payload(connection),
+      }
+    rescue ActiveRecord::RecordInvalid, ArgumentError => error
+      render json: { errors: errors_for(error) }, status: :unprocessable_entity
+    end
+
     def update_author
       connection = DiscussionBridgeContentConnection.find(params[:id])
       source_author = connection.source_authors.find(params[:author_id])
@@ -126,6 +166,10 @@ module DiscussionBridge
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
         attention_count: attention_records,
+        publication_work: PublicationWorkProtocol::STATES.index_with do |state|
+          connection.publication_works.where(state: state).count
+        end,
+        catalog: catalog_payload(connection),
         health: if !connection.enabled || attention_records.positive?
                   "attention"
                 elsif connection.last_seen_at.nil?
@@ -165,6 +209,44 @@ module DiscussionBridge
 
     def errors_for(error)
       error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
+    end
+
+    def catalog_payload(connection)
+      catalogs = connection.platform_catalogs.where(current: true).order(:platform_profile)
+      {
+        required: connection.catalog_required,
+        refresh_requested_at: connection.platform_catalog_refresh_requested_at,
+        current: catalogs.map do |catalog|
+          {
+            platform_profile: catalog.platform_profile,
+            catalog_revision: catalog.catalog_revision,
+            updated_at: catalog.updated_at,
+          }
+        end,
+      }
+    end
+
+    def preview_item(connection, record)
+      work = record.publication_works.where(content_connection_id: connection.id)
+        .order(id: :desc).first
+      override = DiscussionBridgePublicationOverride.find_by(
+        content_connection_id: connection.id,
+        topic_id: record.topic_id,
+      )
+      {
+        resource_id: record.resource_id,
+        topic_id: record.topic_id,
+        topic_url: record.topic&.url,
+        title: record.topic&.title || record.title,
+        record_state: record.state,
+        decision: override&.decision || "inherit",
+        work: work && {
+          work_id: work.work_id,
+          action: work.action,
+          state: work.state,
+          failure_code: work.failure_code,
+        },
+      }
     end
   end
 end

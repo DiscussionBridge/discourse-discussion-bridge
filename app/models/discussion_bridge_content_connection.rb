@@ -38,6 +38,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            class_name: "DiscussionBridgePublicationWork",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
+  has_many :publication_overrides,
+           class_name: "DiscussionBridgePublicationOverride",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true
@@ -166,6 +170,7 @@ end
 #  allowed_origins        :jsonb            not null
 #  authorship_mode        :string(32)       default("fixed"), not null
 #  catalog_required       :boolean          default(FALSE), not null
+#  platform_catalog_refresh_requested_at :datetime
 #  destination_policies   :jsonb            not null
 #  enabled                :boolean          default(TRUE), not null
 #  generate_topic_toc     :boolean          default(FALSE), not null

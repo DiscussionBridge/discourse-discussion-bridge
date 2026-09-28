@@ -12,6 +12,14 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
            class_name: "DiscussionBridgePublicationWork",
            foreign_key: :content_binding_id,
            dependent: :restrict_with_error
+  has_many :source_url_histories,
+           class_name: "DiscussionBridgeSourceUrlHistory",
+           foreign_key: :content_binding_id,
+           dependent: :restrict_with_error
+  has_many :presentation_url_histories,
+           class_name: "DiscussionBridgePresentationUrlHistory",
+           foreign_key: :content_binding_id,
+           dependent: :restrict_with_error
 
   validates :role, inclusion: { in: ROLES }
   validates :state, inclusion: { in: STATES }

@@ -11,17 +11,31 @@ module DiscussionBridge
         .order(:id)
     end
 
+    def self.reconcile_record!(record:, connection:)
+      new(connection: connection).reconcile_record!(record)
+    end
+
     def initialize(connection:)
       @connection = connection
     end
 
     def reconcile!
       source_records.find_each do |record|
-        reason = SourceRevisionMaterializer.unavailability_reason(
-          record: record,
-          connection: @connection,
-        )
-        reason ? revoke!(record, reason) : restore!(record)
+        reconcile_record!(record)
+      end
+    end
+
+    def reconcile_record!(record)
+      return unless source_records.where(id: record.id).exists?
+
+      reason = SourceRevisionMaterializer.unavailability_reason(
+        record: record,
+        connection: @connection,
+      )
+      if reason
+        revoke!(record, reason)
+      elsif !restore!(record)
+        SourceRevisionMaterializer.call(record: record, connection: @connection)
       end
     end
 
@@ -80,7 +94,7 @@ module DiscussionBridge
 
     def restore!(record)
       active = active_revocations(record).to_a
-      return if active.empty?
+      return false if active.empty?
 
       SourceRevisionMaterializer.call(
         record: record,
@@ -92,6 +106,7 @@ module DiscussionBridge
         restored_at: now,
         updated_at: now,
       )
+      true
     end
 
     def active_revocations(record)

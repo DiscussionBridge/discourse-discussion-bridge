@@ -47,10 +47,13 @@ module DiscussionBridge
 
     def self.manual_retry!(work:, authorized_by:, condition_corrected:)
       raise AdapterRequestBoundary::Error, "policy_denied" unless authorized_by&.staff?
-      raise AdapterRequestBoundary::Error, "operator_action_required" unless condition_corrected == true
+      raise ArgumentError, "condition correction must be confirmed" unless condition_corrected == true
 
       work.with_lock do
         raise AdapterRequestBoundary::Error, "stage_conflict" unless work.state == "operator_attention"
+        if PublicationWorkProtocol::RETRYABLE_FAILURES.exclude?(work.failure_code)
+          raise ArgumentError, "publication work is not retryable"
+        end
 
         work.update!(
           state: "available",
