@@ -11,6 +11,7 @@ require_relative "../lib/discussion_bridge/adapter_request_boundary"
 require_relative "../lib/discussion_bridge/bridge_record_request"
 require_relative "../lib/discussion_bridge/connection_capability"
 require_relative "../lib/discussion_bridge/adapter_protocol_records"
+require_relative "../lib/discussion_bridge/source_publication_protocol"
 
 boundary = DiscussionBridge::AdapterRequestBoundary
 authentication = contract.fetch("authentication")
@@ -141,4 +142,55 @@ abort "released verification states mismatch" unless
 abort "released record page bound mismatch" unless record_impl::MAXIMUM_PAGE == records.fetch("maximum_page")
 abort "released record page size mismatch" unless record_impl::PER_PAGE == records.fetch("records_per_page")
 
-puts "Adapter Protocol request boundary and P2 records match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"
+source = contract.fetch("source_publication")
+source_impl = DiscussionBridge::SourcePublicationProtocol
+inventory = source.fetch("inventory")
+detail = source.fetch("detail")
+transport = source.fetch("content_transport")
+revocations = source.fetch("revocations")
+abort "released source inventory query mismatch" unless
+  source_impl::INVENTORY_QUERY_FIELDS == inventory.fetch("query")
+abort "released source inventory response mismatch" unless
+  source_impl::INVENTORY_RESPONSE_FIELDS == inventory.fetch("required_response_fields")
+abort "released source inventory item mismatch" unless
+  source_impl::INVENTORY_ITEM_FIELDS == inventory.fetch("required_item_fields")
+abort "released source detail query mismatch" unless
+  source_impl::DETAIL_QUERY_FIELDS == detail.fetch("query")
+abort "released source detail fields mismatch" unless
+  source_impl::DETAIL_FIELDS == detail.fetch("required_fields")
+abort "released inline transport mismatch" unless
+  source_impl::INLINE_TRANSPORT_FIELDS == transport.dig("inline", "required_fields")
+abort "released chunk descriptor mismatch" unless
+  source_impl::CHUNK_DESCRIPTOR_FIELDS == transport.dig("chunked", "required_descriptor_fields")
+abort "released content query mismatch" unless
+  source_impl::CONTENT_QUERY_FIELDS == transport.dig("chunked", "query")
+abort "released content fields mismatch" unless
+  source_impl::CONTENT_FIELDS == transport.dig("chunked", "required_chunk_fields")
+abort "released revocation query mismatch" unless
+  source_impl::REVOCATION_QUERY_FIELDS == revocations.fetch("query")
+abort "released revocation index mismatch" unless
+  source_impl::REVOCATION_INDEX_FIELDS == revocations.fetch("index_required_fields")
+abort "released revocation item mismatch" unless
+  source_impl::REVOCATION_ITEM_FIELDS == revocations.fetch("item_required_fields")
+abort "released revocation detail mismatch" unless
+  source_impl::REVOCATION_DETAIL_FIELDS == revocations.fetch("detail_required_fields")
+abort "released source inventory default mismatch" unless
+  source_impl::DEFAULT_LIMIT == inventory.fetch("default_limit")
+abort "released source inventory bound mismatch" unless
+  source_impl::MAXIMUM_LIMIT == inventory.fetch("maximum_limit")
+abort "released source retention mismatch" unless
+  source_impl::SNAPSHOT_RETENTION_SECONDS == inventory.fetch("minimum_snapshot_retention_seconds")
+abort "released inline content bound mismatch" unless
+  source_impl::INLINE_MAXIMUM_BYTES == transport.dig("inline", "maximum_content_html_bytes")
+abort "released chunk content bound mismatch" unless
+  source_impl::CHUNK_MAXIMUM_BYTES == transport.dig("chunked", "decoded_chunk_maximum_bytes")
+abort "released total source bound mismatch" unless
+  source_impl::MAXIMUM_SOURCE_CONTENT_BYTES == detail.fetch("maximum_source_content_bytes")
+abort "released revocation default mismatch" unless
+  source_impl::DEFAULT_LIMIT == revocations.fetch("default_limit")
+abort "released revocation bound mismatch" unless
+  source_impl::MAXIMUM_LIMIT == revocations.fetch("maximum_limit")
+abort "released revocation reasons mismatch" unless
+  source_impl::REVOCATION_REASONS == revocations.fetch("reasons")
+
+puts "Adapter Protocol request boundary, P2 records, and P3 source publication match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"

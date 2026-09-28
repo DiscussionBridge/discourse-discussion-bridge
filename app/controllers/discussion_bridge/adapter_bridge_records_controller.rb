@@ -164,7 +164,7 @@ module DiscussionBridge
     def adapter_record(record)
       topic = record.topic
       first_post = topic&.first_post
-      revision = record.direction == "from_discourse" ? discourse_revision(first_post) : stored_revision(record)
+      revision = record.direction == "from_discourse" ? discourse_revision(record, first_post) : stored_revision(record)
       payload = {
         resource_id: record.resource_id,
         direction: record.direction,
@@ -198,7 +198,15 @@ module DiscussionBridge
         @content_connection.allows_origin?(binding.canonical_url)
     end
 
-    def discourse_revision(first_post)
+    def discourse_revision(record, first_post)
+      persisted = record.source_revisions.order(source_revision_sequence: :desc).first
+      return {
+        source_revision: persisted.source_revision,
+        source_revision_sequence: persisted.source_revision_sequence,
+        source_created_at: persisted.source_created_at.iso8601(6),
+        source_updated_at: persisted.source_updated_at.iso8601(6),
+      } if persisted
+
       {
         source_revision: "post:#{first_post.id}:version:#{first_post.version}",
         source_revision_sequence: first_post.version,
