@@ -20,3 +20,32 @@ class DiscussionBridgePresentationUrlHistory < ActiveRecord::Base
       old_canonical_url == new_canonical_url
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_presentation_url_histories
+#
+#  id                       :bigint           not null, primary key
+#  new_canonical_url        :text             not null
+#  old_canonical_url        :text             not null
+#  old_canonical_url_digest :string(64)       not null
+#  redirect_status          :integer          not null
+#  verified_at              :datetime         not null
+#  created_at               :datetime         not null
+#  updated_at               :datetime         not null
+#  bridge_record_id         :bigint           not null
+#  content_binding_id       :bigint           not null
+#  verified_by_id           :bigint           not null
+#
+# Indexes
+#
+#  idx_db_presentation_old_url              (old_canonical_url_digest)
+#  idx_db_presentation_url_history_binding  (content_binding_id)
+#  idx_db_presentation_url_history_record   (bridge_record_id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (bridge_record_id => discussion_bridge_bridge_records.id)
+#  fk_rails_...  (content_binding_id => discussion_bridge_content_bindings.id)
+#  fk_rails_...  (verified_by_id => users.id)
+#
