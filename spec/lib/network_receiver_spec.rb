@@ -68,10 +68,7 @@ describe DiscussionBridge::NetworkReceiver do
   def source_detail
     JSON.parse(
       File.read(
-        File.expand_path(
-          "../../../adapter-contract-successor/fixtures/network-source-detail.json",
-          __dir__,
-        ),
+        File.expand_path("../fixtures/network-source-detail.json", __dir__),
       ),
     )
   end

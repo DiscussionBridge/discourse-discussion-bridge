@@ -1,0 +1,33 @@
+{
+  "resource_id": "c4965d46-e657-4af4-af47-6439e544eeb7",
+  "topic_id": 101,
+  "topic_url": "https://national.example/t/national-program-update/101",
+  "title": "National Program Update",
+  "source_revision": "post:501:version:2",
+  "source_revision_sequence": 2,
+  "source_created_at": "2026-09-01T16:00:00Z",
+  "source_updated_at": "2026-09-27T18:30:00Z",
+  "source_authors": [],
+  "categories": [],
+  "tags": [],
+  "presentation_mode": "interactive",
+  "content_disposition": "complete",
+  "content_transport": {
+    "mode": "inline",
+    "media_type": "text/html; charset=utf-8",
+    "byte_length": 31,
+    "sha256": "ac86d44208a2a56defa0597f0f768da60448e4e3eb41be830090e10152efa8cb",
+    "content_html": "<p>National program update.</p>"
+  },
+  "network_provenance": {
+    "origin_forum_id": "dbf_11111111111111111111111111111111",
+    "origin_forum_name": "National Organization",
+    "origin_topic_url": "https://national.example/t/national-program-update/101",
+    "content_authority_forum_id": "dbf_11111111111111111111111111111111",
+    "relationship": "hub_to_spoke",
+    "operation_id": "dbo_11111111111111111111111111111111",
+    "route_forum_ids": ["dbf_11111111111111111111111111111111"],
+    "managed_scope": "first_post"
+  },
+  "correlation_id": "network-hub-01"
+}

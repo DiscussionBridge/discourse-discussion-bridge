@@ -62,10 +62,7 @@ describe DiscussionBridge::DiscourseNetworkProtocol do
   def fixture(name)
     JSON.parse(
       File.read(
-        File.expand_path(
-          "../../../adapter-contract-successor/fixtures/#{name}",
-          __dir__,
-        ),
+        File.expand_path("../fixtures/#{name}", __dir__),
       ),
     )
   end
