@@ -361,6 +361,135 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(response.parsed_body).to include("resulting_state" => "acknowledged", "terminal" => true)
   end
 
+  it "resumes retryable static work from its last acknowledged stage" do
+    install_catalog
+    _, _, record = create_source
+    materialize_source
+    claim(correlation: "resume-static-initial")
+    initial_claim = response.parsed_body.fetch("publication_work").sole
+    synchronized_at = Time.zone.now.iso8601(6)
+    synchronized = acknowledgement(
+      initial_claim,
+      record,
+      correlation: "resume-static-synchronized",
+      deployment_state: "pending",
+      verification_state: "pending",
+      synchronized_at: synchronized_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{initial_claim.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "resume-static-synchronized"),
+        params: synchronized,
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    put "/discussion-bridge/v1/publication-work/#{initial_claim.fetch("work_id")}/failure.json",
+        headers: headers(correlation: "resume-static-deploy-failure"),
+        params: {
+          lease_token: initial_claim.fetch("lease_token"),
+          error_code: "deploy_failed",
+          error_detail: "Static deployment failed before completion.",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "resume-static-deploy-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    work = DiscussionBridgePublicationWork.find_by!(work_id: initial_claim.fetch("work_id"))
+    expect(work).to have_attributes(state: "retry_wait", last_acknowledged_stage: "synchronized")
+
+    travel_to(work.next_retry_at + 1.second)
+    claim(correlation: "resume-static-deploy-claim")
+    deploy_claim = response.parsed_body.fetch("publication_work").sole
+    expect(deploy_claim).to include(
+      "work_id" => initial_claim.fetch("work_id"),
+      "attempt_count" => 2,
+    )
+    expect(deploy_claim.fetch("lease_token")).not_to eq(initial_claim.fetch("lease_token"))
+    expect(deploy_claim.fetch("stage_token")).not_to eq(initial_claim.fetch("stage_token"))
+    expect(work.reload).to have_attributes(
+      state: "awaiting_deployment",
+      last_acknowledged_stage: "synchronized",
+    )
+
+    repeated_synchronized = acknowledgement(
+      deploy_claim,
+      record,
+      correlation: "resume-static-repeat-synchronized",
+      deployment_state: "pending",
+      verification_state: "pending",
+      synchronized_at: synchronized_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{deploy_claim.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "resume-static-repeat-synchronized"),
+        params: repeated_synchronized,
+        as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("stage_conflict")
+
+    deployed_at = Time.zone.now.iso8601(6)
+    deployed = acknowledgement(
+      deploy_claim,
+      record,
+      correlation: "resume-static-deployed",
+      stage: "deployed",
+      deployment_state: "deployed",
+      verification_state: "pending",
+      synchronized_at: synchronized_at,
+      deployed_at: deployed_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{deploy_claim.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "resume-static-deployed"),
+        params: deployed,
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    put "/discussion-bridge/v1/publication-work/#{deploy_claim.fetch("work_id")}/failure.json",
+        headers: headers(correlation: "resume-static-verification-failure"),
+        params: {
+          lease_token: deploy_claim.fetch("lease_token"),
+          error_code: "public_verification_failed",
+          error_detail: "Public verification did not complete.",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "resume-static-verification-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    work.reload
+    expect(work).to have_attributes(state: "retry_wait", last_acknowledged_stage: "deployed")
+
+    travel_to(work.next_retry_at + 1.second)
+    claim(correlation: "resume-static-verification-claim")
+    verification_claim = response.parsed_body.fetch("publication_work").sole
+    expect(verification_claim).to include(
+      "work_id" => initial_claim.fetch("work_id"),
+      "attempt_count" => 3,
+    )
+    expect(verification_claim.fetch("lease_token")).not_to eq(deploy_claim.fetch("lease_token"))
+    expect(verification_claim.fetch("stage_token")).not_to eq(deploy_claim.fetch("stage_token"))
+    expect(work.reload).to have_attributes(
+      state: "awaiting_verification",
+      last_acknowledged_stage: "deployed",
+    )
+
+    verified = acknowledgement(
+      verification_claim,
+      record,
+      correlation: "resume-static-verified",
+      stage: "verified",
+      deployment_state: "deployed",
+      verification_state: "verified",
+      synchronized_at: synchronized_at,
+      deployed_at: deployed_at,
+      publicly_verified_at: Time.zone.now.iso8601(6),
+    )
+    put "/discussion-bridge/v1/publication-work/#{verification_claim.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "resume-static-verified"),
+        params: verified,
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("resulting_state" => "acknowledged", "terminal" => true)
+    expect(work.reload).to have_attributes(state: "acknowledged", last_acknowledged_stage: "verified")
+  end
+
   it "applies the exact retry schedule, exhaustion, and authorized manual retry generation" do
     install_catalog
     create_source

@@ -456,7 +456,7 @@ module DiscussionBridge
         lease_token = PublicationWorkProtocol.token
         stage_token = PublicationWorkProtocol.token
         candidate.update!(
-          state: "leased",
+          state: resumed_claim_state(candidate),
           worker_id: worker_id,
           lease_token_digest: PublicationWorkProtocol.token_digest(lease_token),
           stage_token_digest: PublicationWorkProtocol.token_digest(stage_token),
@@ -467,6 +467,19 @@ module DiscussionBridge
         claim = Claim.new(work: candidate, lease_token: lease_token, stage_token: stage_token)
       end
       claim
+    end
+
+    def resumed_claim_state(work)
+      case work.last_acknowledged_stage
+      when nil
+        "leased"
+      when "synchronized"
+        "awaiting_deployment"
+      when "deployed"
+        "awaiting_verification"
+      else
+        raise AdapterRequestBoundary::Error, "stage_conflict"
+      end
     end
 
     def work_payload(claim, correlation_id:)
