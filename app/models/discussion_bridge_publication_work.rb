@@ -70,7 +70,6 @@ end
 #  available_at                  :datetime
 #  catalog_revision              :string(255)      not null
 #  deployed_at                   :datetime
-#  destination_policy_id         :string(255)      not null
 #  failed_at                     :datetime
 #  failure_code                  :string(64)
 #  failure_detail                :text
@@ -86,10 +85,10 @@ end
 #  policy_revision               :string(255)      not null
 #  presentation_mode             :string(32)       not null
 #  publicly_verified_at          :datetime
+#  resolution_error              :string(64)
 #  resolved_author               :jsonb            not null
 #  resolved_container            :jsonb            not null
 #  resolved_taxonomy             :jsonb            not null
-#  resolution_error              :string(64)
 #  retry_generation              :integer          default(0), not null
 #  source_revision               :string(255)      not null
 #  source_revision_sequence      :bigint           not null
@@ -98,28 +97,29 @@ end
 #  superseded_at                 :datetime
 #  synchronized_at               :datetime
 #  total_lease_seconds           :integer          default(0), not null
-#  work_id                       :string(36)       not null
-#  worker_id                     :string(200)
 #  created_at                    :datetime         not null
 #  updated_at                    :datetime         not null
 #  bridge_record_id              :bigint           not null
 #  content_binding_id            :bigint           not null
 #  content_connection_id         :bigint           not null
+#  destination_policy_id         :string(255)      not null
 #  manual_retry_authorized_by_id :bigint
 #  source_revision_id            :bigint
 #  source_revocation_id          :bigint
+#  work_id                       :string(36)       not null
+#  worker_id                     :string(200)
 #
 # Indexes
 #
-#  idx_db_publication_works_binding    (content_binding_id)
-#  idx_db_publication_works_claim      (content_connection_id,state,available_at)
-#  idx_db_publication_works_connection (content_connection_id)
-#  idx_db_publication_works_identity   (content_connection_id,content_binding_id,source_revision,policy_revision,destination_policy_id,action) UNIQUE
-#  idx_db_publication_works_public_id  (work_id) UNIQUE
-#  idx_db_publication_works_record     (bridge_record_id)
-#  idx_db_publication_works_revision   (source_revision_id)
-#  idx_db_publication_works_revocation (source_revocation_id)
-#  idx_db_publication_works_serial     (content_binding_id,state)
+#  idx_db_publication_works_binding     (content_binding_id)
+#  idx_db_publication_works_claim       (content_connection_id,state,available_at)
+#  idx_db_publication_works_connection  (content_connection_id)
+#  idx_db_publication_works_identity    (content_connection_id,content_binding_id,source_revision,policy_revision,destination_policy_id,action) UNIQUE
+#  idx_db_publication_works_public_id   (work_id) UNIQUE
+#  idx_db_publication_works_record      (bridge_record_id)
+#  idx_db_publication_works_revision    (source_revision_id)
+#  idx_db_publication_works_revocation  (source_revocation_id)
+#  idx_db_publication_works_serial      (content_binding_id,state)
 #
 # Foreign Keys
 #
