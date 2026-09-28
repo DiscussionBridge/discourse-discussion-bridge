@@ -53,6 +53,11 @@ module DiscussionBridge
           )
         end
         synchronize_record!(revision)
+        PublicationWorkRegistry.ensure_revision!(
+          record: @record,
+          connection: @connection,
+          revision: revision,
+        )
       end
       Result.new(revision: revision, reason: nil)
     rescue ActiveRecord::RecordNotUnique

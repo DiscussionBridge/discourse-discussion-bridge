@@ -22,6 +22,10 @@ class DiscussionBridgeBridgeRecord < ActiveRecord::Base
            class_name: "DiscussionBridgeSourceRevocation",
            foreign_key: :bridge_record_id,
            dependent: :restrict_with_error
+  has_many :publication_works,
+           class_name: "DiscussionBridgePublicationWork",
+           foreign_key: :bridge_record_id,
+           dependent: :restrict_with_error
 
   validates :resource_id, :direction, :state, :title, presence: true
   validates :resource_id, length: { is: 36 }, uniqueness: true

@@ -8,6 +8,10 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
 
   belongs_to :bridge_record, class_name: "DiscussionBridgeBridgeRecord"
   belongs_to :content_connection, class_name: "DiscussionBridgeContentConnection"
+  has_many :publication_works,
+           class_name: "DiscussionBridgePublicationWork",
+           foreign_key: :content_binding_id,
+           dependent: :restrict_with_error
 
   validates :role, inclusion: { in: ROLES }
   validates :state, inclusion: { in: STATES }

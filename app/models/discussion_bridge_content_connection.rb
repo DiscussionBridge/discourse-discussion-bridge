@@ -30,6 +30,14 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
            class_name: "DiscussionBridgeSourceRevocation",
            foreign_key: :content_connection_id,
            dependent: :restrict_with_error
+  has_many :platform_catalogs,
+           class_name: "DiscussionBridgePlatformCatalog",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
+  has_many :publication_works,
+           class_name: "DiscussionBridgePublicationWork",
+           foreign_key: :content_connection_id,
+           dependent: :restrict_with_error
   belongs_to :author_user, class_name: "User", optional: true
 
   validates :public_id, :name, :platform, :secret_digest, presence: true

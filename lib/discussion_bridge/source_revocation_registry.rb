@@ -67,6 +67,11 @@ module DiscussionBridge
           source_revision_sequence: sequence,
           source_updated_at: revocation.effective_at,
         )
+        PublicationWorkRegistry.ensure_revocation!(
+          record: record,
+          connection: @connection,
+          revocation: revocation,
+        )
         revocation
       end
     rescue ActiveRecord::RecordNotUnique

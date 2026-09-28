@@ -12,6 +12,8 @@ require_relative "../lib/discussion_bridge/bridge_record_request"
 require_relative "../lib/discussion_bridge/connection_capability"
 require_relative "../lib/discussion_bridge/adapter_protocol_records"
 require_relative "../lib/discussion_bridge/source_publication_protocol"
+require_relative "../lib/discussion_bridge/platform_catalog_protocol"
+require_relative "../lib/discussion_bridge/publication_work_protocol"
 
 boundary = DiscussionBridge::AdapterRequestBoundary
 authentication = contract.fetch("authentication")
@@ -193,4 +195,66 @@ abort "released revocation bound mismatch" unless
 abort "released revocation reasons mismatch" unless
   source_impl::REVOCATION_REASONS == revocations.fetch("reasons")
 
-puts "Adapter Protocol request boundary, P2 records, and P3 source publication match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"
+catalog = contract.fetch("platform_catalog")
+catalog_impl = DiscussionBridge::PlatformCatalogProtocol
+abort "released catalog query mismatch" unless catalog_impl::QUERY_FIELDS == catalog.fetch("get_query")
+abort "released catalog response mismatch" unless
+  catalog_impl::RESPONSE_FIELDS == catalog.fetch("get_required_response_fields")
+abort "released catalog update mismatch" unless
+  catalog_impl::UPDATE_REQUIRED_FIELDS == catalog.fetch("put_required_request_fields")
+abort "released catalog update response mismatch" unless
+  catalog_impl::UPDATE_RESPONSE_FIELDS == catalog.fetch("put_required_response_fields")
+abort "released catalog segment fields mismatch" unless
+  catalog_impl::SEGMENT_FIELDS == catalog.fetch("segment_required_fields")
+abort "released catalog segment types mismatch" unless
+  catalog_impl::SEGMENT_TYPES == catalog.fetch("segment_types")
+abort "released catalog item schemas mismatch" unless
+  catalog_impl::ITEM_SCHEMAS == catalog.fetch("item_schemas")
+abort "released catalog body bound mismatch" unless
+  catalog_impl::MAXIMUM_JSON_BYTES == catalog.fetch("maximum_json_bytes")
+abort "released catalog item bound mismatch" unless
+  catalog_impl::MAXIMUM_ITEMS == catalog.fetch("maximum_items_per_segment")
+
+work = contract.fetch("publication_work")
+work_impl = DiscussionBridge::PublicationWorkProtocol
+abort "released work claim required fields mismatch" unless
+  work_impl::CLAIM_REQUIRED_FIELDS == work.dig("claim", "request_required_fields")
+abort "released work claim optional fields mismatch" unless
+  work_impl::CLAIM_OPTIONAL_FIELDS == work.dig("claim", "request_optional_fields")
+abort "released work claim response mismatch" unless
+  work_impl::CLAIM_RESPONSE_FIELDS == work.dig("claim", "response_required_fields")
+abort "released work renewal fields mismatch" unless
+  work_impl::RENEW_FIELDS == work.dig("renew", "required_fields")
+abort "released work renewal response mismatch" unless
+  work_impl::RENEW_RESPONSE_FIELDS == work.dig("renew", "response_required_fields")
+abort "released work acknowledgement fields mismatch" unless
+  work_impl::ACK_REQUIRED_FIELDS == work.dig("acknowledgement", "required_fields") &&
+    work_impl::ACK_OPTIONAL_FIELDS == work.dig("acknowledgement", "conditional_fields")
+abort "released work acknowledgement response mismatch" unless
+  work_impl::ACK_RESPONSE_FIELDS == work.dig("acknowledgement", "response_required_fields") &&
+    work_impl::ACK_RESPONSE_OPTIONAL_FIELDS == work.dig("acknowledgement", "response_conditional_fields")
+abort "released work failure fields mismatch" unless
+  work_impl::FAILURE_FIELDS == work.dig("failure", "required_fields")
+abort "released work fields mismatch" unless work_impl::WORK_FIELDS == work.fetch("work_required_fields")
+abort "released work actions mismatch" unless work_impl::ACTIONS == work.fetch("actions")
+abort "released work states mismatch" unless work_impl::STATES == work.fetch("lifecycle_states")
+abort "released work stages mismatch" unless
+  work_impl::STAGES == work.dig("acknowledgement", "stages")
+abort "released retry registry mismatch" unless
+  work_impl::RETRYABLE_FAILURES == contract.dig("failure_registry", "retryable") &&
+    work_impl::TERMINAL_FAILURES == contract.dig("failure_registry", "terminal")
+abort "released retry schedule mismatch" unless
+  work_impl::RETRY_BACKOFF_SECONDS == work.fetch("retry_backoff_seconds")
+abort "released work claim bounds mismatch" unless
+  work_impl::DEFAULT_MAXIMUM_ITEMS == work.dig("claim", "default_maximum_items") &&
+    work_impl::MAXIMUM_ITEMS == work.dig("claim", "maximum_items") &&
+    work_impl::DEFAULT_LEASE_SECONDS == work.dig("claim", "default_lease_seconds") &&
+    work_impl::MAXIMUM_REQUESTED_LEASE_SECONDS == work.dig("claim", "maximum_requested_lease_seconds") &&
+    work_impl::MAXIMUM_TOTAL_LEASE_SECONDS == work.dig("claim", "maximum_total_lease_seconds") &&
+    work_impl::MAXIMUM_TOTAL_ATTEMPTS == work.fetch("maximum_total_attempts")
+abort "released worker bound mismatch" unless
+  work_impl::WORKER_ID_MAXIMUM_BYTES == work.fetch("worker_id_maximum_bytes")
+abort "released failure detail bound mismatch" unless
+  work_impl::ERROR_DETAIL_MAXIMUM_BYTES == work.dig("failure", "error_detail_maximum_bytes")
+
+puts "Adapter Protocol request boundary, P2 records, P3 source publication, and P4 catalog/work match #{authentication.fetch("contract_header_value")}: #{released_statuses.length} error codes"

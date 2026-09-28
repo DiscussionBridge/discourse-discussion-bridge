@@ -8,6 +8,10 @@ class DiscussionBridgeSourceRevision < ActiveRecord::Base
            class_name: "DiscussionBridgeSourceSnapshotItem",
            foreign_key: :source_revision_id,
            dependent: :restrict_with_error
+  has_many :publication_works,
+           class_name: "DiscussionBridgePublicationWork",
+           foreign_key: :source_revision_id,
+           dependent: :restrict_with_error
 
   validates :source_revision, :fingerprint, :topic_url, :title,
             :source_created_at, :source_updated_at, :presentation_mode,
