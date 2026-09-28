@@ -37,25 +37,39 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked connectionActionId = null;
 
   @action
-  updateName(event) { this.name = event.target.value; }
+  updateName(event) {
+    this.name = event.target.value;
+  }
 
   @action
-  updatePlatform(event) { this.platform = event.target.value; }
+  updatePlatform(event) {
+    this.platform = event.target.value;
+  }
 
   @action
-  updateAuthorUsername(event) { this.authorUsername = event.target.value; }
+  updateAuthorUsername(event) {
+    this.authorUsername = event.target.value;
+  }
 
   @action
-  updateAuthorshipMode(event) { this.authorshipMode = event.target.value; }
+  updateAuthorshipMode(event) {
+    this.authorshipMode = event.target.value;
+  }
 
   @action
-  updateUnmappedAuthorPolicy(event) { this.unmappedAuthorPolicy = event.target.value; }
+  updateUnmappedAuthorPolicy(event) {
+    this.unmappedAuthorPolicy = event.target.value;
+  }
 
   @action
-  showGeneralTab() { this.editingTab = "general"; }
+  showGeneralTab() {
+    this.editingTab = "general";
+  }
 
   @action
-  showAuthorsTab() { this.editingTab = "authors"; }
+  showAuthorsTab() {
+    this.editingTab = "authors";
+  }
 
   @action
   updateSourceMapping(sourceAuthor, event) {
@@ -66,22 +80,34 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   @action
-  updateOrigins(event) { this.origins = event.target.value; }
+  updateOrigins(event) {
+    this.origins = event.target.value;
+  }
 
   @action
-  updateLanes(event) { this.lanes = event.target.value; }
+  updateLanes(event) {
+    this.lanes = event.target.value;
+  }
 
   @action
-  updateDefaultCategory(event) { this.defaultCategoryId = event.target.value; }
+  updateDefaultCategory(event) {
+    this.defaultCategoryId = event.target.value;
+  }
 
   @action
-  updateToDiscourse(event) { this.toDiscourse = event.target.checked; }
+  updateToDiscourse(event) {
+    this.toDiscourse = event.target.checked;
+  }
 
   @action
-  updateFromDiscourse(event) { this.fromDiscourse = event.target.checked; }
+  updateFromDiscourse(event) {
+    this.fromDiscourse = event.target.checked;
+  }
 
   @action
-  updateGenerateTopicToc(event) { this.generateTopicToc = event.target.checked; }
+  updateGenerateTopicToc(event) {
+    this.generateTopicToc = event.target.checked;
+  }
 
   @action
   async copyCredential(kind, value) {
@@ -102,8 +128,12 @@ export default class DiscussionBridgeConnections extends Component {
   async saveConnection(event) {
     event.preventDefault();
     const directions = [];
-    if (this.toDiscourse) { directions.push("to_discourse"); }
-    if (this.fromDiscourse) { directions.push("from_discourse"); }
+    if (this.toDiscourse) {
+      directions.push("to_discourse");
+    }
+    if (this.fromDiscourse) {
+      directions.push("from_discourse");
+    }
     try {
       const editing = this.editingConnectionId;
       const url = editing
@@ -142,31 +172,42 @@ export default class DiscussionBridgeConnections extends Component {
     this.editingConnectionId = connection.id;
     this.name = connection.name;
     this.platform = connection.platform;
-    this.authorUsername = connection.author_override ? connection.author_username : "";
+    this.authorUsername = connection.author_override
+      ? connection.author_username
+      : "";
     this.authorshipMode = connection.authorship_mode;
     this.unmappedAuthorPolicy = connection.unmapped_author_policy;
     this.editingTab = "general";
     this.sourceMappings = Object.fromEntries(
-      connection.source_authors.map((author) => [author.id, author.discourse_username ?? ""])
+      connection.source_authors.map((author) => [
+        author.id,
+        author.discourse_username ?? "",
+      ])
     );
     this.origins = connection.allowed_origins.join("\n");
     this.lanes = connection.allowed_lanes.join("\n");
     this.defaultCategoryId = connection.default_category_id?.toString() ?? "";
     this.toDiscourse = connection.allowed_directions.includes("to_discourse");
-    this.fromDiscourse = connection.allowed_directions.includes("from_discourse");
+    this.fromDiscourse =
+      connection.allowed_directions.includes("from_discourse");
     this.generateTopicToc = connection.generate_topic_toc;
   }
 
   @action
-  cancelEdit() { this.resetForm(); }
+  cancelEdit() {
+    this.resetForm();
+  }
 
   @action
   async toggleConnection(connection) {
     try {
-      await ajax(`/discussion-bridge/admin/content-connections/${connection.id}.json`, {
-        type: "PUT",
-        data: { content_connection: { enabled: !connection.enabled } },
-      });
+      await ajax(
+        `/discussion-bridge/admin/content-connections/${connection.id}.json`,
+        {
+          type: "PUT",
+          data: { content_connection: { enabled: !connection.enabled } },
+        }
+      );
       this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
@@ -178,7 +219,9 @@ export default class DiscussionBridgeConnections extends Component {
     const confirmed = await this.dialog.yesNoConfirm({
       message: i18n("discussion_bridge.admin.rotate_secret_confirm"),
     });
-    if (!confirmed) { return; }
+    if (!confirmed) {
+      return;
+    }
     try {
       const result = await ajax(
         `/discussion-bridge/admin/content-connections/${connection.id}/rotate-secret.json`,
@@ -243,7 +286,10 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   lines(value) {
-    return value.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean);
+    return value
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
   }
 
   resetForm() {
@@ -263,10 +309,16 @@ export default class DiscussionBridgeConnections extends Component {
     this.generateTopicToc = false;
   }
 
-  displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
+  displayToken(value) {
+    return value?.replaceAll("_", " ") || "—";
+  }
 
   adapterVerified(connection) {
-    return Boolean(connection.adapter_id && connection.adapter_version && connection.last_seen_at);
+    return Boolean(
+      connection.adapter_id &&
+      connection.adapter_version &&
+      connection.last_seen_at
+    );
   }
 
   canPublish(connection) {
@@ -281,7 +333,9 @@ export default class DiscussionBridgeConnections extends Component {
     <section class="discussion-bridge-connections">
       <DPageSubheader
         @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
-        @descriptionLabel={{i18n "discussion_bridge.admin.connections_description"}}
+        @descriptionLabel={{i18n
+          "discussion_bridge.admin.connections_description"
+        }}
       />
 
       {{#if this.issuedSecret}}
@@ -290,15 +344,34 @@ export default class DiscussionBridgeConnections extends Component {
           <div class="discussion-bridge-secret__row">
             <span>{{i18n "discussion_bridge.admin.connection_id"}}</span>
             <code>{{this.issuedConnectionId}}</code>
-            <button type="button" class="btn btn-default" {{on "click" (fn this.copyCredential "id" this.issuedConnectionId)}}>
-              {{if (eq this.copiedCredential "id") (i18n "discussion_bridge.admin.copied") (i18n "discussion_bridge.admin.copy_connection_id")}}
+            <button
+              type="button"
+              class="btn btn-default"
+              {{on
+                "click"
+                (fn this.copyCredential "id" this.issuedConnectionId)
+              }}
+            >
+              {{if
+                (eq this.copiedCredential "id")
+                (i18n "discussion_bridge.admin.copied")
+                (i18n "discussion_bridge.admin.copy_connection_id")
+              }}
             </button>
           </div>
           <div class="discussion-bridge-secret__row">
             <span>{{i18n "discussion_bridge.admin.connection_secret"}}</span>
             <code>{{this.issuedSecret}}</code>
-            <button type="button" class="btn btn-default" {{on "click" (fn this.copyCredential "secret" this.issuedSecret)}}>
-              {{if (eq this.copiedCredential "secret") (i18n "discussion_bridge.admin.copied") (i18n "discussion_bridge.admin.copy_connection_secret")}}
+            <button
+              type="button"
+              class="btn btn-default"
+              {{on "click" (fn this.copyCredential "secret" this.issuedSecret)}}
+            >
+              {{if
+                (eq this.copiedCredential "secret")
+                (i18n "discussion_bridge.admin.copied")
+                (i18n "discussion_bridge.admin.copy_connection_secret")
+              }}
             </button>
           </div>
         </section>
@@ -306,29 +379,98 @@ export default class DiscussionBridgeConnections extends Component {
 
       <div class="discussion-bridge-connection-grid">
         {{#each @model.content_connections as |connection|}}
-          <article class="discussion-bridge-connection-card" data-health={{connection.health}}>
+          <article
+            class="discussion-bridge-connection-card"
+            data-health={{connection.health}}
+          >
             <header>
               <div>
-                <span class="discussion-bridge-platform">{{this.displayToken connection.platform}}</span>
+                <span class="discussion-bridge-platform">{{this.displayToken
+                    connection.platform
+                  }}</span>
                 <h3>{{connection.name}}</h3>
               </div>
-              <span class="discussion-bridge-status" data-state={{connection.health}}>{{this.displayToken connection.health}}</span>
+              <span
+                class="discussion-bridge-status"
+                data-state={{connection.health}}
+              >{{this.displayToken connection.health}}</span>
             </header>
             <dl>
-              <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd>{{connection.bridge_record_count}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd><code>{{connection.public_id}}</code></dd>
-              <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd>{{#each connection.allowed_directions as |direction|}}<span>{{this.displayToken direction}}</span>{{/each}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code>{{connection.author_username}}</code>{{#unless connection.author_override}} <small>{{i18n "discussion_bridge.admin.forum_default"}}</small>{{/unless}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd>{{this.displayToken connection.authorship_mode}} · {{connection.source_author_count}} {{i18n "discussion_bridge.admin.source_authors"}}{{#if connection.unmapped_source_author_count}} · {{connection.unmapped_source_author_count}} {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if connection.generate_topic_toc (i18n "discussion_bridge.admin.enabled") (i18n "discussion_bridge.admin.disabled")}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.category_route"}}</dt><dd>{{connection.category_route.category_name}} <small>({{if (eq connection.category_route.source "connection") (i18n "discussion_bridge.admin.connection_route") (i18n "discussion_bridge.admin.forum_fallback")}})</small></dd>
-              <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each connection.allowed_origins as |origin|}}<code>{{origin}}</code>{{/each}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.adapter_presence"}}</dt><dd><span class="discussion-bridge-status" data-state={{if (this.adapterVerified connection) "healthy" "setup"}}>{{if (this.adapterVerified connection) (i18n "discussion_bridge.admin.adapter_verified") (i18n "discussion_bridge.admin.adapter_unverified")}}</span></dd>
-              <dt>{{i18n "discussion_bridge.admin.adapter_identity"}}</dt><dd><code>{{this.displayToken connection.adapter_id}}</code></dd>
-              <dt>{{i18n "discussion_bridge.admin.adapter_version"}}</dt><dd><code>{{this.displayToken connection.adapter_version}}</code></dd>
-              <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd>{{this.displayTimestamp connection.last_seen_at}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.catalog_status"}}</dt><dd>{{if connection.catalog.required (if connection.catalog.refresh_requested_at (i18n "discussion_bridge.admin.catalog_refresh_pending") (i18n "discussion_bridge.admin.catalog_current")) (i18n "discussion_bridge.admin.catalog_not_required")}}</dd>
-              <dt>{{i18n "discussion_bridge.admin.publication_attention"}}</dt><dd>{{connection.publication_work.operator_attention}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd
+              >{{connection.bridge_record_count}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd><code
+                >{{connection.public_id}}</code></dd>
+              <dt>{{i18n "discussion_bridge.admin.directions"}}</dt><dd>{{#each
+                  connection.allowed_directions
+                  as |direction|
+                }}<span>{{this.displayToken direction}}</span>{{/each}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code
+                >{{connection.author_username}}</code>{{#unless
+                  connection.author_override
+                }}
+                  <small>{{i18n
+                      "discussion_bridge.admin.forum_default"
+                    }}</small>{{/unless}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.authorship"}}</dt><dd
+              >{{this.displayToken connection.authorship_mode}}
+                ·
+                {{connection.source_author_count}}
+                {{i18n "discussion_bridge.admin.source_authors"}}{{#if
+                  connection.unmapped_source_author_count
+                }}
+                  ·
+                  {{connection.unmapped_source_author_count}}
+                  {{i18n "discussion_bridge.admin.unresolved"}}{{/if}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.forum_toc"}}</dt><dd>{{if
+                  connection.generate_topic_toc
+                  (i18n "discussion_bridge.admin.enabled")
+                  (i18n "discussion_bridge.admin.disabled")
+                }}</dd>
+              <dt>{{i18n "discussion_bridge.admin.category_route"}}</dt><dd
+              >{{connection.category_route.category_name}}
+                <small>({{if
+                    (eq connection.category_route.source "connection")
+                    (i18n "discussion_bridge.admin.connection_route")
+                    (i18n "discussion_bridge.admin.forum_fallback")
+                  }})</small></dd>
+              <dt>{{i18n "discussion_bridge.admin.origins"}}</dt><dd>{{#each
+                  connection.allowed_origins
+                  as |origin|
+                }}<code>{{origin}}</code>{{/each}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_presence"}}</dt><dd
+              ><span
+                  class="discussion-bridge-status"
+                  data-state={{if
+                    (this.adapterVerified connection)
+                    "healthy"
+                    "setup"
+                  }}
+                >{{if
+                    (this.adapterVerified connection)
+                    (i18n "discussion_bridge.admin.adapter_verified")
+                    (i18n "discussion_bridge.admin.adapter_unverified")
+                  }}</span></dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_identity"}}</dt><dd
+              ><code>{{this.displayToken connection.adapter_id}}</code></dd>
+              <dt>{{i18n "discussion_bridge.admin.adapter_version"}}</dt><dd
+              ><code>{{this.displayToken
+                    connection.adapter_version
+                  }}</code></dd>
+              <dt>{{i18n "discussion_bridge.admin.last_seen"}}</dt><dd
+              >{{this.displayTimestamp connection.last_seen_at}}</dd>
+              <dt>{{i18n "discussion_bridge.admin.catalog_status"}}</dt><dd>{{if
+                  connection.catalog.required
+                  (if
+                    connection.catalog.refresh_requested_at
+                    (i18n "discussion_bridge.admin.catalog_refresh_pending")
+                    (i18n "discussion_bridge.admin.catalog_current")
+                  )
+                  (i18n "discussion_bridge.admin.catalog_not_required")
+                }}</dd>
+              <dt>{{i18n
+                  "discussion_bridge.admin.publication_attention"
+                }}</dt><dd
+              >{{connection.publication_work.operator_attention}}</dd>
             </dl>
             <div class="discussion-bridge-actions">
               <DButton
@@ -337,7 +479,11 @@ export default class DiscussionBridgeConnections extends Component {
                 @actionParam={{connection}}
               />
               <DButton
-                @label={{if connection.enabled "discussion_bridge.admin.disable" "discussion_bridge.admin.enable"}}
+                @label={{if
+                  connection.enabled
+                  "discussion_bridge.admin.disable"
+                  "discussion_bridge.admin.enable"
+                }}
                 @action={{this.toggleConnection}}
                 @actionParam={{connection}}
               />
@@ -372,7 +518,9 @@ export default class DiscussionBridgeConnections extends Component {
                     attention=this.publicationPreview.attention
                   }}</p>
                 {{#if this.publicationPreview.truncated}}
-                  <p>{{i18n "discussion_bridge.admin.publication_preview_truncated"}}</p>
+                  <p>{{i18n
+                      "discussion_bridge.admin.publication_preview_truncated"
+                    }}</p>
                 {{/if}}
               </section>
             {{/if}}
@@ -382,45 +530,109 @@ export default class DiscussionBridgeConnections extends Component {
         {{/each}}
       </div>
 
-      <form class="discussion-bridge-add-connection" {{on "submit" this.saveConnection}}>
-        <h3>{{if this.editingConnectionId (i18n "discussion_bridge.admin.manage_connection") (i18n "discussion_bridge.admin.add_connection")}}</h3>
+      <form
+        class="discussion-bridge-add-connection"
+        {{on "submit" this.saveConnection}}
+      >
+        <h3>{{if
+            this.editingConnectionId
+            (i18n "discussion_bridge.admin.manage_connection")
+            (i18n "discussion_bridge.admin.add_connection")
+          }}</h3>
         {{#if this.editingConnectionId}}
-          <nav class="discussion-bridge-connection-tabs" aria-label={{i18n "discussion_bridge.admin.connection_settings_tabs"}}>
-            <button type="button" class={{if (eq this.editingTab "general") "active"}} {{on "click" this.showGeneralTab}}>{{i18n "discussion_bridge.admin.general_tab"}}</button>
-            <button type="button" class={{if (eq this.editingTab "authors") "active"}} {{on "click" this.showAuthorsTab}}>{{i18n "discussion_bridge.admin.authors_tab"}}</button>
+          <nav
+            class="discussion-bridge-connection-tabs"
+            aria-label={{i18n
+              "discussion_bridge.admin.connection_settings_tabs"
+            }}
+          >
+            <button
+              type="button"
+              class={{if (eq this.editingTab "general") "active"}}
+              {{on "click" this.showGeneralTab}}
+            >{{i18n "discussion_bridge.admin.general_tab"}}</button>
+            <button
+              type="button"
+              class={{if (eq this.editingTab "authors") "active"}}
+              {{on "click" this.showAuthorsTab}}
+            >{{i18n "discussion_bridge.admin.authors_tab"}}</button>
           </nav>
         {{/if}}
 
         {{#if (eq this.editingTab "general")}}
-          <label>{{i18n "discussion_bridge.admin.connection_name"}}<input required value={{this.name}} {{on "input" this.updateName}} /></label>
+          <label>{{i18n "discussion_bridge.admin.connection_name"}}<input
+              required
+              value={{this.name}}
+              {{on "input" this.updateName}}
+            /></label>
           <label>{{i18n "discussion_bridge.admin.platform"}}
             <select required {{on "change" this.updatePlatform}}>
-              <option value="" selected={{eq this.platform ""}}>{{i18n "discussion_bridge.admin.select_platform"}}</option>
-              {{#each @model.platforms as |platform|}}<option value={{platform}} selected={{eq platform this.platform}}>{{this.displayToken platform}}</option>{{/each}}
+              <option value="" selected={{eq this.platform ""}}>{{i18n
+                  "discussion_bridge.admin.select_platform"
+                }}</option>
+              {{#each @model.platforms as |platform|}}<option
+                  value={{platform}}
+                  selected={{eq platform this.platform}}
+                >{{this.displayToken platform}}</option>{{/each}}
             </select>
           </label>
-          <label>{{i18n "discussion_bridge.admin.topic_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
-          <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea required value={{this.origins}} {{on "input" this.updateOrigins}}></textarea></label>
+          <label>{{i18n "discussion_bridge.admin.topic_author"}}<input
+              value={{this.authorUsername}}
+              {{on "input" this.updateAuthorUsername}}
+              placeholder={{i18n
+                "discussion_bridge.admin.topic_author_default"
+              }}
+            /></label>
+          <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea
+              required
+              value={{this.origins}}
+              {{on "input" this.updateOrigins}}
+            ></textarea></label>
           <label>{{i18n "discussion_bridge.admin.companion_topic_category"}}
             <select {{on "change" this.updateDefaultCategory}}>
               <option value="" selected={{eq this.defaultCategoryId ""}}>
                 {{#if @model.fallback_category.name}}
-                  {{i18n "discussion_bridge.admin.use_forum_fallback_category" category=@model.fallback_category.name}}
+                  {{i18n
+                    "discussion_bridge.admin.use_forum_fallback_category"
+                    category=@model.fallback_category.name
+                  }}
                 {{else}}
                   {{i18n "discussion_bridge.admin.forum_fallback_unavailable"}}
                 {{/if}}
               </option>
               {{#each @model.categories as |category|}}
-                <option value={{category.id}} selected={{eq this.defaultCategoryId category.id_string}}>{{category.name}}</option>
+                <option
+                  value={{category.id}}
+                  selected={{eq this.defaultCategoryId category.id_string}}
+                >{{category.name}}</option>
               {{/each}}
             </select>
-            <small>{{i18n "discussion_bridge.admin.companion_topic_category_description"}}</small>
+            <small>{{i18n
+                "discussion_bridge.admin.companion_topic_category_description"
+              }}</small>
           </label>
-          <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea value={{this.lanes}} {{on "input" this.updateLanes}}></textarea></label>
+          <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea
+              value={{this.lanes}}
+              {{on "input" this.updateLanes}}
+            ></textarea></label>
           <fieldset class="discussion-bridge-direction-options">
-            <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
-            <label class="discussion-bridge-direction-option"><input type="checkbox" checked={{this.toDiscourse}} {{on "change" this.updateToDiscourse}} /><span>{{i18n "discussion_bridge.admin.to_discourse"}}</span></label>
-            <label class="discussion-bridge-direction-option"><input type="checkbox" checked={{this.fromDiscourse}} {{on "change" this.updateFromDiscourse}} /><span>{{i18n "discussion_bridge.admin.from_discourse"}}</span></label>
+            <legend>{{i18n
+                "discussion_bridge.admin.allowed_directions"
+              }}</legend>
+            <label class="discussion-bridge-direction-option"><input
+                type="checkbox"
+                checked={{this.toDiscourse}}
+                {{on "change" this.updateToDiscourse}}
+              /><span>{{i18n
+                  "discussion_bridge.admin.to_discourse"
+                }}</span></label>
+            <label class="discussion-bridge-direction-option"><input
+                type="checkbox"
+                checked={{this.fromDiscourse}}
+                {{on "change" this.updateFromDiscourse}}
+              /><span>{{i18n
+                  "discussion_bridge.admin.from_discourse"
+                }}</span></label>
           </fieldset>
           <label class="discussion-bridge-checkbox-setting">
             <input
@@ -429,39 +641,87 @@ export default class DiscussionBridgeConnections extends Component {
               checked={{this.generateTopicToc}}
               {{on "change" this.updateGenerateTopicToc}}
             />
-            <span><strong>{{i18n "discussion_bridge.admin.generate_topic_toc"}}</strong><small>{{i18n "discussion_bridge.admin.generate_topic_toc_description"}}</small></span>
+            <span><strong>{{i18n
+                  "discussion_bridge.admin.generate_topic_toc"
+                }}</strong><small>{{i18n
+                  "discussion_bridge.admin.generate_topic_toc_description"
+                }}</small></span>
           </label>
         {{else}}
           <section class="discussion-bridge-authors-panel">
             <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>
             <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
               <select {{on "change" this.updateAuthorshipMode}}>
-                <option value="fixed" selected={{eq this.authorshipMode "fixed"}}>{{i18n "discussion_bridge.admin.authorship_fixed"}}</option>
-                <option value="mapped" selected={{eq this.authorshipMode "mapped"}}>{{i18n "discussion_bridge.admin.authorship_mapped"}}</option>
+                <option
+                  value="fixed"
+                  selected={{eq this.authorshipMode "fixed"}}
+                >{{i18n "discussion_bridge.admin.authorship_fixed"}}</option>
+                <option
+                  value="mapped"
+                  selected={{eq this.authorshipMode "mapped"}}
+                >{{i18n "discussion_bridge.admin.authorship_mapped"}}</option>
               </select>
             </label>
-            <label>{{i18n "discussion_bridge.admin.fallback_author"}}<input value={{this.authorUsername}} {{on "input" this.updateAuthorUsername}} placeholder={{i18n "discussion_bridge.admin.topic_author_default"}} /></label>
+            <label>{{i18n "discussion_bridge.admin.fallback_author"}}<input
+                value={{this.authorUsername}}
+                {{on "input" this.updateAuthorUsername}}
+                placeholder={{i18n
+                  "discussion_bridge.admin.topic_author_default"
+                }}
+              /></label>
             <label>{{i18n "discussion_bridge.admin.unmapped_author_policy"}}
               <select {{on "change" this.updateUnmappedAuthorPolicy}}>
-                <option value="fallback" selected={{eq this.unmappedAuthorPolicy "fallback"}}>{{i18n "discussion_bridge.admin.unmapped_fallback"}}</option>
-                <option value="hold" selected={{eq this.unmappedAuthorPolicy "hold"}}>{{i18n "discussion_bridge.admin.unmapped_hold"}}</option>
+                <option
+                  value="fallback"
+                  selected={{eq this.unmappedAuthorPolicy "fallback"}}
+                >{{i18n "discussion_bridge.admin.unmapped_fallback"}}</option>
+                <option
+                  value="hold"
+                  selected={{eq this.unmappedAuthorPolicy "hold"}}
+                >{{i18n "discussion_bridge.admin.unmapped_hold"}}</option>
               </select>
             </label>
 
             <table class="discussion-bridge-authors-table">
-              <thead><tr><th>{{i18n "discussion_bridge.admin.platform_author"}}</th><th>{{i18n "discussion_bridge.admin.profile"}}</th><th>{{i18n "discussion_bridge.admin.discourse_author"}}</th><th></th></tr></thead>
+              <thead><tr><th>{{i18n
+                      "discussion_bridge.admin.platform_author"
+                    }}</th><th>{{i18n
+                      "discussion_bridge.admin.profile"
+                    }}</th><th>{{i18n
+                      "discussion_bridge.admin.discourse_author"
+                    }}</th><th></th></tr></thead>
               <tbody>
                 {{#each @model.content_connections as |candidate|}}
                   {{#if (eq candidate.id this.editingConnectionId)}}
                     {{#each candidate.source_authors as |sourceAuthor|}}
                       <tr>
-                        <td><strong>{{sourceAuthor.display_name}}</strong><br /><code>{{sourceAuthor.source_author_id}}</code></td>
-                        <td>{{#if sourceAuthor.profile_url}}<a href={{sourceAuthor.profile_url}} target="_blank" rel="noopener noreferrer">{{sourceAuthor.profile_url}}</a>{{else}}—{{/if}}</td>
-                        <td><input value={{sourceAuthor.discourse_username}} {{on "input" (fn this.updateSourceMapping sourceAuthor)}} placeholder={{i18n "discussion_bridge.admin.unmapped"}} /></td>
-                        <td><DButton @label="discussion_bridge.admin.save_mapping" @action={{this.saveAuthorMapping}} @actionParam={{sourceAuthor}} /></td>
+                        <td><strong>{{sourceAuthor.display_name}}</strong><br
+                          /><code>{{sourceAuthor.source_author_id}}</code></td>
+                        <td>{{#if sourceAuthor.profile_url}}<a
+                              href={{sourceAuthor.profile_url}}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >{{sourceAuthor.profile_url}}</a>{{else}}—{{/if}}</td>
+                        <td><input
+                            value={{sourceAuthor.discourse_username}}
+                            {{on
+                              "input"
+                              (fn this.updateSourceMapping sourceAuthor)
+                            }}
+                            placeholder={{i18n
+                              "discussion_bridge.admin.unmapped"
+                            }}
+                          /></td>
+                        <td><DButton
+                            @label="discussion_bridge.admin.save_mapping"
+                            @action={{this.saveAuthorMapping}}
+                            @actionParam={{sourceAuthor}}
+                          /></td>
                       </tr>
                     {{else}}
-                      <tr><td colspan="4">{{i18n "discussion_bridge.admin.no_source_authors"}}</td></tr>
+                      <tr><td colspan="4">{{i18n
+                            "discussion_bridge.admin.no_source_authors"
+                          }}</td></tr>
                     {{/each}}
                   {{/if}}
                 {{/each}}
@@ -471,11 +731,18 @@ export default class DiscussionBridgeConnections extends Component {
         {{/if}}
         <DButton
           @type="submit"
-          @label={{if this.editingConnectionId "discussion_bridge.admin.save_connection" "discussion_bridge.admin.add_connection"}}
+          @label={{if
+            this.editingConnectionId
+            "discussion_bridge.admin.save_connection"
+            "discussion_bridge.admin.add_connection"
+          }}
           class="btn-primary"
         />
         {{#if this.editingConnectionId}}
-          <DButton @label="discussion_bridge.admin.cancel" @action={{this.cancelEdit}} />
+          <DButton
+            @label="discussion_bridge.admin.cancel"
+            @action={{this.cancelEdit}}
+          />
         {{/if}}
       </form>
     </section>
