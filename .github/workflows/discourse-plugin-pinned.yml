@@ -376,6 +376,49 @@ jobs:
       - name: Install JS Dependencies
         run: if [ -f yarn.lock ]; then yarn install --frozen-lockfile; else pnpm install --frozen-lockfile; fi
 
+      - name: Materialize checksum-pinned Playwright Chromium
+        if: matrix.build_type == 'system'
+        env:
+          PLAYWRIGHT_CHROMIUM_REVISION: "1217"
+          PLAYWRIGHT_CHROMIUM_VERSION: "147.0.7727.15"
+          PLAYWRIGHT_CHROMIUM_SHA256: 04883e331b31448d6255fa058f0e1c7e8657c004da1f8a1c04eb28855a37ec6c
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const path = require("path");
+          const { createRequire } = require("module");
+          const playwrightRequire = createRequire(require.resolve("playwright"));
+          const coreRoot = path.dirname(playwrightRequire.resolve("playwright-core"));
+          const registry = JSON.parse(fs.readFileSync(path.join(coreRoot, "browsers.json")));
+          const chromium = registry.browsers.find((browser) => browser.name === "chromium");
+          if (
+            chromium?.revision !== process.env.PLAYWRIGHT_CHROMIUM_REVISION ||
+            chromium?.browserVersion !== process.env.PLAYWRIGHT_CHROMIUM_VERSION
+          ) {
+            throw new Error(
+              `Pinned Chromium does not match Playwright: ${JSON.stringify(chromium)}`,
+            );
+          }
+          NODE
+
+          archive="${RUNNER_TEMP}/playwright-chromium-${PLAYWRIGHT_CHROMIUM_REVISION}.zip"
+          target="${PLAYWRIGHT_BROWSERS_PATH}/chromium-${PLAYWRIGHT_CHROMIUM_REVISION}"
+          url="https://cdn.playwright.dev/builds/cft/${PLAYWRIGHT_CHROMIUM_VERSION}/linux64/chrome-linux64.zip"
+          curl --fail --location --retry 3 --output "${archive}" "${url}"
+          echo "${PLAYWRIGHT_CHROMIUM_SHA256}  ${archive}" | sha256sum --check --strict
+          install -d "${target}"
+          node - "${archive}" "${target}" <<'NODE'
+          const { createRequire } = require("module");
+          const playwrightRequire = createRequire(require.resolve("playwright"));
+          const { extract } = playwrightRequire("playwright-core/lib/zipBundle");
+          extract(process.argv[2], { dir: process.argv[3] }).catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+          test -x "${target}/chrome-linux64/chrome"
+          touch "${target}/INSTALLATION_COMPLETE" "${target}/DEPENDENCIES_VALIDATED"
+
       - name: Set PARALLEL_TEST_PROCESSORS
         if: matrix.build_type == 'system' || matrix.build_type == 'backend'
         run: |

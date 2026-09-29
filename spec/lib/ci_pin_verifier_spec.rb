@@ -39,6 +39,17 @@ RSpec.describe "DiscussionBridge CI pin verifier" do # rubocop:disable RSpec/Des
       _stdout, stderr, status = Open3.capture3(RbConfig.ruby, script)
       expect(status).not_to be_success
       expect(stderr).to include("Compatibility workflow may override")
+
+      File.write(
+        pinned,
+        baseline.sub(
+          "04883e331b31448d6255fa058f0e1c7e8657c004da1f8a1c04eb28855a37ec6c",
+          "0" * 64,
+        ),
+      )
+      _stdout, stderr, status = Open3.capture3(RbConfig.ruby, script)
+      expect(status).not_to be_success
+      expect(stderr).to include("Playwright Chromium artifact is not exact and checksum-pinned")
     end
   end
 end

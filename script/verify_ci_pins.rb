@@ -47,6 +47,15 @@ errors << "CI downloads a mutable Playwright/browser runtime" if
   pinned_workflow.match?(/\bplaywright\s+install\b/)
 errors << "CI does not use the browser cache baked into the pinned Discourse test image" unless
   pinned_workflow.match?(/^\s*PLAYWRIGHT_BROWSERS_PATH:\s*\/home\/discourse\/\.cache\/ms-playwright\s*$/)
+browser_pins = [
+  "PLAYWRIGHT_CHROMIUM_REVISION: \"1217\"",
+  "PLAYWRIGHT_CHROMIUM_VERSION: \"147.0.7727.15\"",
+  "PLAYWRIGHT_CHROMIUM_SHA256: 04883e331b31448d6255fa058f0e1c7e8657c004da1f8a1c04eb28855a37ec6c",
+  "https://cdn.playwright.dev/builds/cft/${PLAYWRIGHT_CHROMIUM_VERSION}/linux64/chrome-linux64.zip",
+  "sha256sum --check --strict",
+]
+errors << "CI Playwright Chromium artifact is not exact and checksum-pinned" if
+  browser_pins.any? { |pin| !pinned_workflow.include?(pin) }
 errors << "CI may download mutable pre-built Core assets" unless
   pinned_workflow.match?(/^\s*export DISCOURSE_DOWNLOAD_PRE_BUILT_ASSETS=0\s*$/)
 
