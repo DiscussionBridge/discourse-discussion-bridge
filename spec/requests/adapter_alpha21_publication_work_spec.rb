@@ -117,8 +117,8 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     @connection.update!(platform: "astro", destination_policies: [policy])
   end
 
-  def create_source(content: "<p>Publication body</p>")
-    topic = Fabricate(:topic, user: admin, category: category, title: "Publication source", visible: true)
+  def create_source(content: "<p>Publication body</p>", title: "Publication source")
+    topic = Fabricate(:topic, user: admin, category: category, title: title, visible: true)
     post = Fabricate(:post, topic: topic, user: admin, post_number: 1, raw: "Publication body")
     post.update_columns(cooked: content)
     result = DiscussionBridge::FromDiscourseRecordCreator.call(
@@ -874,7 +874,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     )
   end
 
-  it "keeps native setup, catalog adoption, and To-only capability usable" do
+  it "keeps To-only capability usable and requires explicit native catalog mapping" do
     sign_in(admin)
     post "/discussion-bridge/admin/content-connections.json", params: {
       content_connection: {
@@ -908,10 +908,13 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     @connection = DiscussionBridgeContentConnection.find(result.dig("content_connection", "id"))
     @secret = result.fetch("secret")
     initial = @connection.destination_policies.sole.fetch("catalog_revision")
+    pending_policy = @connection.destination_policies.deep_dup
+    pending_policy_revision = @connection.policy_revision
+    expect(pending_policy.sole.dig("container_mapping", "destination")).to eq(
+      "discussion-bridge:pending-catalog-mapping",
+    )
     sign_out
     segments = catalog_segments
-    segments.find { |segment| segment["segment_type"] == "containers" }["items"][0]["id"] =
-      @connection.destination_policies.sole.dig("container_mapping", "destination")
     put "/discussion-bridge/v1/platform-catalog.json", headers: headers(correlation: "catalog-adopt"), params: {
       platform_profile: "wordpress",
       base_catalog_revision: initial,
@@ -919,9 +922,60 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       correlation_id: "catalog-adopt",
     }, as: :json
     expect(response).to have_http_status(:ok)
-    expect(@connection.reload.destination_policies.sole.fetch("catalog_revision")).to eq(
-      response.parsed_body.fetch("catalog_revision"),
+    catalog_revision = response.parsed_body.fetch("catalog_revision")
+    expect(@connection.reload).to have_attributes(
+      destination_policies: pending_policy,
+      policy_revision: pending_policy_revision,
     )
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json", params: {
+      content_connection: {
+        name: "Catalog receiver renamed",
+        platform: "wordpress",
+        allowed_directions: ["from_discourse"],
+        generate_topic_toc: true,
+        network_enabled: false,
+      },
+    }, as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload).to have_attributes(
+      destination_policies: pending_policy,
+      policy_revision: pending_policy_revision,
+    )
+
+    approved_policy = destination_policy(catalog_revision: catalog_revision)
+    unavailable_policy = approved_policy.deep_merge(
+      "container_mapping" => { "destination" => "site:not-in-the-catalog" },
+    )
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json", params: {
+      content_connection: { publication_policy: unavailable_policy },
+    }, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(@connection.reload.destination_policies).to eq(pending_policy)
+
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json", params: {
+      content_connection: { publication_policy: approved_policy },
+    }, as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload.destination_policies).to eq([approved_policy])
+    expect(@connection.policy_revision).not_to eq(pending_policy_revision)
+    approved_policy_revision = @connection.policy_revision
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json", params: {
+      content_connection: {
+        name: "Catalog receiver final",
+        platform: "wordpress",
+        allowed_directions: ["from_discourse"],
+        network_enabled: false,
+      },
+    }, as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload).to have_attributes(
+      destination_policies: [approved_policy],
+      policy_revision: approved_policy_revision,
+    )
+    sign_out
+
     create_source
     materialize_source
     claim(correlation: "catalog-adopt-claim")
@@ -931,9 +985,13 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
   it "delivers withdrawal work and lets a policy-only change finish an active lease" do
     install_catalog
     _, _, record = create_source
+    _, _, failure_record = create_source(title: "Second publication source")
     materialize_source
-    claim(correlation: "policy-claim")
-    claimed = response.parsed_body.fetch("publication_work").sole
+    claim(correlation: "policy-claim", maximum_items: 2)
+    claims = response.parsed_body.fetch("publication_work")
+    expect(claims.length).to eq(2)
+    claimed = claims.find { |item| item.fetch("resource_id") == record.resource_id }
+    failure_claim = claims.find { |item| item.fetch("resource_id") == failure_record.resource_id }
     @connection.update!(policy_revision: "policy:test:changed")
     post "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/renew.json",
          headers: headers(correlation: "policy-renew"),
@@ -944,12 +1002,83 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         headers: headers(correlation: "policy-ack"),
         params: acknowledgement(claimed, record, correlation: "policy-ack"), as: :json
     expect(response).to have_http_status(:ok)
+    put "/discussion-bridge/v1/publication-work/#{failure_claim.fetch("work_id")}/failure.json",
+        headers: headers(correlation: "policy-failure"),
+        params: {
+          lease_token: failure_claim.fetch("lease_token"),
+          error_code: "destination_unavailable",
+          error_detail: "Destination temporarily unavailable",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "policy-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("resulting_state")).to eq("retry_wait")
 
     @connection.update!(allowed_lanes: ["news"])
     get "/discussion-bridge/v1/source-revocations.json", headers: headers(correlation: "scope-revoke")
     expect(response).to have_http_status(:ok)
     claim(correlation: "scope-withdrawal")
-    expect(response.parsed_body.fetch("publication_work").sole.fetch("action")).to eq("unpublish")
+    withdrawal = response.parsed_body.fetch("publication_work").sole
+    expect(withdrawal.fetch("action")).to eq("unpublish")
+    withdrawal_record = [record, failure_record].find do |candidate|
+      candidate.resource_id == withdrawal.fetch("resource_id")
+    end
+    post "/discussion-bridge/v1/publication-work/#{withdrawal.fetch("work_id")}/renew.json",
+         headers: headers(correlation: "withdrawal-renew"),
+         params: {
+           lease_token: withdrawal.fetch("lease_token"),
+           requested_lease_seconds: 60,
+           correlation_id: "withdrawal-renew",
+         },
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "withdrawal-ack"),
+        params: acknowledgement(withdrawal, withdrawal_record, correlation: "withdrawal-ack"),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    claim(correlation: "scope-withdrawal-failure")
+    failed_withdrawal = response.parsed_body.fetch("publication_work").sole
+    failed_withdrawal_record = [record, failure_record].find do |candidate|
+      candidate.resource_id == failed_withdrawal.fetch("resource_id")
+    end
+    put "/discussion-bridge/v1/publication-work/#{failed_withdrawal.fetch("work_id")}/failure.json",
+        headers: headers(correlation: "withdrawal-failure"),
+        params: {
+          lease_token: failed_withdrawal.fetch("lease_token"),
+          error_code: "destination_unavailable",
+          error_detail: "Withdrawal destination temporarily unavailable",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "withdrawal-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("resulting_state")).to eq("retry_wait")
+
+    travel_to(61.seconds.from_now) do
+      claim(correlation: "scope-withdrawal-retry")
+      retried = response.parsed_body.fetch("publication_work").sole
+      expect(retried).to include(
+        "work_id" => failed_withdrawal.fetch("work_id"),
+        "action" => "unpublish",
+        "attempt_count" => 2,
+      )
+      put "/discussion-bridge/v1/publication-work/#{retried.fetch("work_id")}/acknowledgement.json",
+          headers: headers(correlation: "withdrawal-retry-ack"),
+          params: acknowledgement(
+            retried,
+            failed_withdrawal_record,
+            correlation: "withdrawal-retry-ack",
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+
+    claim(correlation: "scope-withdrawal-complete", maximum_items: 32)
+    expect(response.parsed_body.fetch("publication_work")).to be_empty
+    expect(@connection.publication_works.where(action: %w[publish update], state: "available")).to be_empty
   end
 
   it "fails malformed acknowledgements and generated-shape secrets closed" do
@@ -1000,5 +1129,230 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(work.reload).to have_attributes(state: "operator_attention", resolution_error: "operator_action_required")
     claim(correlation: "catalog-remove-claim")
     expect(response.parsed_body.fetch("publication_work")).to be_empty
+  end
+
+  it "keeps work unclaimable when its resolved author or term is unavailable" do
+    segments = catalog_segments(
+      authors: [{ "id" => "author:missing", "name" => "Missing author", "available" => false }],
+    )
+    segments.find { |segment| segment["segment_type"] == "terms" }["items"] = [
+      {
+        "id" => "term:missing",
+        "taxonomy_id" => "site:categories",
+        "name" => "Missing term",
+        "parent_id" => nil,
+        "available" => false,
+      },
+    ]
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "unavailable-mapping-catalog"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: destination_policy.fetch("catalog_revision"),
+          segments: segments,
+          correlation_id: "unavailable-mapping-catalog",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    revision = response.parsed_body.fetch("catalog_revision")
+    mapped_policy = destination_policy(catalog_revision: revision).deep_merge(
+      "taxonomy_mapping" => {
+        "mode" => "mapped_only",
+        "items" => [
+          {
+            "source" => "discourse:category:#{category.id}",
+            "destination" => "term:missing",
+          },
+        ],
+      },
+      "author_mapping" => {
+        "mode" => "mapped_only",
+        "items" => [
+          {
+            "source" => "discourse:user:#{admin.id}",
+            "destination" => "author:missing",
+          },
+        ],
+      },
+    )
+    @connection.update!(destination_policies: [mapped_policy])
+
+    create_source
+    materialize_source
+
+    expect(@connection.publication_works.sole).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+      resolved_taxonomy: [
+        {
+          "source_id" => "discourse:category:#{category.id}",
+          "destination_id" => "term:missing",
+        },
+      ],
+      resolved_author: {
+        "mode" => "mapped_only",
+        "destination_id" => "author:missing",
+      },
+    )
+    claim(correlation: "unavailable-mapping-claim")
+    expect(response.parsed_body.fetch("publication_work")).to be_empty
+  end
+
+  it "holds removed mapped authors and terms without touching another profile's work" do
+    segments = catalog_segments
+    segments.find { |segment| segment["segment_type"] == "terms" }["items"] = [
+      {
+        "id" => "term:community",
+        "taxonomy_id" => "site:categories",
+        "name" => "Community",
+        "parent_id" => nil,
+        "available" => true,
+      },
+    ]
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "mapped-catalog-install"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: destination_policy.fetch("catalog_revision"),
+          segments: segments,
+          correlation_id: "mapped-catalog-install",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    revision = response.parsed_body.fetch("catalog_revision")
+    mapped_policy = destination_policy(catalog_revision: revision).deep_merge(
+      "taxonomy_mapping" => {
+        "mode" => "mapped_only",
+        "items" => [
+          {
+            "source" => "discourse:category:#{category.id}",
+            "destination" => "term:community",
+          },
+        ],
+      },
+      "author_mapping" => {
+        "mode" => "mapped_only",
+        "items" => [
+          {
+            "source" => "discourse:user:#{admin.id}",
+            "destination" => "author:editor",
+          },
+        ],
+      },
+    )
+    @connection.update!(destination_policies: [mapped_policy])
+    create_source
+    materialize_source
+    work = @connection.publication_works.sole
+    expect(work).to have_attributes(
+      resolved_taxonomy: [
+        {
+          "source_id" => "discourse:category:#{category.id}",
+          "destination_id" => "term:community",
+        },
+      ],
+      resolved_author: {
+        "mode" => "mapped_only",
+        "destination_id" => "author:editor",
+      },
+    )
+    decoy = @connection.publication_works.create!(
+      bridge_record: work.bridge_record,
+      content_binding: work.content_binding,
+      source_revision_record: work.source_revision_record,
+      action: "update",
+      state: "available",
+      source_revision: "decoy:other-profile:1",
+      source_revision_sequence: work.source_revision_sequence + 100,
+      policy_revision: work.policy_revision,
+      destination_policy_id: "destination:other-profile:1",
+      catalog_revision: "catalog:other-profile:1",
+      presentation_mode: work.presentation_mode,
+      resolved_container: work.resolved_container,
+      resolved_taxonomy: work.resolved_taxonomy,
+      resolved_author: work.resolved_author,
+      native_limit_policy: work.native_limit_policy,
+      attempt_count: 1,
+      retry_generation: 0,
+      available_at: Time.zone.now,
+    )
+    retry_work = work.dup
+    retry_work.assign_attributes(
+      work_id: nil,
+      source_revision: "retry:mapped-profile:1",
+      source_revision_sequence: work.source_revision_sequence + 1,
+      state: "retry_wait",
+      available_at: nil,
+      next_retry_at: 1.hour.from_now,
+    )
+    retry_work.save!
+    leased_work = work.dup
+    leased_work.assign_attributes(
+      work_id: nil,
+      source_revision: "leased:mapped-profile:1",
+      source_revision_sequence: work.source_revision_sequence + 2,
+      state: "leased",
+      available_at: nil,
+      worker_id: "catalog-review-worker",
+      lease_token_digest: Digest::SHA256.hexdigest("catalog-review-lease"),
+      stage_token_digest: Digest::SHA256.hexdigest("catalog-review-stage"),
+      total_lease_seconds: 300,
+      leased_at: Time.zone.now,
+      lease_expires_at: 5.minutes.from_now,
+    )
+    leased_work.save!
+
+    without_author = segments.deep_dup
+    without_author.find { |segment| segment["segment_type"] == "authors" }["items"] = []
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "mapped-author-remove"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: revision,
+          segments: without_author,
+          correlation_id: "mapped-author-remove",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    next_revision = response.parsed_body.fetch("catalog_revision")
+    expect(work.reload).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+    )
+    expect(retry_work.reload).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+    )
+    expect(leased_work.reload.state).to eq("leased")
+    expect(decoy.reload.state).to eq("available")
+
+    work.update!(state: "available", resolution_error: nil, available_at: Time.zone.now)
+    retry_work.update!(
+      state: "retry_wait",
+      resolution_error: nil,
+      next_retry_at: 1.hour.from_now,
+    )
+    without_term = segments.deep_dup
+    without_term.find { |segment| segment["segment_type"] == "terms" }["items"] = []
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "mapped-term-remove"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: next_revision,
+          segments: without_term,
+          correlation_id: "mapped-term-remove",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(work.reload).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+    )
+    expect(retry_work.reload).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+    )
+    expect(leased_work.reload.state).to eq("leased")
+    expect(decoy.reload.state).to eq("available")
   end
 end

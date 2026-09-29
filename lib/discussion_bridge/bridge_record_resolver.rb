@@ -180,7 +180,8 @@ module DiscussionBridge
         return result("reconciliation_required", "binding_identity_conflict", record, ["existing_topic_id"])
       end
       topic = Topic.find_by(id: record.topic_id)
-      unless record.direction == "to_discourse" && record.state == "healthy" && topic &&
+      state_available = record.state == "healthy" || expected_network_restore_state?(record, topic)
+      unless record.direction == "to_discourse" && state_available && topic &&
           topic.deleted_at.nil? && Post.exists?(topic_id: topic.id, post_number: 1, deleted_at: nil)
         return result("reconciliation_required", "bridge_record_unavailable", record, ["topic_id"])
       end
@@ -190,6 +191,15 @@ module DiscussionBridge
       update_connection_presence!
       write_audit!(record, identity_digest, "resolved", "existing_bridge_record")
       result("resolved", "existing_bridge_record", record)
+    end
+
+    def expected_network_restore_state?(record, topic)
+      stored = record.network_provenance || {}
+      @request[:network_restore] == true && record.state == "attention" &&
+        topic&.closed && !topic&.visible &&
+        %w[hold unpublish].include?(stored["local_passive_action"]) &&
+        stored["local_passive_source_revision"] == @request.fetch(:source_revision) &&
+        stored["local_passive_policy_revision"] == @connection.policy_revision
     end
 
     def topic_request(canonical)

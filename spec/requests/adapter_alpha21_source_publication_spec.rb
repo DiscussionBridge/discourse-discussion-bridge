@@ -26,6 +26,13 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     )
   end
 
+  after do
+    next unless defined?(@original_forum_name)
+
+    @original_forum_name.nil? ? ENV.delete("DISCUSSIONBRIDGE_FORUM_NAME") :
+      ENV["DISCUSSIONBRIDGE_FORUM_NAME"] = @original_forum_name
+  end
+
   def destination_policy
     {
       "destination_policy_id" => "destination:wordpress:articles:1",
@@ -43,6 +50,46 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
       },
       "catalog_revision" => "catalog:wordpress:2026-09-27:1",
     }
+  end
+
+  def configure_network_connection
+    @original_forum_name = ENV["DISCUSSIONBRIDGE_FORUM_NAME"]
+    ENV["DISCUSSIONBRIDGE_FORUM_NAME"] = "Origin Forum"
+    DiscussionBridgeForumIdentity.enable!(actor: admin)
+    @connection, @secret = DiscussionBridgeContentConnection.issue!(
+      name: "Alpha.21 source Discourse network",
+      platform: "discourse",
+      allowed_origins: [DiscussionBridge::CanonicalSource.origin(Discourse.base_url)],
+      allowed_directions: ["from_discourse"],
+      allowed_lanes: ["articles"],
+      destination_policies: [
+        destination_policy.merge(
+          "destination_policy_id" => "destination:discourse:articles:1",
+          "profile" => "discourse_as_publisher",
+        ),
+      ],
+      catalog_required: false,
+      policy_revision: "policy:2026-09-29:network-privacy",
+      network_enabled: true,
+      network_peer_forum_id: "dbf_22222222222222222222222222222222",
+      network_relationship: "hub_to_spoke",
+    )
+  end
+
+  def create_network_source(content: "<p>Network source body</p>")
+    topic = Fabricate(:topic, user: admin, category: category, title: "Private network source", visible: true)
+    post = Fabricate(:post, topic: topic, user: admin, post_number: 1, raw: "Network source body")
+    post.update_columns(cooked: content)
+    record = DiscussionBridge::FromDiscourseRecordCreator.call(
+      user: admin,
+      connection_id: @connection.id,
+      topic_id: topic.id,
+      external_id: "network-source",
+      canonical_url: "#{Discourse.base_url}/published/network-source",
+      lane: "articles",
+      native_materialization: true,
+    ).record
+    [topic, record]
   end
 
   def headers(correlation: "source-publication-1")
@@ -251,6 +298,76 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
         params: { source_revision: revision, chunk: 1 }
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+  end
+
+  it "does not materialize a network source that is currently private" do
+    configure_network_connection
+    topic, record = create_network_source
+    category.update!(read_restricted: true)
+    expect(Guardian.new(nil).can_see?(topic.reload)).to be(false)
+
+    inventory(correlation: "private-network-inventory")
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("items")).to be_empty
+    expect(record.source_revisions).to be_empty
+  end
+
+  it "denies every retained network-source disclosure after the source becomes private" do
+    configure_network_connection
+    private_content = "<p>#{"private-network-content-" * 3_000}</p>"
+    topic, record = create_network_source(content: private_content)
+    inventory(correlation: "public-network-inventory")
+    revision = response.parsed_body.fetch("items").sole.fetch("source_revision")
+    expect(record.source_revisions.find_by(source_revision: revision)).to be_present
+
+    category.update!(read_restricted: true)
+    expect(Guardian.new(nil).can_see?(topic.reload)).to be(false)
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}.json",
+        headers: headers(correlation: "private-network-detail"),
+        params: { source_revision: revision }
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+    expect(response.body).not_to include("private-network-content")
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}/content.json",
+        headers: headers(correlation: "private-network-chunk"),
+        params: { source_revision: revision, chunk: 1 }
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+    expect(response.body).not_to include("content_base64")
+
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: headers(correlation: "private-network-record")
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+    expect(response.body).not_to include("private-network-content")
+
+    get "/discussion-bridge/v1/bridge-records.json",
+        headers: headers(correlation: "private-network-record-index")
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("records")).to be_empty
+    expect(response.body).not_to include("Private network source", "private-network-content")
+
+    category.update!(read_restricted: false)
+    expect(Guardian.new(nil).can_see?(topic.reload)).to be(true)
+
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: headers(correlation: "restored-public-network-record")
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("bridge_record")).to include(
+      "resource_id" => record.resource_id,
+      "title" => "Private network source",
+    )
+
+    get "/discussion-bridge/v1/bridge-records.json",
+        headers: headers(correlation: "restored-public-network-record-index")
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("records").sole).to include(
+      "resource_id" => record.resource_id,
+      "title" => "Private network source",
+    )
   end
 
   it "expires inactive snapshots without mutating source publication state" do

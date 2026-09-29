@@ -109,7 +109,7 @@ module DiscussionBridge
     SECRET_LIKE_PATTERN = /(?:\b(?:authorization|x-discussionbridge-(?:secret|connection))\b\s*[:=]|\b(?:bearer|basic)\s+|[a-f0-9]{32,}|[A-Za-z0-9+\/_-]{40,}={0,2})/i
     WORK_ID_PATTERN = /\Adbw_[a-f0-9]{32}\z/
     TOKEN_PATTERN = /\A[a-f0-9]{64}\z/
-    ISO8601_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/
+    ISO8601_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):\d{2}:\d{2}(?:\.\d+)?Z\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
 
     def self.validate_resolved_state!(work)

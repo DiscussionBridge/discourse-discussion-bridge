@@ -48,6 +48,10 @@ module DiscussionBridge
           correlation_id: detail.fetch("correlation_id"),
         )
         if replay.replay
+          if @action == "restore"
+            result = restore_replayed_source!(detail, provenance)
+            next
+          end
           raise AdapterRequestBoundary::Error, "operation_replay_mismatch" if
             replay.record.retained_result.blank?
 
@@ -60,7 +64,7 @@ module DiscussionBridge
         appended = DiscourseNetworkProtocol.append_local_route!(provenance, local_identity: identity)
         record = DiscussionBridgeBridgeRecord.find_by!(resource_id: resolved.resource_id)
         if @action == "restore"
-          record.topic.update!(closed: false)
+          record.topic.update!(closed: false, visible: true)
           record.update!(state: "healthy")
         end
         record.update!(network_provenance: appended)
@@ -77,6 +81,51 @@ module DiscussionBridge
     end
 
     private
+
+    def restore_replayed_source!(detail, provenance)
+      record = existing_record(detail)
+      raise AdapterRequestBoundary::Error, "reconciliation_required" unless record
+      raise AdapterRequestBoundary::Error, "policy_denied" unless
+        @policy_revision == @peer.content_connection.policy_revision
+
+      topic = record.topic
+      stored = record.network_provenance || {}
+      exact_source = record.source_revision == detail.fetch("source_revision") &&
+        record.source_revision_sequence == detail.fetch("source_revision_sequence") &&
+        record.source_content_sha256 == detail.dig("content_transport", "sha256") &&
+        stored["origin_forum_id"] == provenance.fetch("origin_forum_id") &&
+        stored["content_authority_forum_id"] == provenance.fetch("content_authority_forum_id")
+      raise AdapterRequestBoundary::Error, "reconciliation_required" unless exact_source && topic&.first_post
+
+      mutated = false
+      if expected_passive_state?(record, topic, detail)
+        appended = DiscourseNetworkProtocol.append_local_route!(
+          provenance,
+          local_identity: DiscussionBridgeForumIdentity.current,
+        )
+        topic.update!(closed: false, visible: true)
+        record.update!(state: "healthy", network_provenance: appended)
+        mutated = true
+      elsif record.state != "healthy" || topic.closed || !topic.visible
+        raise AdapterRequestBoundary::Error, "reconciliation_required"
+      end
+
+      {
+        "outcome" => "resolved",
+        "resource_id" => record.resource_id,
+        "topic_id" => record.topic_id,
+        "mutated" => mutated,
+        "route_forum_ids" => Array(record.reload.network_provenance["route_forum_ids"]),
+      }
+    end
+
+    def expected_passive_state?(record, topic, detail)
+      stored = record.network_provenance || {}
+      record.state == "attention" && topic.closed && !topic.visible &&
+        %w[hold unpublish].include?(stored["local_passive_action"]) &&
+        stored["local_passive_source_revision"] == detail.fetch("source_revision") &&
+        stored["local_passive_policy_revision"] == @policy_revision
+    end
 
     def existing_record(detail)
       external_id = "network:#{@peer.remote_forum_id}:#{detail.fetch("resource_id")}"
@@ -153,6 +202,7 @@ module DiscussionBridge
         correlation_id: detail.fetch("correlation_id"),
         visibility: "unlisted",
         source_authors: [],
+        network_restore: @action == "restore",
       }.compact
     end
 
@@ -161,14 +211,16 @@ module DiscussionBridge
       boundary = provenance_boundary(provenance)
       maximum = destination_policy(connection).dig("native_limit_policy", "maximum_bytes")
       effective_maximum = [maximum, BridgeRecordRequest::MAX_CONTENT_HTML_BYTES].min
-      if body.bytesize + boundary.bytesize <= effective_maximum
-        return { content_html: body + boundary, content_disposition: "complete" }
+      complete_content = body + boundary
+      read_more = provenance.fetch("origin_topic_url")
+      if complete_content.bytesize <= effective_maximum &&
+          companion_raw_length(complete_content, read_more) <= SiteSetting.max_post_length
+        return { content_html: complete_content, content_disposition: "complete" }
       end
 
       overflow = destination_policy(connection).dig("native_limit_policy", "overflow_behavior")
       raise AdapterRequestBoundary::Error, "content_unsupported" unless overflow == "excerpt_with_read_more"
 
-      read_more = provenance.fetch("origin_topic_url")
       text = ActionController::Base.helpers.strip_tags(body).squish
       excerpt_body = bounded_excerpt_body(
         text,
@@ -188,12 +240,11 @@ module DiscussionBridge
       low = 0
       high = characters.length
       accepted = nil
-      source_credit = "\n\n---\n\nOriginally published at [#{read_more}](#{read_more})"
 
       while low <= high
         midpoint = (low + high) / 2
         candidate = excerpt_body(characters.first(midpoint).join, read_more, boundary)
-        raw_length = PortableContent.to_discourse_raw(candidate).length + source_credit.length
+        raw_length = companion_raw_length(candidate, read_more)
         if candidate.bytesize <= maximum_bytes && raw_length <= SiteSetting.max_post_length
           accepted = candidate
           low = midpoint + 1
@@ -204,6 +255,14 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "content_unsupported" unless accepted
 
       accepted
+    end
+
+    def companion_raw_length(content_html, source_url)
+      PortableContent.to_discourse_raw(content_html).length + 2 + source_credit(source_url).length
+    end
+
+    def source_credit(source_url)
+      "---\n\nOriginally published at [#{source_url}](#{source_url})"
     end
 
     def excerpt_body(text, read_more, boundary)

@@ -191,7 +191,7 @@ module DiscussionBridge
         now = Time.zone.now
         raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
         raise AdapterRequestBoundary::Error, "scope_denied" unless
-          currently_authorized?(work, allow_policy_change: true)
+          currently_authorized?(work, allow_withdrawal: true, allow_policy_change: true)
         raise AdapterRequestBoundary::Error, "work_expired" unless
           %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
             work.lease_expires_at&.>(now)
@@ -318,15 +318,30 @@ module DiscussionBridge
         platform_profile: policy.fetch("profile"),
         catalog_revision: policy.fetch("catalog_revision"),
       )
+      current_catalog = @connection.platform_catalogs.find_by(
+        platform_profile: policy.fetch("profile"),
+        current: true,
+      )
+      availability_catalog = current_catalog || catalog
       container_id = policy.dig("container_mapping", "destination")
       container = catalog_item(catalog, "containers", container_id)
       presentation = catalog_item(catalog, "presentation_modes", policy.fetch("presentation_mode"))
-      resolution_error = if catalog.nil?
+      taxonomy = resolved_taxonomy(policy, source_revision_record)
+      author = resolved_author(policy, source_revision_record)
+      native_limit = policy.fetch("native_limit_policy")
+      resolution_error = if catalog.nil? || availability_catalog.nil?
         "catalog_revision_conflict"
-      elsif !container&.fetch("available", false) || !presentation&.fetch("available", false)
+      elsif !container&.fetch("available", false) || !presentation&.fetch("available", false) ||
+          !resolved_destinations_available?(
+            availability_catalog,
+            container_id: container_id,
+            presentation_mode: policy.fetch("presentation_mode"),
+            taxonomy: taxonomy,
+            author: author,
+            native_limit: native_limit,
+          )
         "operator_action_required"
       end
-      native_limit = policy.fetch("native_limit_policy")
       if source_revision_record && source_revision_record.byte_length > native_limit.fetch("maximum_bytes") &&
           native_limit.fetch("overflow_behavior") != "excerpt_with_read_more"
         resolution_error = "content_unsupported"
@@ -336,8 +351,8 @@ module DiscussionBridge
           "id" => container_id,
           "kind" => container&.fetch("kind", nil) || "unresolved",
         },
-        resolved_taxonomy: resolved_taxonomy(policy, source_revision_record),
-        resolved_author: resolved_author(policy, source_revision_record),
+        resolved_taxonomy: taxonomy,
+        resolved_author: author,
         native_limit_policy: native_limit,
       }
       [attributes, resolution_error]
@@ -369,6 +384,24 @@ module DiscussionBridge
 
       catalog.segments.find_by(segment_type: segment_type)&.items&.find do |item|
         item["id"] == identifier
+      end
+    end
+
+    def resolved_destinations_available?(catalog, container_id:, presentation_mode:, taxonomy:, author:, native_limit:)
+      return false unless catalog_item(catalog, "containers", container_id)&.fetch("available", false)
+      return false unless catalog_item(catalog, "presentation_modes", presentation_mode)&.fetch("available", false)
+      return false unless taxonomy.all? do |mapping|
+        catalog_item(catalog, "terms", mapping.fetch("destination_id"))&.fetch("available", false)
+      end
+
+      author_id = author["destination_id"]
+      return false if author_id.present? &&
+        !catalog_item(catalog, "authors", author_id)&.fetch("available", false)
+
+      Array(catalog.segments.find_by(segment_type: "native_limits")&.items).any? do |item|
+        item["available"] &&
+          item["maximum_bytes"] == native_limit.fetch("maximum_bytes") &&
+          item["overflow_behavior"] == native_limit.fetch("overflow_behavior")
       end
     end
 
@@ -481,15 +514,16 @@ module DiscussionBridge
 
     def currently_authorized?(work, allow_withdrawal: false, allow_policy_change: false)
       binding = work.content_binding
-      if allow_withdrawal && %w[hold unpublish].include?(work.action)
-        return binding&.state == "active" && binding.content_connection_id == @connection.id
-      end
       policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
         candidate["destination_policy_id"] == work.destination_policy_id
       end
-      @connection.enabled && @connection.allows_direction?("from_discourse") &&
+      base_authorized = @connection.enabled && @connection.allows_direction?("from_discourse") &&
         (allow_policy_change || @connection.policy_revision == work.policy_revision) && policy.present? &&
-        binding&.state == "active" && @connection.allows_lane?(work.bridge_record.lane) &&
+        binding&.state == "active" && binding.content_connection_id == @connection.id
+      return false unless base_authorized
+      return true if allow_withdrawal && %w[hold unpublish].include?(work.action)
+
+      @connection.allows_lane?(work.bridge_record.lane) &&
         @connection.allows_origin?(binding.canonical_url)
     end
 
@@ -535,7 +569,7 @@ module DiscussionBridge
     def validate_acknowledgement!(work, payload)
       raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
       raise AdapterRequestBoundary::Error, "scope_denied" unless
-        currently_authorized?(work, allow_policy_change: true)
+        currently_authorized?(work, allow_withdrawal: true, allow_policy_change: true)
       raise AdapterRequestBoundary::Error, "stage_conflict" if
         PublicationWorkProtocol::STAGES.exclude?(payload["stage"])
       validate_work_identity!(work, payload)
@@ -737,7 +771,8 @@ module DiscussionBridge
 
     def validate_failure!(work, payload)
       raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
-      raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
+      raise AdapterRequestBoundary::Error, "scope_denied" unless
+        currently_authorized?(work, allow_withdrawal: true, allow_policy_change: true)
       raise AdapterRequestBoundary::Error, "stage_conflict" if
         %w[leased awaiting_deployment awaiting_verification].exclude?(work.state)
       raise AdapterRequestBoundary::Error, "lease_conflict" unless

@@ -10,8 +10,22 @@ permissions:
 
 jobs:
   adapter-contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
+      - name: Record runner image provenance
+        run: |
+          test -n "${ImageOS:-}"
+          test -n "${ImageVersion:-}"
+          {
+            echo "runner_image_os=${ImageOS}"
+            echo "runner_image_version=${ImageVersion}"
+            echo "runner_os=${{ runner.os }}"
+            echo "runner_arch=${{ runner.arch }}"
+            echo "runner_environment=${{ runner.environment }}"
+            echo "workflow_sha=${{ github.sha }}"
+            echo "workflow_run_id=${{ github.run_id }}"
+            echo "workflow_run_attempt=${{ github.run_attempt }}"
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
       - name: Checkout plugin
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Verify release identity
@@ -37,4 +51,5 @@ jobs:
     uses: ./.github/workflows/discourse-plugin-pinned.yml
     with:
       core_ref: 36698aae084678151dffa875d49c8d59216d2733
+      runs_on: ubuntu-24.04
       container: discourse/discourse_test:slim-browsers@sha256:2da24a18bb34116edf6b5ce62da87740805dc2ed02a3a9d6194d38da1400bbe2

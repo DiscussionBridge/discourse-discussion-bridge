@@ -54,8 +54,28 @@ RSpec.describe ActiveRecord::MigrationContext do
     migrate_historical("alpha30", ALPHA_30_COMMIT)
     seed_baseline_rows
     retained = retained_state
+    expect_retained_snapshot_coverage(
+      retained,
+      %w[
+        discussion_bridge_audit_events
+        discussion_bridge_bridge_records
+        discussion_bridge_content_bindings
+        discussion_bridge_content_connections
+      ],
+    )
 
     migrate
+    expect_retained_state(retained)
+    connection.execute(
+      "UPDATE discussion_bridge_content_connections SET secret_digest = '#{"f" * 64}' WHERE id = 1",
+    )
+    expect { expect_retained_state(retained) }.to raise_error(
+      RSpec::Expectations::ExpectationNotMetError,
+      /retained data changed in discussion_bridge_content_connections/,
+    )
+    connection.execute(
+      "UPDATE discussion_bridge_content_connections SET secret_digest = '#{"a" * 64}' WHERE id = 1",
+    )
     expect_retained_state(retained)
     before_repeat = recovery_census
     migrate
@@ -82,6 +102,21 @@ RSpec.describe ActiveRecord::MigrationContext do
     seed_baseline_rows
     seed_experimental_rows
     retained = retained_state
+    expect_retained_snapshot_coverage(
+      retained,
+      %w[
+        discussion_bridge_audit_events
+        discussion_bridge_bridge_records
+        discussion_bridge_content_bindings
+        discussion_bridge_content_connections
+        discussion_bridge_operator_events
+        discussion_bridge_operator_services
+        discussion_bridge_presentation_url_histories
+        discussion_bridge_publication_overrides
+        discussion_bridge_publication_work_items
+        discussion_bridge_source_url_histories
+      ],
+    )
 
     migration_context.up(20_260_927_000_001)
     before_fault = retained_state
@@ -100,7 +135,10 @@ RSpec.describe ActiveRecord::MigrationContext do
     expect_retained_state(before_fault)
 
     migrate
-    expect_retained_state(retained)
+    expect_retained_state(
+      retained,
+      except: { "discussion_bridge_publication_overrides" => %w[decision updated_at] },
+    )
 
     expect(recovery_census).to include(
       "connections" => 1,
@@ -117,6 +155,9 @@ RSpec.describe ActiveRecord::MigrationContext do
     expect(select_value("SELECT decision FROM discussion_bridge_publication_overrides WHERE id = 1")).to eq(
       "include",
     )
+    expect(
+      select_value("SELECT updated_at FROM discussion_bridge_publication_overrides WHERE id = 1"),
+    ).to be > Time.zone.parse("2026-09-23T12:00:00Z")
     expect(select_value("SELECT last_error_detail FROM discussion_bridge_publication_work_items WHERE id = 1")).to eq(
       "retained experimental evidence",
     )
@@ -146,17 +187,27 @@ RSpec.describe ActiveRecord::MigrationContext do
   end
 
   def retained_state
-    connection.tables.grep(/\\Adiscussion_bridge_/).sort.to_h do |table|
+    connection.tables.grep(/\Adiscussion_bridge_/).sort.to_h do |table|
       rows = connection.select_all("SELECT * FROM #{table} ORDER BY id").to_a
       [table, rows]
     end
   end
 
-  def expect_retained_state(before)
+  def expect_retained_snapshot_coverage(snapshot, required_populated_tables)
+    expect(snapshot).not_to be_empty
+    expect(snapshot.keys).to include(*required_populated_tables)
+    required_populated_tables.each do |table|
+      expect(snapshot.fetch(table)).not_to be_empty, "retained snapshot has no rows for #{table}"
+      expect(snapshot.fetch(table).first.keys).to match_array(connection.columns(table).map(&:name))
+    end
+  end
+
+  def expect_retained_state(before, except: {})
     before.each do |table, rows|
-      columns = rows.first&.keys || connection.columns(table).map(&:name)
+      columns = (rows.first&.keys || connection.columns(table).map(&:name)) - Array(except[table])
       current = connection.select_all("SELECT #{columns.join(", ")} FROM #{table} ORDER BY id").to_a
-      expect(current).to eq(rows), "retained data changed in #{table}"
+      expected = rows.map { |row| row.except(*Array(except[table])) }
+      expect(current).to eq(expected), "retained data changed in #{table}"
     end
   end
   def seed_baseline_rows

@@ -201,4 +201,66 @@ describe DiscussionBridge::NetworkWorker do
       expect(record.topic.reload).to have_attributes(closed: true, visible: false)
     end
   end
+
+  it "restores the exact passive network publication and preserves its local identity and replies" do
+    initial = FakeNetworkPeerClient.new(work: work, detail: source_detail)
+    expect(described_class.call(@peer, client: initial)[:outcome]).to eq("acknowledged")
+    record = DiscussionBridgeBridgeRecord.last
+    topic = record.topic
+    first_post_id = topic.first_post.id
+    reply = Fabricate(:post, topic: topic, user: admin, post_number: 2, raw: "Local reply survives restore")
+
+    passive = FakeNetworkPeerClient.new(work: work(action: "unpublish"), detail: source_detail)
+    expect(described_class.call(@peer, client: passive)[:outcome]).to eq("acknowledged")
+    expect(record.reload.network_provenance).to include(
+      "local_passive_action" => "unpublish",
+      "local_passive_source_revision" => source_detail.fetch("source_revision"),
+    )
+
+    restore = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    restored = described_class.call(@peer, client: restore)
+    expect(restored).to include(outcome: "acknowledged")
+    expect(restored.dig(:result, "mutated")).to be(true)
+    expect(restore.failures).to be_empty
+    expect(record.reload).to have_attributes(state: "healthy", topic_id: topic.id)
+    expect(topic.reload).to have_attributes(closed: false, visible: true)
+    expect(topic.first_post.id).to eq(first_post_id)
+    expect(topic.posts.find(reply.id).raw).to eq("Local reply survives restore")
+    expect(record.network_provenance).not_to have_key("local_passive_action")
+
+    replay = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    replayed = described_class.call(@peer, client: replay)
+    expect(replayed).to include(outcome: "acknowledged")
+    expect(replayed.dig(:result, "mutated")).to be(false)
+  end
+
+  it "rejects restore from unrelated attention or stale policy authority" do
+    initial = FakeNetworkPeerClient.new(work: work, detail: source_detail)
+    expect(described_class.call(@peer, client: initial)[:outcome]).to eq("acknowledged")
+    record = DiscussionBridgeBridgeRecord.last
+    record.topic.update!(closed: true, visible: false)
+    record.update!(state: "attention")
+
+    unrelated = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    expect(described_class.call(@peer, client: unrelated)).to include(
+      outcome: "failed",
+      error_code: "reconciliation_required",
+    )
+    expect(unrelated.acknowledgements).to be_empty
+
+    record.update!(
+      network_provenance: record.network_provenance.merge(
+        "local_passive_action" => "hold",
+        "local_passive_source_revision" => source_detail.fetch("source_revision"),
+        "local_passive_policy_revision" => "policy:2026-09-27:1",
+      ),
+    )
+    @connection.update!(policy_revision: "policy:2026-09-29:changed")
+    stale = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    expect(described_class.call(@peer, client: stale)).to include(
+      outcome: "failed",
+      error_code: "policy_denied",
+    )
+    expect(stale.acknowledgements).to be_empty
+  end
 end

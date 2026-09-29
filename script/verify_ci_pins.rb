@@ -24,9 +24,28 @@ errors << "Discourse core_ref is not immutable" unless
 errors << "Adapter Protocol checkout is not immutable" unless
   entrypoint.match?(/^\s*ref:\s*72b3925316e1cb68788e34d0fe2037e0681780af\s*$/)
 errors << "Discourse test container is not digest-pinned" unless
-  entrypoint.match?(/container:\s*discourse\/discourse_test:[^\s]+@sha256:[0-9a-f]{64}\s*$/)
+  entrypoint.match?(/container:\s*discourse\/discourse_test:slim-browsers@sha256:[0-9a-f]{64}\s*$/)
+errors << "CI uses the movable ubuntu-latest runner label" if
+  workflow_paths.any? { |path| File.read(path).include?("ubuntu-latest") }
+errors << "Entrypoint runner label is not the declared Ubuntu release" unless
+  entrypoint.match?(/^\s*runs-on:\s*ubuntu-24\.04\s*$/) &&
+    entrypoint.match?(/^\s*runs_on:\s*ubuntu-24\.04\s*$/)
+errors << "Reusable workflow runner default is not the declared Ubuntu release" unless
+  pinned_workflow.match?(/^\s*default:\s*["']ubuntu-24\.04["']\s*$/)
+errors << "Every CI job must record runner image provenance" unless
+  (entrypoint.scan(/^\s*- name: Record runner image provenance\s*$/).length +
+    pinned_workflow.scan(/^\s*- name: Record runner image provenance\s*$/).length) == 4 &&
+    workflow_paths.all? do |path|
+      workflow = File.read(path)
+      workflow.include?("ImageOS") && workflow.include?("ImageVersion") &&
+        workflow.include?("GITHUB_STEP_SUMMARY")
+    end
 errors << "Compatibility workflow may override the immutable Discourse core_ref" if
   pinned_workflow.match?(/release\/\d{4}\.\d+|release\/\#\{|BASE_REF[^\n]*core_ref/i)
+errors << "CI downloads a mutable Playwright/browser runtime" if
+  pinned_workflow.match?(/\bplaywright\s+install\b/)
+errors << "CI may download mutable pre-built Core assets" unless
+  pinned_workflow.match?(/^\s*export DISCOURSE_DOWNLOAD_PRE_BUILT_ASSETS=0\s*$/)
 
 %w[Gemfile.lock pnpm-lock.yaml].each do |lockfile|
   errors << "#{lockfile} is required" unless File.file?(File.expand_path("../#{lockfile}", __dir__))

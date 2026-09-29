@@ -110,7 +110,18 @@ module DiscussionBridge
         allowed_origins: [],
         allowed_directions: [],
         allowed_lanes: [],
+        publication_policy: [
+          :destination_policy_id,
+          :profile,
+          :presentation_mode,
+          :catalog_revision,
+          { container_mapping: %i[source destination] },
+          { taxonomy_mapping: [:mode, { items: %i[source destination] }] },
+          { author_mapping: [:mode, :destination_id, { items: %i[source destination] }] },
+          { native_limit_policy: %i[maximum_bytes overflow_behavior] },
+        ],
       ).to_h.symbolize_keys
+      publication_policy = raw.delete(:publication_policy)
       if raw.key?(:author_username)
         username = raw.delete(:author_username).to_s.strip
         raw[:author_user_id] = username.present? ? author_user!(username).id : nil
@@ -123,10 +134,19 @@ module DiscussionBridge
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
       raw[:allowed_lanes] = Array(raw[:allowed_lanes]).map(&:to_s) if raw.key?(:allowed_lanes)
       configure_discourse_network!(raw, existing: existing) if raw.key?(:network_enabled)
-      configure_publication_policy!(raw, existing: existing) if
+      configure_publication_policy!(raw, existing: existing) if publication_policy.nil? &&
         !ActiveModel::Type::Boolean.new.cast(raw.fetch(:network_enabled, existing&.network_enabled)) &&
-          (existing.nil? || raw.key?(:platform) || raw.key?(:allowed_directions) || raw.key?(:network_enabled))
+          publication_authority_changed?(raw, existing)
+      configure_explicit_publication_policy!(raw, existing, publication_policy) if publication_policy
       raw
+    end
+
+    def publication_authority_changed?(raw, existing)
+      return true unless existing
+      return true if raw.key?(:network_enabled) && existing.network_enabled
+      return true if raw.key?(:platform) && raw[:platform] != existing.platform
+
+      raw.key?(:allowed_directions) && raw[:allowed_directions] != existing.allowed_directions
     end
 
     def configure_publication_policy!(raw, existing:)
@@ -152,13 +172,15 @@ module DiscussionBridge
         "discourse_as_publisher"
       end
       catalog_revision = "catalog:#{profile}:initial"
+      pending_catalog_mapping = profile != "discourse_as_publisher"
       policy = {
-        "destination_policy_id" => "destination:#{profile}:default",
+        "destination_policy_id" => "destination:#{profile}:#{pending_catalog_mapping ? "pending" : "default"}",
         "profile" => profile,
         "presentation_mode" => "interactive",
         "container_mapping" => {
           "source" => "discourse:topics",
-          "destination" => "#{profile}:default",
+          "destination" => pending_catalog_mapping ?
+            "discussion-bridge:pending-catalog-mapping" : "#{profile}:default",
         },
         "taxonomy_mapping" => { "mode" => "source_attribution" },
         "author_mapping" => { "mode" => "source_attribution" },
@@ -171,6 +193,79 @@ module DiscussionBridge
       raw[:destination_policies] = [policy]
       raw[:policy_revision] = "policy:admin:#{Digest::SHA256.hexdigest(JSON.generate(policy))[0, 32]}"
       raw[:catalog_required] = profile != "discourse_as_publisher"
+    end
+
+    def configure_explicit_publication_policy!(raw, existing, supplied)
+      raise ArgumentError, "publication policy can only update an existing connection" unless existing
+      raise ArgumentError, "network policy is receiver-owned" if
+        ActiveModel::Type::Boolean.new.cast(raw.fetch(:network_enabled, existing.network_enabled))
+
+      policy = supplied.deep_stringify_keys
+      platform = raw[:platform] || existing.platform
+      directions = raw[:allowed_directions] || existing.allowed_directions
+      allowed_profiles = publication_profiles(platform, directions)
+      raise ArgumentError, "publication policy profile is outside the connection scope" if
+        allowed_profiles.exclude?(policy["profile"])
+      raise ArgumentError, "publication policy is invalid" unless
+        ConnectionCapability.valid_destination_policies?([policy])
+
+      catalog = existing.platform_catalogs.find_by(
+        platform_profile: policy.fetch("profile"),
+        catalog_revision: policy.fetch("catalog_revision"),
+        current: true,
+      )
+      raise ArgumentError, "publication policy must use the current platform catalog" unless catalog
+
+      require_available_catalog_item!(catalog, "containers", policy.dig("container_mapping", "destination"))
+      require_available_catalog_item!(catalog, "presentation_modes", policy.fetch("presentation_mode"))
+      require_available_native_limit!(catalog, policy.fetch("native_limit_policy"))
+      referenced_mapping_ids(policy.fetch("taxonomy_mapping")).each do |identifier|
+        require_available_catalog_item!(catalog, "terms", identifier)
+      end
+      referenced_mapping_ids(policy.fetch("author_mapping")).each do |identifier|
+        require_available_catalog_item!(catalog, "authors", identifier)
+      end
+
+      raw[:destination_policies] = [policy]
+      raw[:policy_revision] = "policy:admin:#{Digest::SHA256.hexdigest(JSON.generate(policy))[0, 32]}"
+      raw[:catalog_required] = true
+    end
+
+    def publication_profiles(platform, directions)
+      return [] if Array(directions).exclude?("from_discourse")
+
+      case platform
+      when "statamic"
+        %w[statamic_db statamic_flat statamic_ssg]
+      when "discourse"
+        ["discourse_as_publisher"]
+      else
+        [platform]
+      end
+    end
+
+    def require_available_catalog_item!(catalog, segment_type, identifier)
+      items = catalog.segments.find_by(segment_type: segment_type)&.items || []
+      return if items.any? { |item| item["id"] == identifier && item["available"] }
+
+      raise ArgumentError, "publication policy references an unavailable #{segment_type} item"
+    end
+
+    def require_available_native_limit!(catalog, native_limit_policy)
+      items = catalog.segments.find_by(segment_type: "native_limits")&.items || []
+      return if items.any? do |item|
+        item["available"] &&
+          item["maximum_bytes"] == native_limit_policy["maximum_bytes"] &&
+          item["overflow_behavior"] == native_limit_policy["overflow_behavior"]
+      end
+
+      raise ArgumentError, "publication policy references an unavailable native limit"
+    end
+
+    def referenced_mapping_ids(mapping)
+      values = Array(mapping["items"]).filter_map { |item| item["destination"] }
+      values << mapping["destination_id"] if mapping["destination_id"].present?
+      values.uniq
     end
 
     def configure_discourse_network!(raw, existing:)

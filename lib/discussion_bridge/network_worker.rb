@@ -85,7 +85,14 @@ module DiscussionBridge
         raise AdapterRequestBoundary::Error, "reconciliation_required" unless topic&.first_post
 
         topic.update!(closed: true, visible: false)
-        record.update!(state: "attention")
+        record.update!(
+          state: "attention",
+          network_provenance: record.network_provenance.merge(
+            "local_passive_action" => work.fetch("action"),
+            "local_passive_source_revision" => work.fetch("source_revision"),
+            "local_passive_policy_revision" => work.fetch("policy_revision"),
+          ),
+        )
       end
 
       {

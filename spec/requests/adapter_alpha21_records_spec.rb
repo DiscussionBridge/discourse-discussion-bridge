@@ -329,6 +329,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
       [payload(source_content_sha256: "0" * 64), :unprocessable_entity, "integrity_failed"],
       [payload(source_updated_at: "2026-09-27T18:30:00+00:00"), :bad_request, "malformed_value"],
       [payload(source_updated_at: "2026-02-30T18:30:00Z"), :bad_request, "malformed_value"],
+      [payload(source_updated_at: "2026-09-27T24:00:00Z"), :bad_request, "malformed_value"],
     ]
     missing = payload
     missing[:bridge_record].delete(:source_revision)
@@ -509,6 +510,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
       %(<div style="visibility:hidden"><p>Excerpt</p><a href="#{url}">Read More</a></div>),
       %(<div aria-hidden="TRUE"><p>Excerpt</p><a href="#{url}">Read More</a></div>),
       %(<details><summary>More information</summary><p>Excerpt</p><a href="#{url}">Read More</a></details>),
+      %(<p>This excerpt is bounded.</p><a href="#{url}"><details><summary></summary><span>Read More</span></details></a>),
     ]
     hidden.each do |html|
       expect(DiscussionBridge::BridgeRecordRequest.send(:valid_excerpt_markup?, html, url)).to be(false)
@@ -524,5 +526,10 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
     expect(response).to have_http_status(:unprocessable_entity)
     expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+
+    visible_formatted = %(<p>This excerpt is bounded.</p><a href="#{url}">Read <strong>More</strong></a>)
+    expect(
+      DiscussionBridge::BridgeRecordRequest.send(:valid_excerpt_markup?, visible_formatted, url),
+    ).to be(true)
   end
 end

@@ -33,5 +33,10 @@ describe DiscussionBridge::PublicationWorkProtocol do
     end.to raise_error(DiscussionBridge::AdapterRequestBoundary::Error) { |error|
       expect(error.error_code).to eq("malformed_value")
     }
+    expect do
+      described_class.parse_time!("2026-09-27T24:00:00Z")
+    end.to raise_error(DiscussionBridge::AdapterRequestBoundary::Error) { |error|
+      expect(error.error_code).to eq("malformed_value")
+    }
   end
 end

@@ -106,7 +106,6 @@ module DiscussionBridge
           replacement.segments.create!(segment_type: segment_type, items: items)
         end
         reconcile_removed_destinations!(replacement)
-        adopt_catalog_revision!(new_revision)
       end
       replacement
     rescue ActiveRecord::RecordNotUnique
@@ -115,27 +114,18 @@ module DiscussionBridge
 
     private
 
-    def adopt_catalog_revision!(catalog_revision)
-      changed = false
-      updated = Array(@connection.destination_policies).map do |raw|
-        policy = raw.deep_stringify_keys
-        next policy unless policy["profile"] == @platform_profile
-
-        changed ||= policy["catalog_revision"] != catalog_revision
-        policy.merge("catalog_revision" => catalog_revision)
-      end
-      return unless changed
-
-      policy_revision = "policy:catalog:#{Digest::SHA256.hexdigest(JSON.generate(updated))[0, 32]}"
-      @connection.update!(destination_policies: updated, policy_revision: policy_revision)
-    end
-
     def reconcile_removed_destinations!(catalog)
-      containers = catalog.segments.find_by(segment_type: "containers")&.items || []
-      available = containers.select { |item| item["available"] }.index_by { |item| item["id"] }
+      available = PlatformCatalogProtocol::SEGMENT_TYPES.to_h do |segment_type|
+        items = catalog.segments.find_by(segment_type: segment_type)&.items || []
+        [segment_type, items.select { |item| item["available"] }]
+      end
+      policy_ids = @policies.map { |policy| policy.fetch("destination_policy_id") }
       now = Time.zone.now
-      @connection.publication_works.where(state: %w[available retry_wait]).find_each do |work|
-        next if available.key?(work.resolved_container["id"])
+      @connection.publication_works.where(
+        destination_policy_id: policy_ids,
+        state: %w[available retry_wait],
+      ).find_each do |work|
+        next if resolved_work_available?(work, available)
 
         work.update!(
           state: "operator_attention",
@@ -143,6 +133,28 @@ module DiscussionBridge
           available_at: nil,
           updated_at: now,
         )
+      end
+    end
+
+    def resolved_work_available?(work, available)
+      return false unless available.fetch("containers").any? do |item|
+        item["id"] == work.resolved_container["id"]
+      end
+      return false unless available.fetch("presentation_modes").any? do |item|
+        item["id"] == work.presentation_mode
+      end
+      return false unless Array(work.resolved_taxonomy).all? do |mapping|
+        available.fetch("terms").any? { |item| item["id"] == mapping["destination_id"] }
+      end
+
+      author_id = work.resolved_author["destination_id"]
+      return false if author_id.present? && available.fetch("authors").none? do |item|
+        item["id"] == author_id
+      end
+
+      available.fetch("native_limits").any? do |item|
+        item["maximum_bytes"] == work.native_limit_policy["maximum_bytes"] &&
+          item["overflow_behavior"] == work.native_limit_policy["overflow_behavior"]
       end
     end
 

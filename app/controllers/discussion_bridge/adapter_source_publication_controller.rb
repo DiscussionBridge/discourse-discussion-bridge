@@ -137,6 +137,11 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "scope_denied" unless
         binding && @content_connection.allows_lane?(record.lane) &&
           @content_connection.allows_origin?(binding.canonical_url)
+      raise AdapterRequestBoundary::Error, "scope_denied" if
+        SourceRevisionMaterializer.unavailability_reason(
+          record: record,
+          connection: @content_connection,
+        )
 
       record
     end

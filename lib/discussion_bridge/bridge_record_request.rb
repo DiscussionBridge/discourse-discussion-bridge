@@ -48,7 +48,7 @@ module DiscussionBridge
     PRESENTATION_MODES = %w[simple full interactive].freeze
     CONTENT_DISPOSITIONS = %w[complete excerpt].freeze
     SHA256_PATTERN = /\A[a-f0-9]{64}\z/
-    RFC3339_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/
+    RFC3339_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):\d{2}:\d{2}(?:\.\d+)?Z\z/
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
 
@@ -161,12 +161,18 @@ module DiscussionBridge
 
       document.css("a[href]").any? do |link|
         visible_excerpt_node?(link) && link["href"] == read_more_url &&
-          link.text.squish.match?(/\ARead More\z/i)
+          visible_text_within(link).match?(/\ARead More\z/i)
       end
     rescue Nokogiri::XML::SyntaxError
       false
     end
     private_class_method :valid_excerpt_markup?
+
+    def self.visible_text_within(element)
+      element.xpath(".//text()").select { |node| visible_excerpt_node?(node) }
+        .map(&:text).join(" ").squish
+    end
+    private_class_method :visible_text_within
 
     def self.visible_excerpt_node?(node)
       visibility_chain = node.element? ? [node, *node.ancestors] : node.ancestors

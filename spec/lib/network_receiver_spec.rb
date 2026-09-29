@@ -212,6 +212,44 @@ describe DiscussionBridge::NetworkReceiver do
     expect(output.fetch(:content_html).bytesize).to be <= 49_152
   end
 
+  it "uses the native Discourse character ceiling and accepts its exact complete boundary" do
+    detail = source_detail
+    parsed = DiscussionBridge::NetworkSourceDetail.call(payload: detail)
+    receiver = described_class.new(
+      peer: @peer,
+      source_detail: detail,
+      policy_revision: "policy:2026-09-27:1",
+      content_html: nil,
+    )
+    provenance = parsed.fetch("network_provenance")
+    boundary = receiver.send(:provenance_boundary, provenance)
+    read_more = provenance.fetch("origin_topic_url")
+    fixed_length = receiver.send(
+      :companion_raw_length,
+      "<p></p>#{boundary}",
+      read_more,
+    )
+    character_count = SiteSetting.max_post_length - fixed_length
+    expect(character_count).to be_positive
+
+    exact_body = "<p>#{"x" * character_count}</p>"
+    exact_detail = parsed.merge("content_html" => exact_body)
+    exact_output = receiver.send(:content_for_destination, exact_detail, provenance, @connection)
+    expect(exact_output.fetch(:content_disposition)).to eq("complete")
+    expect(
+      receiver.send(:companion_raw_length, exact_output.fetch(:content_html), read_more),
+    ).to eq(SiteSetting.max_post_length)
+
+    overflow_body = "<p>#{"x" * (character_count + 1)}</p>"
+    overflow_detail = parsed.merge("content_html" => overflow_body)
+    overflow_output = receiver.send(:content_for_destination, overflow_detail, provenance, @connection)
+    expect(overflow_body.bytesize + boundary.bytesize).to be < 49_152
+    expect(overflow_output.fetch(:content_disposition)).to eq("excerpt")
+    expect(
+      receiver.send(:companion_raw_length, overflow_output.fetch(:content_html), read_more),
+    ).to be <= SiteSetting.max_post_length
+  end
+
   it "preserves the exact network source timestamp wire value" do
     detail = source_detail
     timestamp = "2026-09-27T18:00:00.123456789Z"

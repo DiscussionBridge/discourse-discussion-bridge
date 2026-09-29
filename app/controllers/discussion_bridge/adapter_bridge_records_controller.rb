@@ -62,9 +62,9 @@ module DiscussionBridge
       page = Integer(params[:page].presence || 1, exception: false)
       raise AdapterRequestBoundary::Error, "malformed_value" unless page&.between?(1, MAX_PAGE)
 
-      records = scoped_records
-      total = records.distinct.count(:id)
-      page_records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE).to_a
+      records = scoped_records.distinct.to_a.select { |record| record_within_connection_scope?(record) }
+      total = records.length
+      page_records = records.slice((page - 1) * PER_PAGE, PER_PAGE) || []
       payload = {
         records: page_records.map { |record| adapter_record(record) },
         page: page,
@@ -224,7 +224,17 @@ module DiscussionBridge
       end
       binding && @content_connection.allows_direction?(record.direction) &&
         @content_connection.allows_lane?(record.lane) &&
-        @content_connection.allows_origin?(binding.canonical_url)
+        @content_connection.allows_origin?(binding.canonical_url) &&
+        source_record_currently_disclosable?(record)
+    end
+
+    def source_record_currently_disclosable?(record)
+      return true unless record.direction == "from_discourse"
+
+      SourceRevisionMaterializer.unavailability_reason(
+        record: record,
+        connection: @content_connection,
+      ).nil?
     end
 
     def discourse_revision(persisted, first_post)
