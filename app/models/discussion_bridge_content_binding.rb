@@ -67,33 +67,33 @@ end
 #
 # Table name: discussion_bridge_content_bindings
 #
-#  id                      :bigint           not null, primary key
-#  activated_at            :datetime
-#  applied_source_revision :string(255)
-#  canonical_url           :text             not null
-#  canonical_url_digest    :string(64)       not null
-#  content_disposition     :string(16)
-#  deployed_at             :datetime
-#  deployed_at_wire        :string(40)
-#  deployment_state        :string(32)       default("not_required"), not null
-#  identity_digest         :string(64)       not null
-#  native_materialization  :boolean          default(FALSE), not null
-#  presentation_mode       :string(32)
-#  publication_revision    :string(255)
-#  publicly_verified_at    :datetime
+#  id                        :bigint           not null, primary key
+#  activated_at              :datetime
+#  applied_source_revision   :string(255)
+#  canonical_url             :text             not null
+#  canonical_url_digest      :string(64)       not null
+#  content_disposition       :string(16)
+#  deployed_at               :datetime
+#  deployed_at_wire          :string(40)
+#  deployment_state          :string(32)       default("not_required"), not null
+#  identity_digest           :string(64)       not null
+#  native_materialization    :boolean          default(FALSE), not null
+#  presentation_mode         :string(32)
+#  publication_revision      :string(255)
+#  publicly_verified_at      :datetime
 #  publicly_verified_at_wire :string(40)
-#  retired_at              :datetime
-#  role                    :string(32)       not null
-#  state                   :string(32)       default("active"), not null
-#  synchronized_at         :datetime
-#  synchronized_at_wire    :string(40)
-#  verification_state      :string(32)       default("not_required"), not null
-#  created_at              :datetime         not null
-#  updated_at              :datetime         not null
-#  binding_id              :string(36)       not null
-#  bridge_record_id        :bigint           not null
-#  content_connection_id   :bigint           not null
-#  external_id             :string(255)      not null
+#  retired_at                :datetime
+#  role                      :string(32)       not null
+#  state                     :string(32)       default("active"), not null
+#  synchronized_at           :datetime
+#  synchronized_at_wire      :string(40)
+#  verification_state        :string(32)       default("not_required"), not null
+#  created_at                :datetime         not null
+#  updated_at                :datetime         not null
+#  binding_id                :string(36)       not null
+#  bridge_record_id          :bigint           not null
+#  content_connection_id     :bigint           not null
+#  external_id               :string(255)      not null
 #
 # Indexes
 #
