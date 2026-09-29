@@ -4,20 +4,22 @@ require "cgi"
 
 module DiscussionBridge
   class NetworkReceiver
-    def self.call(peer:, source_detail:, policy_revision:, content_html: nil)
+    def self.call(peer:, source_detail:, policy_revision:, content_html: nil, action: "publish")
       new(
         peer: peer,
         source_detail: source_detail,
         policy_revision: policy_revision,
         content_html: content_html,
+        action: action,
       ).call
     end
 
-    def initialize(peer:, source_detail:, policy_revision:, content_html:)
+    def initialize(peer:, source_detail:, policy_revision:, content_html:, action: "publish")
       @peer = peer
       @source_detail = source_detail
       @policy_revision = policy_revision
       @content_html = content_html
+      @action = action
     end
 
     def call
@@ -57,6 +59,10 @@ module DiscussionBridge
         resolved = resolve!(detail, provenance)
         appended = DiscourseNetworkProtocol.append_local_route!(provenance, local_identity: identity)
         record = DiscussionBridgeBridgeRecord.find_by!(resource_id: resolved.resource_id)
+        if @action == "restore"
+          record.topic.update!(closed: false)
+          record.update!(state: "healthy")
+        end
         record.update!(network_provenance: appended)
         result = {
           "outcome" => resolved.outcome,
@@ -163,42 +169,48 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "content_unsupported" unless overflow == "excerpt_with_read_more"
 
       read_more = provenance.fetch("origin_topic_url")
-      suffix = %(<p><a href="#{CGI.escapeHTML(read_more)}">Read More</a></p>#{boundary})
       text = ActionController::Base.helpers.strip_tags(body).squish
-      wrapper = "<p>…</p>"
-      source_credit = "\n\n---\n\nOriginally published at [#{read_more}](#{read_more})"
-      byte_budget = effective_maximum - suffix.bytesize - wrapper.bytesize
-      character_budget = SiteSetting.max_post_length - suffix.length - wrapper.length -
-        source_credit.length
-      raise AdapterRequestBoundary::Error, "content_unsupported" unless
-        byte_budget.positive? && character_budget.positive?
-
-      excerpt = escaped_excerpt(text, maximum_bytes: byte_budget, maximum_characters: character_budget)
+      excerpt_body = bounded_excerpt_body(
+        text,
+        read_more: read_more,
+        boundary: boundary,
+        maximum_bytes: effective_maximum,
+      )
       {
-        content_html: %(<p>#{excerpt}…</p>#{suffix}),
+        content_html: excerpt_body,
         content_disposition: "excerpt",
         read_more_url: read_more,
       }
     end
 
-    def escaped_excerpt(text, maximum_bytes:, maximum_characters:)
+    def bounded_excerpt_body(text, read_more:, boundary:, maximum_bytes:)
       characters = text.each_char.to_a
       low = 0
       high = characters.length
-      accepted = ""
+      accepted = nil
+      source_credit = "\n\n---\n\nOriginally published at [#{read_more}](#{read_more})"
 
       while low <= high
         midpoint = (low + high) / 2
-        candidate = CGI.escapeHTML(characters.first(midpoint).join)
-        if candidate.bytesize <= maximum_bytes && candidate.length <= maximum_characters
+        candidate = excerpt_body(characters.first(midpoint).join, read_more, boundary)
+        raw_length = PortableContent.to_discourse_raw(candidate).length + source_credit.length
+        if candidate.bytesize <= maximum_bytes && raw_length <= SiteSetting.max_post_length
           accepted = candidate
           low = midpoint + 1
         else
           high = midpoint - 1
         end
       end
+      raise AdapterRequestBoundary::Error, "content_unsupported" unless accepted
 
       accepted
+    end
+
+    def excerpt_body(text, read_more, boundary)
+      escaped = CGI.escapeHTML(text)
+      escaped_url = CGI.escapeHTML(read_more)
+      %(<p><strong>This is an excerpt.</strong></p><p>#{escaped}…</p>) +
+        %(<p><a href="#{escaped_url}">Read More</a></p>#{boundary})
     end
 
     def provenance_boundary(provenance)

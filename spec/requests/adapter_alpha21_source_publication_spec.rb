@@ -336,4 +336,19 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body.fetch("error_code")).to eq("direction_denied")
   end
+
+  it "does not return retained snapshot metadata after scope narrows" do
+    create_source(title: "Allowed first topic")
+    create_source(title: "Removed-scope title")
+    inventory(params: { limit: 1 }, correlation: "snapshot-first")
+    first = response.parsed_body
+    @connection.update!(allowed_lanes: ["news"])
+    inventory(
+      params: { limit: 1, snapshot: first.fetch("snapshot"), cursor: first.fetch("next_cursor") },
+      correlation: "snapshot-resume-denied",
+    )
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+    expect(response.body).not_to include("Removed-scope title")
+  end
 end

@@ -401,7 +401,8 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
              read_more_url: "https://publisher.example/articles/community-guide/",
            ),
            as: :json
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_entity),
+                          "invalid excerpt index #{index} was accepted: #{content_html.inspect}; #{response.body}"
       expect(response.parsed_body.fetch("error_code")).to eq("validation_failed")
     end
     expect(DiscussionBridgeBridgeRecord.count).to eq(0)
@@ -468,9 +469,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
       "content_disposition",
       "synchronized_at",
       "deployment_state",
-      "deployed_at",
       "verification_state",
-      "publicly_verified_at",
     )
     expect(binding).to include(
       "connection_id" => @connection.public_id,
@@ -486,5 +485,44 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.keys).to contain_exactly("bridge_record", "correlation_id")
     expect(response.parsed_body.dig("bridge_record", "resource_id")).to eq(resource_id)
+  end
+
+  it "preserves long valid wire timestamps and omits absent optional event fields" do
+    timestamp = "2026-09-01T16:00:00.12345678901234567890Z"
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers,
+         params: payload(source_created_at: timestamp), as: :json
+    expect(response).to have_http_status(:created)
+    record = DiscussionBridgeBridgeRecord.last
+    expect(record.source_created_at_wire).to eq(timestamp)
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: headers(correlation: "long-timestamp-detail-1")
+    expect(response).to have_http_status(:ok), response.body
+    binding = response.parsed_body.dig("bridge_record", "bindings").sole
+    expect(binding).not_to have_key("deployed_at")
+    expect(binding).not_to have_key("publicly_verified_at")
+  end
+
+  it "rejects excerpt disclosures hidden by CSS, ARIA, or a closed details element" do
+    url = "https://publisher.example/articles/community-guide/"
+    hidden = [
+      %(<div style="display:none"><p>Excerpt</p><a href="#{url}">Read More</a></div>),
+      %(<div style="visibility:hidden"><p>Excerpt</p><a href="#{url}">Read More</a></div>),
+      %(<div aria-hidden="TRUE"><p>Excerpt</p><a href="#{url}">Read More</a></div>),
+      %(<details><summary>More information</summary><p>Excerpt</p><a href="#{url}">Read More</a></details>),
+    ]
+    hidden.each do |html|
+      expect(DiscussionBridge::BridgeRecordRequest.send(:valid_excerpt_markup?, html, url)).to be(false)
+    end
+
+    body = payload(
+      content_html: hidden.last,
+      content_disposition: "excerpt",
+      source_content_bytes: 60_000,
+      source_content_sha256: "a" * 64,
+      read_more_url: url,
+    )
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
   end
 end

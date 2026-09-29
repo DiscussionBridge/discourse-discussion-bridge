@@ -72,6 +72,7 @@ module DiscussionBridge
         source_detail: detail,
         policy_revision: work.fetch("policy_revision"),
         content_html: content,
+        action: work.fetch("action"),
       )
     end
 
@@ -79,11 +80,19 @@ module DiscussionBridge
       record = local_record(work.fetch("resource_id"))
       raise AdapterRequestBoundary::Error, "reconciliation_required" unless record
 
+      record.with_lock do
+        topic = record.topic
+        raise AdapterRequestBoundary::Error, "reconciliation_required" unless topic&.first_post
+
+        topic.update!(closed: true, visible: false)
+        record.update!(state: "attention")
+      end
+
       {
         "outcome" => work.fetch("action"),
         "resource_id" => record.resource_id,
         "topic_id" => record.topic_id,
-        "mutated" => false,
+        "mutated" => true,
         "route_forum_ids" => record.network_provenance.fetch("route_forum_ids"),
       }
     end
@@ -101,8 +110,9 @@ module DiscussionBridge
     end
 
     def destination_binding(record, remote_record, work)
+      expected_state = PASSIVE_ACTIONS.include?(work.fetch("action")) ? "attention" : "healthy"
       raise AdapterRequestBoundary::Error, "reconciliation_required" unless
-        record&.state == "healthy" && record.topic&.first_post
+        record&.state == expected_state && record.topic&.first_post
 
       local_binding = record.content_bindings.find_by!(
         content_connection_id: @peer.content_connection_id,

@@ -132,21 +132,25 @@ module DiscussionBridge
     def configure_publication_policy!(raw, existing:)
       platform = raw[:platform] || existing&.platform
       directions = raw[:allowed_directions] || existing&.allowed_directions || []
-      if Array(directions).exclude?("from_discourse")
+      unless Array(directions).intersect?(%w[to_discourse from_discourse])
         raw[:destination_policies] = []
         raw[:policy_revision] = nil
         raw[:catalog_required] = false
         return
       end
 
-      profile = {
-        "astro" => "astro",
-        "discourse" => "discourse_as_publisher",
-        "ghost" => "ghost",
-        "hugo" => "hugo",
-        "statamic" => "statamic_db",
-        "wordpress" => "wordpress",
-      }.fetch(platform) { raise ArgumentError, "platform cannot receive From Discourse publications" }
+      profile = if Array(directions).include?("from_discourse")
+        {
+          "astro" => "astro",
+          "discourse" => "discourse_as_publisher",
+          "ghost" => "ghost",
+          "hugo" => "hugo",
+          "statamic" => "statamic_db",
+          "wordpress" => "wordpress",
+        }.fetch(platform) { raise ArgumentError, "platform cannot receive From Discourse publications" }
+      else
+        "discourse_as_publisher"
+      end
       catalog_revision = "catalog:#{profile}:initial"
       policy = {
         "destination_policy_id" => "destination:#{profile}:default",

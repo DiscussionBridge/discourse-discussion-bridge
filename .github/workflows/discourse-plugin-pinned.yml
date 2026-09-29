@@ -234,12 +234,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           CORE_REF: ${{ inputs.core_ref }}
         run: |
-          core_ref =
-            if (version = ENV["BASE_REF"][%r{\Ad-compat/(\d{4}\.\d+)\z}, 1])
-              "release/#{version}"
-            else
-              ENV["CORE_REF"]
-            end
+          core_ref = ENV.fetch("CORE_REF")
 
           puts "Using core ref '#{core_ref}'"
 

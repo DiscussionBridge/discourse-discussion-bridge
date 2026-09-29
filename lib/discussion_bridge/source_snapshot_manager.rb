@@ -19,6 +19,13 @@ module DiscussionBridge
       rows = snapshot.snapshot_items.includes(:source_revision)
         .where("ordinal > ?", after_ordinal).order(:ordinal).limit(limit + 1).to_a
       page_rows = rows.first(limit)
+      denied = page_rows.any? do |row|
+        SourceRevisionMaterializer.unavailability_reason(
+          record: row.source_revision.bridge_record,
+          connection: @connection,
+        )
+      end
+      raise AdapterRequestBoundary::Error, "scope_denied" if denied
       complete = rows.length <= limit
       next_cursor = unless complete
         SourceCursor.issue(

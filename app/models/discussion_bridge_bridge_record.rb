@@ -78,11 +78,11 @@ end
 #  source_content_bytes     :bigint
 #  source_content_sha256    :string(64)
 #  source_created_at        :datetime
-#  source_created_at_wire   :string(40)
+#  source_created_at_wire   :text
 #  source_revision          :string(255)
 #  source_revision_sequence :bigint
 #  source_updated_at        :datetime
-#  source_updated_at_wire   :string(40)
+#  source_updated_at_wire   :text
 #  state                    :string(32)       default("reserved"), not null
 #  title                    :string(1024)     not null
 #  created_at               :datetime         not null

@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "digest"
+require "json"
+
 module DiscussionBridge
   class PlatformCatalogRegistry
     Page = Data.define(:catalog_revision, :items, :next_cursor, :complete)
@@ -102,6 +105,8 @@ module DiscussionBridge
           end
           replacement.segments.create!(segment_type: segment_type, items: items)
         end
+        reconcile_removed_destinations!(replacement)
+        adopt_catalog_revision!(new_revision)
       end
       replacement
     rescue ActiveRecord::RecordNotUnique
@@ -109,6 +114,37 @@ module DiscussionBridge
     end
 
     private
+
+    def adopt_catalog_revision!(catalog_revision)
+      changed = false
+      updated = Array(@connection.destination_policies).map do |raw|
+        policy = raw.deep_stringify_keys
+        next policy unless policy["profile"] == @platform_profile
+
+        changed ||= policy["catalog_revision"] != catalog_revision
+        policy.merge("catalog_revision" => catalog_revision)
+      end
+      return unless changed
+
+      policy_revision = "policy:catalog:#{Digest::SHA256.hexdigest(JSON.generate(updated))[0, 32]}"
+      @connection.update!(destination_policies: updated, policy_revision: policy_revision)
+    end
+
+    def reconcile_removed_destinations!(catalog)
+      containers = catalog.segments.find_by(segment_type: "containers")&.items || []
+      available = containers.select { |item| item["available"] }.index_by { |item| item["id"] }
+      now = Time.zone.now
+      @connection.publication_works.where(state: %w[available retry_wait]).find_each do |work|
+        next if available.key?(work.resolved_container["id"])
+
+        work.update!(
+          state: "operator_attention",
+          resolution_error: "operator_action_required",
+          available_at: nil,
+          updated_at: now,
+        )
+      end
+    end
 
     def resolve_page(segment_type:, catalog_revision:, cursor:)
       if cursor.present?

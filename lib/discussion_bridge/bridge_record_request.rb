@@ -155,18 +155,38 @@ module DiscussionBridge
       require "nokogiri"
 
       document = Nokogiri::HTML5.fragment(content_html)
-      document.css("script,style,template,[hidden],[aria-hidden='true']").remove
-      visible_text = document.xpath(".//text()[not(ancestor::script) and not(ancestor::style) and not(ancestor::template)]")
+      visible_text = document.xpath(".//text()").select { |node| visible_excerpt_node?(node) }
         .map(&:text).join(" ").squish
       return false unless visible_text.match?(/\bexcerpt\b/i)
 
       document.css("a[href]").any? do |link|
-        link["href"] == read_more_url && link.text.squish.match?(/\ARead More\z/i)
+        visible_excerpt_node?(link) && link["href"] == read_more_url &&
+          link.text.squish.match?(/\ARead More\z/i)
       end
     rescue Nokogiri::XML::SyntaxError
       false
     end
     private_class_method :valid_excerpt_markup?
+
+    def self.visible_excerpt_node?(node)
+      visibility_chain = node.element? ? [node, *node.ancestors] : node.ancestors
+      visibility_chain.each do |ancestor|
+        name = ancestor.name.downcase
+        return false if %w[script style template].include?(name)
+        return false if ancestor.key?("hidden")
+        return false if ancestor["aria-hidden"].to_s.casecmp?("true")
+        style = ancestor["style"].to_s.downcase.gsub(/\s+/, "")
+        return false if style.match?(/(?:\A|;)display:none(?:;|\z)/) ||
+          style.match?(/(?:\A|;)visibility:hidden(?:;|\z)/)
+        if name == "details" && !ancestor.key?("open")
+          summary = ancestor.element_children.find { |child| child.name.casecmp?("summary") }
+          return false unless summary
+          return false unless node == summary || node.ancestors.include?(summary)
+        end
+      end
+      true
+    end
+    private_class_method :visible_excerpt_node?
 
     def self.validate_string!(value, name, maximum, identifier:, strip: true)
       valid = value.is_a?(String) && value.valid_encoding? && value.present? &&

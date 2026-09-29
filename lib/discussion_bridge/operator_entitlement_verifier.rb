@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "digest"
+require "date"
 require "openssl"
 require "time"
 
@@ -172,7 +173,11 @@ module DiscussionBridge
     private_class_method :validate_bounded_string!
 
     def self.parse_time(value)
-      valid = value.is_a?(String) && value.match?(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/)
+      match = value.is_a?(String) && value.match(
+        /\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z\z/,
+      )
+      valid = match && Date.valid_date?(match[1].to_i, match[2].to_i, match[3].to_i) &&
+        match[4].to_i <= 23 && match[5].to_i <= 59 && match[6].to_i <= 59
       raise VerificationError, "entitlement_invalid_signature" unless valid
 
       Time.iso8601(value)

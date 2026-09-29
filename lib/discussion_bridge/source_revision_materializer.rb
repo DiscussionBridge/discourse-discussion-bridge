@@ -79,6 +79,7 @@ module DiscussionBridge
 
       current_topic = topic
       return "source_deleted" unless current_topic && current_topic.deleted_at.nil?
+      return "scope_removed" if @connection.network_enabled && !Guardian.new(nil).can_see?(current_topic)
 
       post = first_post
       return "source_deleted" unless post && post.deleted_at.nil?

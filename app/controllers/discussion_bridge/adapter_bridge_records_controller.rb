@@ -215,7 +215,7 @@ module DiscussionBridge
       elsif record.content_disposition.present?
         payload[:content_disposition] = record.content_disposition
       end
-      payload
+      payload.compact
     end
 
     def record_within_connection_scope?(record)
@@ -281,7 +281,7 @@ module DiscussionBridge
         verification_state: dynamic ? "not_required" : binding.verification_state,
         publicly_verified_at: binding.publicly_verified_at_wire.presence || binding.publicly_verified_at&.iso8601(6),
       }
-      payload
+      payload.compact
     end
 
     def source_presentation_mode(record)

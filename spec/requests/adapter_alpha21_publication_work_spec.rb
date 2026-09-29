@@ -873,4 +873,132 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       "attempt_count" => 1,
     )
   end
+
+  it "keeps native setup, catalog adoption, and To-only capability usable" do
+    sign_in(admin)
+    post "/discussion-bridge/admin/content-connections.json", params: {
+      content_connection: {
+        name: "To-only receiver",
+        platform: "wordpress",
+        allowed_origins: ["https://publisher.example"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["articles"],
+      },
+    }, as: :json
+    expect(response).to have_http_status(:created)
+    result = response.parsed_body
+    @connection = DiscussionBridgeContentConnection.find(result.dig("content_connection", "id"))
+    @secret = result.fetch("secret")
+    sign_out
+    get "/discussion-bridge/v1/connection.json", headers: headers(correlation: "to-only-capability")
+    expect(response).to have_http_status(:ok)
+
+    @connection.destroy!
+    sign_in(admin)
+    post "/discussion-bridge/admin/content-connections.json", params: {
+      content_connection: {
+        name: "Catalog receiver",
+        platform: "wordpress",
+        allowed_origins: ["https://publisher.example"],
+        allowed_directions: ["from_discourse"],
+        allowed_lanes: ["articles"],
+      },
+    }, as: :json
+    result = response.parsed_body
+    @connection = DiscussionBridgeContentConnection.find(result.dig("content_connection", "id"))
+    @secret = result.fetch("secret")
+    initial = @connection.destination_policies.sole.fetch("catalog_revision")
+    sign_out
+    segments = catalog_segments
+    segments.find { |segment| segment["segment_type"] == "containers" }["items"][0]["id"] =
+      @connection.destination_policies.sole.dig("container_mapping", "destination")
+    put "/discussion-bridge/v1/platform-catalog.json", headers: headers(correlation: "catalog-adopt"), params: {
+      platform_profile: "wordpress",
+      base_catalog_revision: initial,
+      segments: segments,
+      correlation_id: "catalog-adopt",
+    }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(@connection.reload.destination_policies.sole.fetch("catalog_revision")).to eq(
+      response.parsed_body.fetch("catalog_revision"),
+    )
+    create_source
+    materialize_source
+    claim(correlation: "catalog-adopt-claim")
+    expect(response.parsed_body.fetch("publication_work").length).to eq(1)
+  end
+
+  it "delivers withdrawal work and lets a policy-only change finish an active lease" do
+    install_catalog
+    _, _, record = create_source
+    materialize_source
+    claim(correlation: "policy-claim")
+    claimed = response.parsed_body.fetch("publication_work").sole
+    @connection.update!(policy_revision: "policy:test:changed")
+    post "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/renew.json",
+         headers: headers(correlation: "policy-renew"),
+         params: { lease_token: claimed.fetch("lease_token"), requested_lease_seconds: 60,
+                   correlation_id: "policy-renew" }, as: :json
+    expect(response).to have_http_status(:ok)
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "policy-ack"),
+        params: acknowledgement(claimed, record, correlation: "policy-ack"), as: :json
+    expect(response).to have_http_status(:ok)
+
+    @connection.update!(allowed_lanes: ["news"])
+    get "/discussion-bridge/v1/source-revocations.json", headers: headers(correlation: "scope-revoke")
+    expect(response).to have_http_status(:ok)
+    claim(correlation: "scope-withdrawal")
+    expect(response.parsed_body.fetch("publication_work").sole.fetch("action")).to eq("unpublish")
+  end
+
+  it "fails malformed acknowledgements and generated-shape secrets closed" do
+    install_catalog
+    _, _, record = create_source
+    materialize_source
+    claim(correlation: "validation-claim")
+    claimed = response.parsed_body.fetch("publication_work").sole
+
+    body = acknowledgement(claimed, record, correlation: "validation-ack")
+    body.delete(:deployment_state)
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "validation-ack"), params: body, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("error_code")).to eq("validation_failed")
+
+    body = acknowledgement(claimed, record, correlation: "validation-ack-2")
+    body.delete(:destination_binding)
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "validation-ack-2"), params: body, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+
+    synthetic = ("-" * 4) + ("Z" * 38) + "A"
+    @connection.update!(secret_digest: Digest::SHA256.hexdigest(synthetic))
+    @secret = synthetic
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/failure.json",
+        headers: headers(correlation: "secret-failure"), params: {
+          lease_token: claimed.fetch("lease_token"), error_code: "destination_unavailable",
+          error_detail: "Diagnostic #{synthetic}", failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "secret-failure",
+        }, as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridgePublicationWork.find_by!(work_id: claimed.fetch("work_id")).failure_detail).to be_nil
+  end
+
+  it "moves work for a removed catalog destination to operator attention" do
+    revision = install_catalog
+    create_source
+    materialize_source
+    work = @connection.publication_works.sole
+    segments = catalog_segments
+    segments.find { |segment| segment["segment_type"] == "containers" }["items"] = []
+    put "/discussion-bridge/v1/platform-catalog.json", headers: headers(correlation: "catalog-remove"), params: {
+      platform_profile: "wordpress", base_catalog_revision: revision, segments: segments,
+      correlation_id: "catalog-remove",
+    }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(work.reload).to have_attributes(state: "operator_attention", resolution_error: "operator_action_required")
+    claim(correlation: "catalog-remove-claim")
+    expect(response.parsed_body.fetch("publication_work")).to be_empty
+  end
 end

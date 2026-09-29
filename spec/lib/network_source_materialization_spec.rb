@@ -142,4 +142,18 @@ describe DiscussionBridge::SourceRevisionMaterializer do
       ),
     ).to eq("policy_removed")
   end
+
+  it "keeps private-category source content out of network materialization" do
+    category.update!(read_restricted: true)
+    expect(Guardian.new(nil).can_see?(@topic.reload)).to be(false)
+
+    result = DiscussionBridge::SourceRevisionMaterializer.call(
+      record: @record,
+      connection: @connection,
+    )
+
+    expect(result.reason).to eq("scope_removed")
+    expect(result.revision).to be_nil
+    expect(@record.source_revisions).to be_empty
+  end
 end

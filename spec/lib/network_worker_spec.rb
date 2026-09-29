@@ -183,4 +183,22 @@ describe DiscussionBridge::NetworkWorker do
     expect(client.acknowledgements).to be_empty
     expect(client.failures).to be_empty
   end
+
+  %w[hold unpublish].each do |action|
+    it "applies network #{action} before terminal acknowledgement" do
+      initial = FakeNetworkPeerClient.new(work: work, detail: source_detail)
+      expect(described_class.call(@peer, client: initial)[:outcome]).to eq("acknowledged")
+      record = DiscussionBridgeBridgeRecord.last
+      expect(record.state).to eq("healthy")
+
+      passive = FakeNetworkPeerClient.new(work: work(action: action), detail: source_detail)
+      result = described_class.call(@peer, client: passive)
+
+      expect(result).to include(outcome: "acknowledged")
+      expect(result.dig(:result, "mutated")).to be(true)
+      expect(passive.acknowledgements.length).to eq(1)
+      expect(record.reload.state).to eq("attention")
+      expect(record.topic.reload).to have_attributes(closed: true, visible: false)
+    end
+  end
 end

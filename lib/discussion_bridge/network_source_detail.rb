@@ -19,18 +19,18 @@ module DiscussionBridge
       unless raw["source_revision_sequence"].is_a?(Integer) && raw["source_revision_sequence"].positive?
         raise AdapterRequestBoundary::Error, "validation_failed"
       end
-      raw["source_created_at"] = BridgeRecordRequest.send(
+      source_created_at = BridgeRecordRequest.send(
         :validate_timestamp!,
         raw["source_created_at"],
         "source_created_at",
       )
-      raw["source_updated_at"] = BridgeRecordRequest.send(
+      source_updated_at = BridgeRecordRequest.send(
         :validate_timestamp!,
         raw["source_updated_at"],
         "source_updated_at",
       )
       raise AdapterRequestBoundary::Error, "validation_failed" if
-        raw["source_updated_at"] < raw["source_created_at"]
+        source_updated_at < source_created_at
       raise AdapterRequestBoundary::Error, "validation_failed" unless
         raw["source_authors"].is_a?(Array) && raw["categories"].is_a?(Array) &&
           raw["tags"].is_a?(Array)
@@ -58,6 +58,7 @@ module DiscussionBridge
         SourcePublicationProtocol::SHA256_PATTERN.match?(transport["sha256"].to_s)
 
       materialized = content_html || transport["content_html"]
+      materialized = materialized.dup.force_encoding(Encoding::UTF_8) if materialized.is_a?(String)
       unless materialized.is_a?(String) && materialized.valid_encoding? &&
           materialized.bytesize == byte_length &&
           Digest::SHA256.hexdigest(materialized) == transport["sha256"]

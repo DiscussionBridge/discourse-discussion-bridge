@@ -279,4 +279,52 @@ describe DiscussionBridge::NetworkPeerClient do
       )
     end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("validation_failed") }
   end
+
+  it "rejects invalid UTF-8 and decoded chunks above the advertised maximum" do
+    [
+      { content: (("a" * 65_536).b + "\\xFF".b), lengths: [32_768, 32_768, 1] },
+      { content: ("a" * 65_537).b, lengths: [32_769, 32_767, 1] },
+    ].each do |test_case|
+      detail = fixture_detail
+      correlation = "network-invalid-chunk-#{test_case.fetch(:lengths).first}"
+      detail["correlation_id"] = correlation
+      offset = 0
+      chunks = test_case.fetch(:lengths).map do |length|
+        value = test_case.fetch(:content).byteslice(offset, length)
+        offset += length
+        value
+      end
+      detail["content_transport"] = {
+        "mode" => "chunked",
+        "media_type" => DiscussionBridge::SourcePublicationProtocol::MEDIA_TYPE,
+        "byte_length" => test_case.fetch(:content).bytesize,
+        "sha256" => Digest::SHA256.hexdigest(test_case.fetch(:content)),
+        "chunk_count" => chunks.length,
+        "decoded_chunk_maximum_bytes" => DiscussionBridge::SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES,
+      }
+      responses = [NetworkClientResponse.new(code: 200, payload: detail)]
+      chunks.each_with_index do |chunk, index|
+        responses << NetworkClientResponse.new(
+          code: 200,
+          payload: {
+            "source_revision" => detail.fetch("source_revision"),
+            "chunk" => index + 1,
+            "chunk_count" => chunks.length,
+            "decoded_bytes" => chunk.bytesize,
+            "chunk_sha256" => Digest::SHA256.hexdigest(chunk),
+            "content_base64" => Base64.strict_encode64(chunk),
+            "correlation_id" => correlation,
+          },
+        )
+      end
+      use_http(*responses)
+      expect do
+        described_class.new(@peer).source_detail(
+          topic_id: detail.fetch("topic_id"),
+          source_revision: detail.fetch("source_revision"),
+          correlation_id: correlation,
+        )
+      end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("integrity_failed") }
+    end
+  end
 end

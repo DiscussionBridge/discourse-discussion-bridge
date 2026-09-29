@@ -79,8 +79,9 @@ module DiscussionBridge
         )
       end
       content = chunks.join
+      content.force_encoding(Encoding::UTF_8)
       raise Error, "integrity_failed" unless content.bytesize == transport.fetch("byte_length") &&
-        Digest::SHA256.hexdigest(content) == transport.fetch("sha256")
+        Digest::SHA256.hexdigest(content) == transport.fetch("sha256") && content.valid_encoding?
 
       [payload, content]
     end
@@ -229,10 +230,13 @@ module DiscussionBridge
         raise Error, "validation_failed"
       end
       decoded = Base64.strict_decode64(payload.fetch("content_base64"))
-      unless decoded.bytesize == payload.fetch("decoded_bytes") &&
+      valid = decoded.bytesize == payload.fetch("decoded_bytes") &&
+          decoded.bytesize.between?(1, SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES) &&
+          (chunk == descriptor.fetch("chunk_count") ||
+            decoded.bytesize == SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES) &&
           Digest::SHA256.hexdigest(decoded) == payload.fetch("chunk_sha256")
-        raise Error, "integrity_failed"
-      end
+      raise Error, "integrity_failed" unless valid
+
       decoded
     rescue ArgumentError, KeyError
       raise Error, "validation_failed"

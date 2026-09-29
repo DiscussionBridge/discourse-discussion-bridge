@@ -171,7 +171,7 @@ module DiscussionBridge
       candidates.each do |candidate|
         break if claims.length >= maximum
 
-        unless currently_authorized?(candidate)
+        unless currently_authorized?(candidate, allow_withdrawal: true)
           candidate.update!(state: "superseded", superseded_at: now)
           next
         end
@@ -190,7 +190,8 @@ module DiscussionBridge
       work.with_lock do
         now = Time.zone.now
         raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
-        raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
+        raise AdapterRequestBoundary::Error, "scope_denied" unless
+          currently_authorized?(work, allow_policy_change: true)
         raise AdapterRequestBoundary::Error, "work_expired" unless
           %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
             work.lease_expires_at&.>(now)
@@ -211,6 +212,8 @@ module DiscussionBridge
     end
 
     def acknowledge(work_id:, payload:)
+      payload = payload.deep_stringify_keys
+      PublicationWorkProtocol.validate_acknowledgement_shape!(payload)
       work = find_work(work_id)
       digest = PublicationWorkProtocol.payload_digest(payload)
       existing = work.acknowledgements.find_by(stage: payload["stage"])
@@ -476,13 +479,16 @@ module DiscussionBridge
       claim
     end
 
-    def currently_authorized?(work)
+    def currently_authorized?(work, allow_withdrawal: false, allow_policy_change: false)
       binding = work.content_binding
+      if allow_withdrawal && %w[hold unpublish].include?(work.action)
+        return binding&.state == "active" && binding.content_connection_id == @connection.id
+      end
       policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
         candidate["destination_policy_id"] == work.destination_policy_id
       end
       @connection.enabled && @connection.allows_direction?("from_discourse") &&
-        @connection.policy_revision == work.policy_revision && policy.present? &&
+        (allow_policy_change || @connection.policy_revision == work.policy_revision) && policy.present? &&
         binding&.state == "active" && @connection.allows_lane?(work.bridge_record.lane) &&
         @connection.allows_origin?(binding.canonical_url)
     end
@@ -528,11 +534,11 @@ module DiscussionBridge
 
     def validate_acknowledgement!(work, payload)
       raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
-      raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
+      raise AdapterRequestBoundary::Error, "scope_denied" unless
+        currently_authorized?(work, allow_policy_change: true)
       raise AdapterRequestBoundary::Error, "stage_conflict" if
         PublicationWorkProtocol::STAGES.exclude?(payload["stage"])
       validate_work_identity!(work, payload)
-      PublicationWorkProtocol.validate_destination_binding!(payload.fetch("destination_binding"))
       validate_destination_identity!(work, payload.fetch("destination_binding"))
       raise AdapterRequestBoundary::Error, "lease_conflict" unless
         PublicationWorkProtocol.secure_token_match?(work.lease_token_digest, payload["lease_token"])
@@ -580,7 +586,7 @@ module DiscussionBridge
         raise AdapterRequestBoundary::Error, "stage_conflict" unless work.last_acknowledged_stage.nil?
         dynamic = !static_deployment?(work)
         valid = if dynamic
-          payload["verification_state"] == "not_required"
+          payload["deployment_state"] == "not_required" && payload["verification_state"] == "not_required"
         else
           payload["deployment_state"] == "pending" && payload["verification_state"] == "pending"
         end
@@ -612,8 +618,7 @@ module DiscussionBridge
       policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
         candidate["destination_policy_id"] == work.destination_policy_id
       end
-      raise AdapterRequestBoundary::Error, "policy_denied" unless
-        policy && @connection.policy_revision == work.policy_revision
+      raise AdapterRequestBoundary::Error, "policy_denied" unless policy
 
       ConnectionCapability.static_deployment_policy?(policy)
     end

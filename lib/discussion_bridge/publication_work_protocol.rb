@@ -106,7 +106,7 @@ module DiscussionBridge
     MAXIMUM_TOTAL_ATTEMPTS = 4
     WORKER_ID_MAXIMUM_BYTES = 200
     ERROR_DETAIL_MAXIMUM_BYTES = 2_048
-    SECRET_LIKE_PATTERN = /(?:\b(?:authorization|x-discussionbridge-(?:secret|connection))\b\s*[:=]|\b(?:bearer|basic)\s+|\b[a-f0-9]{32,}\b|\b[A-Za-z0-9+\/_-]{40,}={0,2}\b)/i
+    SECRET_LIKE_PATTERN = /(?:\b(?:authorization|x-discussionbridge-(?:secret|connection))\b\s*[:=]|\b(?:bearer|basic)\s+|[a-f0-9]{32,}|[A-Za-z0-9+\/_-]{40,}={0,2})/i
     WORK_ID_PATTERN = /\Adbw_[a-f0-9]{32}\z/
     TOKEN_PATTERN = /\A[a-f0-9]{64}\z/
     ISO8601_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/
@@ -143,6 +143,14 @@ module DiscussionBridge
       end
       raise AdapterRequestBoundary::Error, "validation_failed" if
         BridgeRecordRequest::CONTENT_DISPOSITIONS.exclude?(binding["content_disposition"])
+    end
+
+    def self.validate_acknowledgement_shape!(payload)
+      keys = payload.keys.map(&:to_s)
+      raise AdapterRequestBoundary::Error, "validation_failed" unless
+        (ACK_REQUIRED_FIELDS - keys).empty? &&
+          (keys - ACK_REQUIRED_FIELDS - ACK_OPTIONAL_FIELDS).empty?
+      validate_destination_binding!(payload["destination_binding"])
     end
 
     def self.exact_object!(value, fields)

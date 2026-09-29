@@ -176,7 +176,54 @@ describe DiscussionBridge::NetworkReceiver do
     expect(first_post.raw.bytesize).to be <= 49_152
     expect(first_post.raw.length).to be <= SiteSetting.max_post_length
     expect(first_post.cooked).to include("Read More")
+    expect(first_post.cooked).to include("This is an excerpt.")
     expect(first_post.cooked).to include(oversized.fetch("topic_url"))
     expect(record.source_content_bytes).to eq(oversized_body.bytesize)
+  end
+
+  it "keeps multibyte overflow inside native limits and the excerpt grammar" do
+    detail = source_detail
+    body = "<p>#{"漢" * 20_000}</p>"
+    detail["content_transport"].merge!(
+      "byte_length" => body.bytesize,
+      "sha256" => Digest::SHA256.hexdigest(body),
+      "content_html" => body,
+    )
+    parsed = DiscussionBridge::NetworkSourceDetail.call(payload: detail)
+    receiver = described_class.new(
+      peer: @peer,
+      source_detail: detail,
+      policy_revision: "policy:2026-09-27:1",
+      content_html: nil,
+    )
+    output = receiver.send(
+      :content_for_destination,
+      parsed,
+      parsed.fetch("network_provenance"),
+      @connection,
+    )
+    expect(
+      DiscussionBridge::BridgeRecordRequest.send(
+        :valid_excerpt_markup?,
+        output.fetch(:content_html),
+        output.fetch(:read_more_url),
+      ),
+    ).to be(true)
+    expect(output.fetch(:content_html).bytesize).to be <= 49_152
+  end
+
+  it "preserves the exact network source timestamp wire value" do
+    detail = source_detail
+    timestamp = "2026-09-27T18:00:00.123456789Z"
+    detail["source_created_at"] = timestamp
+    detail["source_updated_at"] = timestamp
+    result = described_class.call(
+      peer: @peer,
+      source_detail: detail,
+      policy_revision: "policy:2026-09-27:1",
+    )
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: result.fetch("resource_id"))
+    expect(record.source_created_at_wire).to eq(timestamp)
+    expect(record.source_updated_at_wire).to eq(timestamp)
   end
 end

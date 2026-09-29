@@ -74,19 +74,19 @@ end
 #  canonical_url_digest      :string(64)       not null
 #  content_disposition       :string(16)
 #  deployed_at               :datetime
-#  deployed_at_wire          :string(40)
+#  deployed_at_wire          :text
 #  deployment_state          :string(32)       default("not_required"), not null
 #  identity_digest           :string(64)       not null
 #  native_materialization    :boolean          default(FALSE), not null
 #  presentation_mode         :string(32)
 #  publication_revision      :string(255)
 #  publicly_verified_at      :datetime
-#  publicly_verified_at_wire :string(40)
+#  publicly_verified_at_wire :text
 #  retired_at                :datetime
 #  role                      :string(32)       not null
 #  state                     :string(32)       default("active"), not null
 #  synchronized_at           :datetime
-#  synchronized_at_wire      :string(40)
+#  synchronized_at_wire      :text
 #  verification_state        :string(32)       default("not_required"), not null
 #  created_at                :datetime         not null
 #  updated_at                :datetime         not null

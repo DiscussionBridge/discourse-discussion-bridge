@@ -268,6 +268,36 @@ describe DiscussionBridge::OperatorEntitlementVerifier do
     }
   end
 
+  it "rejects a correctly signed impossible calendar date" do
+    key = OpenSSL::PKey.generate_key("ED25519")
+    DiscussionBridgeOperatorTrustedKey.create!(
+      issuer_id: "dbi_99999999999999999999999999999999",
+      key_id: "invalid-calendar",
+      public_key_base64url: raw_public_key(key),
+      enrolled_by: admin,
+      enrolled_at: Time.zone.now,
+    )
+    claims = vector.except("signature").merge(
+      "issuer_id" => "dbi_99999999999999999999999999999999",
+      "key_id" => "invalid-calendar",
+      "issued_at" => "2026-02-30T00:00:00Z",
+      "not_before" => "2026-02-30T00:00:00Z",
+      "expires_at" => "2026-03-03T00:00:00Z",
+      "grace_until" => "2026-03-03T00:00:00Z",
+    )
+
+    expect do
+      described_class.call(
+        payload: signed_payload(key, claims),
+        enrollment: enrollment,
+        actor: admin,
+        at: Time.iso8601("2026-03-02T01:00:00Z"),
+      )
+    end.to raise_error(described_class::VerificationError) { |error|
+      expect(error.code).to eq("entitlement_invalid_signature")
+    }
+  end
+
   def raw_public_key(key)
     raw = OpenSSL::ASN1.decode(key.public_to_der).value.last.value
     Base64.urlsafe_encode64(raw, padding: false)

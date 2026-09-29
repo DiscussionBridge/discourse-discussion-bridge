@@ -1,0 +1,45 @@
+{
+  "commit": "9e64b4a83d5fd439ffa19e59edbc9682adb2c536",
+  "files": [
+    {
+      "file": "20260802000001_create_discussion_bridge_connections.rb",
+      "sha256": "bea6a43feb6ec0bdd922b4e9bb4cf2a2bc2bca2daba2da53ed578618fd0805ca"
+    },
+    {
+      "file": "20260802000002_create_discussion_bridge_audit_events.rb",
+      "sha256": "f487e045f55d5cfb11a3eb426ad59a4900bdc0bdc667b8179dd30cab9675d300"
+    },
+    {
+      "file": "20260803000001_add_retry_authorization_to_discussion_bridge_connections.rb",
+      "sha256": "d84cf3b6c72f0fff0cde33ef57dc3db593eb8edd59daf78a0c88a6c387c7f2d0"
+    },
+    {
+      "file": "20260829000001_create_discussion_bridge_product_model.rb",
+      "sha256": "e072b2afeeac89170cbd2f545e1a5b598e1f1ebe90a0cfd30b78679ca5ca3b04"
+    },
+    {
+      "file": "20260830000001_add_author_to_discussion_bridge_content_connections.rb",
+      "sha256": "98cc2ce09e277e75992abc9ee3860539284da79cce386694355dd5e232152781"
+    },
+    {
+      "file": "20260830000002_add_source_authorship_to_discussion_bridge.rb",
+      "sha256": "387560dbd0237d32ea050322bcd28de72217a9f93c28097f8f76970e5b754d46"
+    },
+    {
+      "file": "20260831000001_add_topic_toc_to_discussion_bridge_content_connections.rb",
+      "sha256": "948441cbd18017c70cd1be7b7794ed4ea94452e5454b9df2f29dbe7d3411284c"
+    },
+    {
+      "file": "20260901000001_add_native_materialization_to_discussion_bridge_bindings.rb",
+      "sha256": "075cd2c5994a675d9972f803d9c1c95499ddff6fa9b612ffa6a1b3a338d2e5a5"
+    },
+    {
+      "file": "20260903000001_backfill_from_discourse_record_lanes.rb",
+      "sha256": "9ce94327e8b04a49a28af397efc6d5bb0896de193a39108cc5a6769858af4831"
+    },
+    {
+      "file": "20260914000001_add_default_category_to_discussion_bridge_content_connections.rb",
+      "sha256": "fe053647ca76754f98d904cebdc8a34c46996cb81b1d6f4ac80d52ee40dcfc9d"
+    }
+  ]
+}
