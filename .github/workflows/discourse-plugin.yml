@@ -14,14 +14,17 @@ jobs:
     steps:
       - name: Record runner image provenance
         run: |
-          test -n "${ImageOS:-}"
-          test -n "${ImageVersion:-}"
           {
-            echo "runner_image_os=${ImageOS}"
-            echo "runner_image_version=${ImageVersion}"
+            if [ -n "${ImageOS:-}" ] && [ -n "${ImageVersion:-}" ]; then
+              echo "runner_image_os=${ImageOS}"
+              echo "runner_image_version=${ImageVersion}"
+            else
+              echo "runner_image_provenance=GitHub Set up job log for ${GITHUB_RUN_ID}/${GITHUB_JOB}"
+            fi
             echo "runner_os=${{ runner.os }}"
             echo "runner_arch=${{ runner.arch }}"
             echo "runner_environment=${{ runner.environment }}"
+            echo "runner_name=${{ runner.name }}"
             echo "workflow_sha=${{ github.sha }}"
             echo "workflow_run_id=${{ github.run_id }}"
             echo "workflow_run_attempt=${{ github.run_attempt }}"

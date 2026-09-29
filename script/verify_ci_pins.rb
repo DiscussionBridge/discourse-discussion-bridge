@@ -38,6 +38,7 @@ errors << "Every CI job must record runner image provenance" unless
     workflow_paths.all? do |path|
       workflow = File.read(path)
       workflow.include?("ImageOS") && workflow.include?("ImageVersion") &&
+        workflow.include?("runner_image_provenance=GitHub Set up job log") &&
         workflow.include?("GITHUB_STEP_SUMMARY")
     end
 errors << "Compatibility workflow may override the immutable Discourse core_ref" if
