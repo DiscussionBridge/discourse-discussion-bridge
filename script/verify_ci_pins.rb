@@ -45,6 +45,8 @@ errors << "Compatibility workflow may override the immutable Discourse core_ref"
   pinned_workflow.match?(/release\/\d{4}\.\d+|release\/\#\{|BASE_REF[^\n]*core_ref/i)
 errors << "CI downloads a mutable Playwright/browser runtime" if
   pinned_workflow.match?(/\bplaywright\s+install\b/)
+errors << "CI does not use the browser cache baked into the pinned Discourse test image" unless
+  pinned_workflow.match?(/^\s*PLAYWRIGHT_BROWSERS_PATH:\s*\/home\/discourse\/\.cache\/ms-playwright\s*$/)
 errors << "CI may download mutable pre-built Core assets" unless
   pinned_workflow.match?(/^\s*export DISCOURSE_DOWNLOAD_PRE_BUILT_ASSETS=0\s*$/)
 
