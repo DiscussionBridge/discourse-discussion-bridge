@@ -11,17 +11,17 @@ manifest = JSON.parse(File.read(manifest_path, encoding: "UTF-8"))
 plugin = File.read(plugin_path, encoding: "UTF-8")
 boundary = File.read(boundary_path, encoding: "UTF-8")
 
-def unique_capture(text, pattern, name)
+unique_capture = lambda do |text, pattern, name|
   matches = text.scan(pattern).flatten
   abort "#{name} must occur exactly once" unless matches.length == 1
 
   matches.fetch(0)
 end
 
-header_version = unique_capture(plugin, /^# version:\s*(\S+)\s*$/, "plugin header version")
-runtime_version = unique_capture(plugin, /^\s*VERSION = "([^"]+)"\s*$/, "runtime plugin version")
-runtime_contract = unique_capture(plugin, /^\s*CONTRACT_VERSION = "([^"]+)"\s*$/, "runtime contract version")
-boundary_contract = unique_capture(
+header_version = unique_capture.call(plugin, /^# version:\s*(\S+)\s*$/, "plugin header version")
+runtime_version = unique_capture.call(plugin, /^\s*VERSION = "([^"]+)"\s*$/, "runtime plugin version")
+runtime_contract = unique_capture.call(plugin, /^\s*CONTRACT_VERSION = "([^"]+)"\s*$/, "runtime contract version")
+boundary_contract = unique_capture.call(
   boundary,
   /^\s*CONTRACT_VERSION = "([^"]+)"\s*$/,
   "request-boundary contract version",
