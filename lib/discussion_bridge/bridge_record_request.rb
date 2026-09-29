@@ -4,7 +4,6 @@ require "json"
 require "digest"
 require "time"
 require "date"
-require "nokogiri"
 
 module DiscussionBridge
   module BridgeRecordRequest
@@ -153,6 +152,8 @@ module DiscussionBridge
     private_class_method :validate_content_identity!
 
     def self.valid_excerpt_markup?(content_html, read_more_url)
+      require "nokogiri"
+
       document = Nokogiri::HTML5.fragment(content_html)
       document.css("script,style,template,[hidden],[aria-hidden='true']").remove
       visible_text = document.xpath(".//text()[not(ancestor::script) and not(ancestor::style) and not(ancestor::template)]")
