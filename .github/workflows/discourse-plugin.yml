@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout plugin
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Verify release identity
+        run: ruby script/verify_release_identity.rb
       - name: Checkout released Adapter Protocol
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
