@@ -93,14 +93,14 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     ]
   end
 
-  def install_catalog
+  def install_catalog(authors: [{ "id" => "author:editor", "name" => "Editor", "available" => true }])
     correlation = "catalog-install-1"
     put "/discussion-bridge/v1/platform-catalog.json",
         headers: headers(correlation: correlation),
         params: {
           platform_profile: "wordpress",
           base_catalog_revision: destination_policy.fetch("catalog_revision"),
-          segments: catalog_segments,
+          segments: catalog_segments(authors: authors),
           correlation_id: correlation,
         },
         as: :json
@@ -108,6 +108,13 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     revision = response.parsed_body.fetch("catalog_revision")
     @connection.update!(destination_policies: [destination_policy(catalog_revision: revision)])
     revision
+  end
+
+  def make_destination_static!
+    policy = @connection.destination_policies.sole.deep_stringify_keys
+    policy["profile"] = "astro"
+    @connection.platform_catalogs.update_all(platform_profile: "astro")
+    @connection.update!(platform: "astro", destination_policies: [policy])
   end
 
   def create_source(content: "<p>Publication body</p>")
@@ -237,6 +244,37 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     )
   end
 
+  it "binds a signed catalog cursor to its requested segment" do
+    revision = install_catalog(
+      authors: [
+        { "id" => "author:editor", "name" => "Editor", "available" => true },
+        { "id" => "author:writer", "name" => "Writer", "available" => true },
+      ],
+    )
+    get "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "catalog-cursor-authors"),
+        params: {
+          platform_profile: "wordpress",
+          segment_type: "authors",
+          catalog_revision: revision,
+          limit: 1,
+        }
+    expect(response).to have_http_status(:ok), response.body
+    cursor = response.parsed_body.fetch("next_cursor")
+
+    get "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "catalog-cursor-containers"),
+        params: {
+          platform_profile: "wordpress",
+          segment_type: "containers",
+          catalog_revision: revision,
+          cursor: cursor,
+          limit: 1,
+        }
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("cursor_snapshot_mismatch")
+  end
+
   it "claims exact resolved work, renews its bounded lease, and completes a dynamic destination" do
     install_catalog
     _, _, record = create_source
@@ -265,6 +303,21 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
          as: :json
     expect(response).to have_http_status(:ok), response.body
     expect(response.parsed_body.fetch("total_lease_seconds")).to eq(360)
+
+    forged_static_correlation = "ack-dynamic-forged-static"
+    forged_static = acknowledgement(
+      claimed,
+      record,
+      correlation: forged_static_correlation,
+      deployment_state: "pending",
+      verification_state: "pending",
+    )
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: forged_static_correlation),
+        params: forged_static,
+        as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("stage_conflict")
 
     ack_correlation = "ack-dynamic-1"
     body = acknowledgement(claimed, record, correlation: ack_correlation)
@@ -296,11 +349,24 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
 
   it "rotates exact static stage tokens and rejects changed replay" do
     install_catalog
+    make_destination_static!
     _, _, record = create_source
     materialize_source
     claim(correlation: "static-claim")
     claimed = response.parsed_body.fetch("publication_work").sole
     synchronized_at = Time.zone.now.iso8601(6)
+
+    forged_dynamic_correlation = "static-forged-dynamic"
+    forged_dynamic = acknowledgement(
+      claimed,
+      record,
+      correlation: forged_dynamic_correlation,
+      synchronized_at: synchronized_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: forged_dynamic_correlation), params: forged_dynamic, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("stage_conflict")
 
     sync_correlation = "static-sync"
     sync = acknowledgement(
@@ -359,10 +425,22 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         headers: headers(correlation: verified_correlation), params: verified, as: :json
     expect(response).to have_http_status(:ok), response.body
     expect(response.parsed_body).to include("resulting_state" => "acknowledged", "terminal" => true)
+    work = DiscussionBridgePublicationWork.find_by!(work_id: claimed.fetch("work_id"))
+    expect(work).to have_attributes(
+      synchronized_at_wire: synchronized_at,
+      deployed_at_wire: deployed_at,
+      publicly_verified_at_wire: verified.fetch(:publicly_verified_at),
+    )
+    expect(record.active_binding("presentation").reload).to have_attributes(
+      synchronized_at_wire: synchronized_at,
+      deployed_at_wire: deployed_at,
+      publicly_verified_at_wire: verified.fetch(:publicly_verified_at),
+    )
   end
 
   it "resumes retryable static work from its last acknowledged stage" do
     install_catalog
+    make_destination_static!
     _, _, record = create_source
     materialize_source
     claim(correlation: "resume-static-initial")
@@ -490,6 +568,56 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(work.reload).to have_attributes(state: "acknowledged", last_acknowledged_stage: "verified")
   end
 
+  it "reclaims expired post-sync static work without repeating synchronization" do
+    install_catalog
+    make_destination_static!
+    _, _, record = create_source
+    materialize_source
+    claim(correlation: "expired-static-initial", lease_seconds: 60)
+    initial = response.parsed_body.fetch("publication_work").sole
+    synchronized_at = Time.zone.now.iso8601(9)
+    synchronized = acknowledgement(
+      initial,
+      record,
+      correlation: "expired-static-synchronized",
+      deployment_state: "pending",
+      verification_state: "pending",
+      synchronized_at: synchronized_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{initial.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "expired-static-synchronized"),
+        params: synchronized,
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    work = DiscussionBridgePublicationWork.find_by!(work_id: initial.fetch("work_id"))
+    expect(work).to have_attributes(state: "awaiting_deployment", last_acknowledged_stage: "synchronized")
+
+    travel_to(work.lease_expires_at + 1.second)
+    claim(correlation: "expired-static-reclaim", lease_seconds: 60)
+    reclaimed = response.parsed_body.fetch("publication_work").sole
+    expect(reclaimed).to include("work_id" => initial.fetch("work_id"), "attempt_count" => 1)
+    expect(reclaimed.fetch("lease_token")).not_to eq(initial.fetch("lease_token"))
+    expect(reclaimed.fetch("stage_token")).not_to eq(initial.fetch("stage_token"))
+    expect(work.reload).to have_attributes(
+      state: "awaiting_deployment",
+      last_acknowledged_stage: "synchronized",
+      synchronized_at_wire: synchronized_at,
+    )
+
+    repeated = acknowledgement(
+      reclaimed,
+      record,
+      correlation: "expired-static-repeat-sync",
+      deployment_state: "pending",
+      verification_state: "pending",
+      synchronized_at: synchronized_at,
+    )
+    put "/discussion-bridge/v1/publication-work/#{reclaimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "expired-static-repeat-sync"), params: repeated, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("stage_conflict")
+  end
+
   it "applies the exact retry schedule, exhaustion, and authorized manual retry generation" do
     install_catalog
     create_source
@@ -558,6 +686,32 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         headers: headers(correlation: correlation), params: late, as: :json
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body.fetch("error_code")).to eq("work_superseded")
+  end
+
+  it "rejects renewal and acknowledgement after current scope narrows" do
+    install_catalog
+    _, _, record = create_source
+    materialize_source
+    claim(correlation: "scope-narrowing-claim")
+    claimed = response.parsed_body.fetch("publication_work").sole
+    @connection.update!(allowed_lanes: ["news"])
+
+    post "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/renew.json",
+         headers: headers(correlation: "scope-narrowing-renew"),
+         params: {
+           lease_token: claimed.fetch("lease_token"),
+           requested_lease_seconds: 60,
+           correlation_id: "scope-narrowing-renew",
+         },
+         as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+
+    body = acknowledgement(claimed, record, correlation: "scope-narrowing-ack")
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "scope-narrowing-ack"), params: body, as: :json
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
   end
 
   it "rejects unknown nested fields and prevents catalog profile authority expansion" do

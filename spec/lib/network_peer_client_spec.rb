@@ -98,7 +98,11 @@ describe DiscussionBridge::NetworkPeerClient do
     http = use_http(
       NetworkClientResponse.new(
         code: 200,
-        payload: { "publication_work" => [], "claimed_at" => Time.zone.now.iso8601(6) },
+        payload: {
+          "publication_work" => [],
+          "claimed_at" => Time.zone.now.iso8601(6),
+          "correlation_id" => "network-claim-1234",
+        },
       ),
     )
 
@@ -120,6 +124,7 @@ describe DiscussionBridge::NetworkPeerClient do
 
   it "reassembles and verifies exact bounded chunk responses" do
     detail = fixture_detail
+    detail["correlation_id"] = "network-source-1234"
     content = "<p>#{"network publication " * 4_000}</p>"
     chunks = content.bytes.each_slice(DiscussionBridge::SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES)
       .map { |bytes| bytes.pack("C*") }
@@ -159,6 +164,23 @@ describe DiscussionBridge::NetworkPeerClient do
     expect(http.requests.length).to eq(chunks.length + 1)
   end
 
+  it "rejects a successful peer response with the wrong correlation identity" do
+    use_http(
+      NetworkClientResponse.new(
+        code: 200,
+        payload: {
+          "publication_work" => [],
+          "claimed_at" => Time.zone.now.iso8601(6),
+          "correlation_id" => "different-request",
+        },
+      ),
+    )
+
+    expect do
+      described_class.new(@peer).claim(correlation_id: "network-claim-1234")
+    end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("validation_failed") }
+  end
+
   it "fails closed on an oversized or non-JSON peer response" do
     oversized = use_http(
       NetworkClientResponse.new(code: 200, payload: "{" + ("x" * 65_536)),
@@ -172,5 +194,89 @@ describe DiscussionBridge::NetworkPeerClient do
     expect do
       described_class.new(@peer).claim(correlation_id: "network-claim-not-json")
     end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("destination_unavailable") }
+  end
+
+  it "rejects a malformed chunk relationship before requesting content" do
+    detail = fixture_detail
+    detail["correlation_id"] = "network-source-malformed"
+    detail["content_transport"] = {
+      "mode" => "chunked",
+      "media_type" => DiscussionBridge::SourcePublicationProtocol::MEDIA_TYPE,
+      "byte_length" => (DiscussionBridge::SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES * 2) + 1,
+      "sha256" => "a" * 64,
+      "chunk_count" => 2,
+      "decoded_chunk_maximum_bytes" => DiscussionBridge::SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES,
+    }
+    http = use_http(NetworkClientResponse.new(code: 200, payload: detail))
+
+    expect do
+      described_class.new(@peer).source_detail(
+        topic_id: detail.fetch("topic_id"),
+        source_revision: detail.fetch("source_revision"),
+        correlation_id: "network-source-malformed",
+      )
+    end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("validation_failed") }
+    expect(http.requests.length).to eq(1)
+  end
+
+  it "accepts only the exact terminal acknowledgement relationship" do
+    work = {
+      "work_id" => "dbw_#{"1" * 32}",
+      "resource_id" => "dbr_#{"2" * 32}",
+      "source_revision" => "remote:revision:1",
+      "source_revision_sequence" => 1,
+      "policy_revision" => "policy:network:1",
+      "destination_policy_id" => "destination:network:1",
+      "action" => "publish",
+      "lease_token" => "3" * 64,
+      "stage_token" => "4" * 64,
+    }
+    binding = {
+      binding_id: "dbb_#{"5" * 32}",
+      external_id: "remote-page",
+      canonical_url: "https://national.example/remote-page",
+      publication_revision: "post:1:version:1",
+      content_disposition: "complete",
+    }
+    correlation = "network-ack-exact"
+    use_http(
+      NetworkClientResponse.new(
+        code: 200,
+        payload: {
+          "work_id" => work.fetch("work_id"),
+          "accepted_stage" => "synchronized",
+          "resulting_state" => "acknowledged",
+          "terminal" => true,
+          "correlation_id" => correlation,
+        },
+      ),
+    )
+    expect(
+      described_class.new(@peer).acknowledge(
+        work: work,
+        destination_binding: binding,
+        correlation_id: correlation,
+      ),
+    ).to include("terminal" => true)
+
+    use_http(
+      NetworkClientResponse.new(
+        code: 200,
+        payload: {
+          "work_id" => "dbw_#{"9" * 32}",
+          "accepted_stage" => "synchronized",
+          "resulting_state" => "acknowledged",
+          "terminal" => true,
+          "correlation_id" => correlation,
+        },
+      ),
+    )
+    expect do
+      described_class.new(@peer).acknowledge(
+        work: work,
+        destination_binding: binding,
+        correlation_id: correlation,
+      )
+    end.to raise_error(described_class::Error) { |error| expect(error.error_code).to eq("validation_failed") }
   end
 end

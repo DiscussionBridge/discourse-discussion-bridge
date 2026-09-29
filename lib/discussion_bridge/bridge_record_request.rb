@@ -3,6 +3,8 @@
 require "json"
 require "digest"
 require "time"
+require "date"
+require "nokogiri"
 
 module DiscussionBridge
   module BridgeRecordRequest
@@ -75,6 +77,8 @@ module DiscussionBridge
       unless sequence.is_a?(Integer) && sequence.between?(1, ConnectionRequest::MAX_SAFE_INTEGER)
         raise ArgumentError, "invalid source_revision_sequence"
       end
+      raw["source_created_at_wire"] = raw["source_created_at"]
+      raw["source_updated_at_wire"] = raw["source_updated_at"]
       raw["source_created_at"] = validate_timestamp!(raw["source_created_at"], "source_created_at")
       raw["source_updated_at"] = validate_timestamp!(raw["source_updated_at"], "source_updated_at")
       raise ArgumentError, "invalid source_updated_at" if raw["source_updated_at"] < raw["source_created_at"]
@@ -88,7 +92,11 @@ module DiscussionBridge
                   when "correlation_id" then MAX_CORRELATION_ID_BYTES
                   else ConnectionRequest::MAX_VISIBILITY_BYTES
                   end
-        validate_string!(raw[key], key, maximum, identifier: key != "visibility")
+        if key == "correlation_id"
+          raise ArgumentError, "invalid correlation_id" unless AdapterRequestBoundary.valid_correlation?(raw[key])
+        else
+          validate_string!(raw[key], key, maximum, identifier: key != "visibility")
+        end
       end
       raise ArgumentError, "invalid lane" if raw.key?("lane") && !LanePolicies::LANE_PATTERN.match?(raw["lane"])
       raise ArgumentError, "invalid visibility" if raw.key?("visibility") && raw["visibility"] != "unlisted"
@@ -110,8 +118,8 @@ module DiscussionBridge
         raise AdapterRequestBoundary::Error, "malformed_value"
       end
 
-      parsed = Time.iso8601(value)
-      parsed.change(nsec: (parsed.nsec / 1000) * 1000)
+      DateTime.rfc3339(value)
+      Time.iso8601(value)
     rescue ArgumentError
       raise AdapterRequestBoundary::Error, "malformed_value"
     end
@@ -137,13 +145,27 @@ module DiscussionBridge
       else
         read_more_url = raw["read_more_url"]
         unless read_more_url == raw["canonical_url"] && source_bytes > content_html.bytesize &&
-            content_html.match?(/excerpt/i) && content_html.include?("Read More") &&
-            content_html.include?(read_more_url)
+            valid_excerpt_markup?(content_html, read_more_url)
           raise ArgumentError, "invalid excerpt"
         end
       end
     end
     private_class_method :validate_content_identity!
+
+    def self.valid_excerpt_markup?(content_html, read_more_url)
+      document = Nokogiri::HTML5.fragment(content_html)
+      document.css("script,style,template,[hidden],[aria-hidden='true']").remove
+      visible_text = document.xpath(".//text()[not(ancestor::script) and not(ancestor::style) and not(ancestor::template)]")
+        .map(&:text).join(" ").squish
+      return false unless visible_text.match?(/\bexcerpt\b/i)
+
+      document.css("a[href]").any? do |link|
+        link["href"] == read_more_url && link.text.squish.match?(/\ARead More\z/i)
+      end
+    rescue Nokogiri::XML::SyntaxError
+      false
+    end
+    private_class_method :valid_excerpt_markup?
 
     def self.validate_string!(value, name, maximum, identifier:, strip: true)
       valid = value.is_a?(String) && value.valid_encoding? && value.present? &&

@@ -123,7 +123,50 @@ module DiscussionBridge
       raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
       raw[:allowed_lanes] = Array(raw[:allowed_lanes]).map(&:to_s) if raw.key?(:allowed_lanes)
       configure_discourse_network!(raw, existing: existing) if raw.key?(:network_enabled)
+      configure_publication_policy!(raw, existing: existing) if
+        !ActiveModel::Type::Boolean.new.cast(raw.fetch(:network_enabled, existing&.network_enabled)) &&
+          (existing.nil? || raw.key?(:platform) || raw.key?(:allowed_directions) || raw.key?(:network_enabled))
       raw
+    end
+
+    def configure_publication_policy!(raw, existing:)
+      platform = raw[:platform] || existing&.platform
+      directions = raw[:allowed_directions] || existing&.allowed_directions || []
+      if Array(directions).exclude?("from_discourse")
+        raw[:destination_policies] = []
+        raw[:policy_revision] = nil
+        raw[:catalog_required] = false
+        return
+      end
+
+      profile = {
+        "astro" => "astro",
+        "discourse" => "discourse_as_publisher",
+        "ghost" => "ghost",
+        "hugo" => "hugo",
+        "statamic" => "statamic_db",
+        "wordpress" => "wordpress",
+      }.fetch(platform) { raise ArgumentError, "platform cannot receive From Discourse publications" }
+      catalog_revision = "catalog:#{profile}:initial"
+      policy = {
+        "destination_policy_id" => "destination:#{profile}:default",
+        "profile" => profile,
+        "presentation_mode" => "interactive",
+        "container_mapping" => {
+          "source" => "discourse:topics",
+          "destination" => "#{profile}:default",
+        },
+        "taxonomy_mapping" => { "mode" => "source_attribution" },
+        "author_mapping" => { "mode" => "source_attribution" },
+        "native_limit_policy" => {
+          "maximum_bytes" => BridgeRecordRequest::MAX_CONTENT_HTML_BYTES,
+          "overflow_behavior" => "excerpt_with_read_more",
+        },
+        "catalog_revision" => catalog_revision,
+      }
+      raw[:destination_policies] = [policy]
+      raw[:policy_revision] = "policy:admin:#{Digest::SHA256.hexdigest(JSON.generate(policy))[0, 32]}"
+      raw[:catalog_required] = profile != "discourse_as_publisher"
     end
 
     def configure_discourse_network!(raw, existing:)
@@ -132,11 +175,6 @@ module DiscussionBridge
       unless enabled
         raw[:network_peer_forum_id] = nil
         raw[:network_relationship] = nil
-        if (raw[:platform] || existing&.platform) == "discourse"
-          raw[:destination_policies] = []
-          raw[:policy_revision] = nil
-          raw[:catalog_required] = false
-        end
         return
       end
 
@@ -205,6 +243,9 @@ module DiscussionBridge
         network_enabled: connection.network_enabled,
         network_peer_forum_id: connection.network_peer_forum_id,
         network_relationship: connection.network_relationship,
+        policy_revision: connection.policy_revision,
+        destination_policies: connection.destination_policies,
+        catalog_required: connection.catalog_required,
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
         attention_count: attention_records,

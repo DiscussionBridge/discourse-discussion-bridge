@@ -1,0 +1,26 @@
+{
+  "private": true,
+  "devDependencies": {
+    "@discourse/lint-configs": "3.2.0",
+    "eslint": "10.6.0",
+    "prettier": "3.8.1",
+    "stylelint": "17.5.0"
+  },
+  "scripts": {
+    "lint": "corepack pnpm run lint:js && corepack pnpm run lint:css && corepack pnpm run lint:prettier",
+    "lint:fix": "corepack pnpm run lint:js:fix && corepack pnpm run lint:css:fix && corepack pnpm run lint:prettier:fix",
+    "lint:css": "corepack pnpm stylelint 'assets/stylesheets/**/*.scss' --allow-empty-input",
+    "lint:css:fix": "corepack pnpm stylelint 'assets/stylesheets/**/*.scss' --fix --allow-empty-input",
+    "lint:js": "eslint {assets,admin/assets,test}/javascripts --cache --no-error-on-unmatched-pattern",
+    "lint:js:fix": "eslint {assets,admin/assets,test}/javascripts --fix --no-error-on-unmatched-pattern",
+    "lint:prettier": "corepack pnpm prettier 'assets/stylesheets/**/*.scss' '{assets,admin/assets,test}/javascripts/**/*.{js,gjs,ts,gts,mts,cts}' --check --no-error-on-unmatched-pattern",
+    "lint:prettier:fix": "corepack pnpm prettier 'assets/stylesheets/**/*.scss' '{assets,admin/assets,test}/javascripts/**/*.{js,gjs,ts,gts,mts,cts}' -w --no-error-on-unmatched-pattern"
+  },
+  "engines": {
+    "node": ">= 22",
+    "npm": "please-use-pnpm",
+    "yarn": "please-use-pnpm",
+    "pnpm": "^10"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

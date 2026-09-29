@@ -46,6 +46,7 @@ module DiscussionBridge
     NATIVE_LIMIT_POLICY_KEYS = %w[maximum_bytes overflow_behavior].freeze
     MAPPING_MODES = %w[mapped_only source_attribution].freeze
     OVERFLOW_BEHAVIORS = %w[complete excerpt_with_read_more operator_attention].freeze
+    STATIC_DEPLOYMENT_PROFILES = %w[astro hugo statamic_flat statamic_ssg].freeze
     BOUNDS = {
       resolve_json_bytes: 65_536,
       source_content_bytes: 16_777_216,
@@ -97,6 +98,10 @@ module DiscussionBridge
 
     def self.valid_policy_revision?(value)
       valid_label?(value, 255)
+    end
+
+    def self.static_deployment_policy?(policy)
+      STATIC_DEPLOYMENT_PROFILES.include?(policy.deep_stringify_keys["profile"])
     end
 
     def self.policies_within_connection_scope?(connection)

@@ -79,6 +79,10 @@ X-DiscussionBridge-Secret: ...
 ```http
 POST /discussion-bridge/v1/bridge-records/resolve.json
 Content-Type: application/json
+X-DiscussionBridge-Connection: dbc_0123456789abcdef01234567
+X-DiscussionBridge-Secret: <connection-secret>
+X-DiscussionBridge-Contract: 0.2.0-alpha.21
+X-DiscussionBridge-Correlation: delivery-1
 ```
 
 ```json
@@ -90,6 +94,14 @@ Content-Type: application/json
     "title": "Community guide discussion",
     "content_html": "<h2>Community guide</h2><p>The published article body.</p>",
     "published": true,
+    "presentation_mode": "interactive",
+    "source_revision": "publisher:post-482:revision:9",
+    "source_revision_sequence": 9,
+    "source_created_at": "2026-09-29T12:00:00Z",
+    "source_updated_at": "2026-09-29T12:05:00Z",
+    "content_disposition": "complete",
+    "source_content_bytes": 58,
+    "source_content_sha256": "026a15d19397cab84ee51fa315063a19956bb11a02feff01df0b04b9372f60d6",
     "visibility": "unlisted",
     "lane": "articles",
     "adapter_id": "publisher-adapter",
@@ -123,8 +135,10 @@ source author controls the topic owner; every reported source author is
 credited in the companion post. Mapping changes apply to future topics and do
 not silently reassign existing topics. The privileged operating identity
 remains separate from a non-privileged visible author. A retry with the same external
-identity and URL returns the same resource and topic without rewriting its
-first-published snapshot; conflicting identity claims fail closed.
+identity, URL, and revision returns the same resource and topic idempotently.
+A strictly newer source-revision sequence may update the managed first post
+under the same Bridge Record; conflicting or non-monotonic identity claims fail
+closed.
 
 The General tab also offers **Generate topic table of contents** per Content
 Connection. When enabled, a newly created To Discourse topic with at least two
@@ -148,12 +162,12 @@ GET /discussion-bridge/v1/bridge-records.json
 GET /discussion-bridge/v1/bridge-records/:resource_id.json
 ```
 
-For a From Discourse record, the response includes the first post's cooked HTML
-and a `source` object containing the exact forum origin, topic/post identity,
-post version, stable revision token, update timestamp, and visible author
-identity. Adapters use that revision to create or update native platform
-content idempotently; they must not infer change from mutable titles or URLs.
-The response never includes another connection's record.
+For a From Discourse record, the response identifies one immutable retained
+source revision. Its title, cooked first-post HTML (when within the inline
+bound), digest, revision token, and timestamps all come from that same retained
+revision. Adapters use that revision to create or update native platform content
+idempotently; they must not infer change from mutable titles or URLs. The
+response never includes another connection's record.
 
 ## Forum-wide settings
 

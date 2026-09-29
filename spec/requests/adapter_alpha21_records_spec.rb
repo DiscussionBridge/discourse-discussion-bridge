@@ -328,6 +328,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
       [payload(source_content_bytes: 16_777_217), :unprocessable_entity, "validation_failed"],
       [payload(source_content_sha256: "0" * 64), :unprocessable_entity, "integrity_failed"],
       [payload(source_updated_at: "2026-09-27T18:30:00+00:00"), :bad_request, "malformed_value"],
+      [payload(source_updated_at: "2026-02-30T18:30:00Z"), :bad_request, "malformed_value"],
     ]
     missing = payload
     missing[:bridge_record].delete(:source_revision)
@@ -377,6 +378,58 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
       source_content_bytes: 104_857,
       source_content_sha256: "a" * 64,
     )
+  end
+
+  it "rejects comment-only, plain-text, and hidden excerpt notices or Read More references" do
+    invalid_markup = [
+      "<!-- excerpt --><p>Read More</p>",
+      '<p>This excerpt is bounded. Read More</p>',
+      '<p hidden>This excerpt is bounded.</p><a href="https://publisher.example/articles/community-guide/">Read More</a>',
+      '<p>This excerpt is bounded.</p><a aria-hidden="true" href="https://publisher.example/articles/community-guide/">Read More</a>',
+    ]
+
+    invalid_markup.each_with_index do |content_html, index|
+      correlation = "invalid-excerpt-#{index}"
+      post "/discussion-bridge/v1/bridge-records/resolve.json",
+           headers: headers(correlation: correlation),
+           params: payload(
+             content_html: content_html,
+             correlation: correlation,
+             content_disposition: "excerpt",
+             source_content_bytes: content_html.bytesize + 1,
+             source_content_sha256: "a" * 64,
+             read_more_url: "https://publisher.example/articles/community-guide/",
+           ),
+           as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.parsed_body.fetch("error_code")).to eq("validation_failed")
+    end
+    expect(DiscussionBridgeBridgeRecord.count).to eq(0)
+  end
+
+  it "preserves nanosecond wire timestamps and rejects a same-sequence lexical change" do
+    exact = payload(
+      source_created_at: "2026-09-01T16:00:00.123456789Z",
+      source_updated_at: "2026-09-27T18:30:00.987654321Z",
+    )
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: exact, as: :json
+    expect(response).to have_http_status(:created), response.body
+    record = DiscussionBridgeBridgeRecord.last
+    expect(record).to have_attributes(
+      source_created_at_wire: "2026-09-01T16:00:00.123456789Z",
+      source_updated_at_wire: "2026-09-27T18:30:00.987654321Z",
+    )
+
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: exact, as: :json
+    expect(response).to have_http_status(:ok)
+
+    changed = payload(
+      source_created_at: "2026-09-01T16:00:00.123456788Z",
+      source_updated_at: "2026-09-27T18:30:00.987654321Z",
+    )
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: changed, as: :json
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.fetch("error_code")).to eq("revision_conflict")
   end
 
   it "returns exact record index/detail fields and contract-shaped binding state" do

@@ -131,8 +131,13 @@ describe "DiscussionBridge Discourse network administration" do
       network_enabled: false,
       network_peer_forum_id: nil,
       network_relationship: nil,
-      destination_policies: [],
-      policy_revision: nil,
+      catalog_required: false,
+    )
+    expect(connection.policy_revision).to start_with("policy:admin:")
+    expect(connection.destination_policies.sole).to include(
+      "destination_policy_id" => "destination:discourse_as_publisher:default",
+      "profile" => "discourse_as_publisher",
+      "presentation_mode" => "interactive",
     )
   end
 

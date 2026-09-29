@@ -29,30 +29,39 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked correctedPresentationUrls = {};
 
   @action
-  updateTopicId(event) { this.topicId = event.target.value; }
-
-  @action
-  updateConnectionId(event) {
-    this.connectionId = event.target.value
-      ? Number(event.target.value)
-      : "";
-    const connection = this.selectedConnection;
-    this.lane = connection?.allowed_lanes?.length === 1
-      ? connection.allowed_lanes[0]
-      : "";
+  updateTopicId(event) {
+    this.topicId = event.target.value;
   }
 
   @action
-  updateLane(event) { this.lane = event.target.value; }
+  updateConnectionId(event) {
+    this.connectionId = event.target.value ? Number(event.target.value) : "";
+    const connection = this.selectedConnection;
+    this.lane =
+      connection?.allowed_lanes?.length === 1
+        ? connection.allowed_lanes[0]
+        : "";
+  }
 
   @action
-  updateExternalId(event) { this.externalId = event.target.value; }
+  updateLane(event) {
+    this.lane = event.target.value;
+  }
 
   @action
-  updateCanonicalUrl(event) { this.canonicalUrl = event.target.value; }
+  updateExternalId(event) {
+    this.externalId = event.target.value;
+  }
 
   @action
-  updateNativeMaterialization(event) { this.nativeMaterialization = event.target.checked; }
+  updateCanonicalUrl(event) {
+    this.canonicalUrl = event.target.value;
+  }
+
+  @action
+  updateNativeMaterialization(event) {
+    this.nativeMaterialization = event.target.checked;
+  }
 
   @action
   beginPresentationCorrection(record) {
@@ -105,7 +114,9 @@ export default class DiscussionBridgePublishing extends Component {
         ...this.correctedPresentationUrls,
         [result.resource_id]: result.canonical_url,
       };
-      this.notice = i18n("discussion_bridge.admin.publisher_presentation_corrected");
+      this.notice = i18n(
+        "discussion_bridge.admin.publisher_presentation_corrected"
+      );
       this.noticeContext = "correction";
       this.cancelPresentationCorrection();
     } catch (error) {
@@ -162,61 +173,133 @@ export default class DiscussionBridgePublishing extends Component {
     }
   }
 
-  displayToken(value) { return value?.replaceAll("_", " ") || "—"; }
+  displayToken(value) {
+    return value?.replaceAll("_", " ") || "—";
+  }
 
   @action
   presentationUrl(record) {
-    return this.correctedPresentationUrls[record.resource_id] || record.canonical_url;
+    return (
+      this.correctedPresentationUrls[record.resource_id] || record.canonical_url
+    );
   }
 
   <template>
     <section class="discussion-bridge-publishing">
       <header class="discussion-bridge-publishing__hero">
-        <div><span aria-hidden="true">DB</span><div><h2>{{i18n "discussion_bridge.admin.publishing_nav"}}</h2><p>{{i18n "discussion_bridge.admin.publishing_description"}}</p></div></div>
-        <strong data-ready={{@model.product.ready}}>{{if @model.product.ready (i18n "discussion_bridge.admin.publisher_ready") (i18n "discussion_bridge.admin.needs_attention")}}</strong>
+        <div><span aria-hidden="true">DB</span><div><h2>{{i18n
+                "discussion_bridge.admin.publishing_nav"
+              }}</h2><p>{{i18n
+                "discussion_bridge.admin.publishing_description"
+              }}</p></div></div>
+        <strong data-ready={{@model.product.ready}}>{{if
+            @model.product.ready
+            (i18n "discussion_bridge.admin.publisher_ready")
+            (i18n "discussion_bridge.admin.needs_attention")
+          }}</strong>
       </header>
 
-      <DPageSubheader @titleLabel={{i18n "discussion_bridge.admin.publishing_nav"}} @descriptionLabel={{@model.product.version}} />
+      <DPageSubheader
+        @titleLabel={{i18n "discussion_bridge.admin.publishing_nav"}}
+        @descriptionLabel={{@model.product.version}}
+      />
 
       <div class="discussion-bridge-publishing__metrics">
-        <article><span>{{i18n "discussion_bridge.admin.publisher_published_topics"}}</span><strong>{{@model.metrics.published_topics}}</strong></article>
-        <article><span>{{i18n "discussion_bridge.admin.publisher_presentations"}}</span><strong>{{@model.metrics.presentations}}</strong></article>
-        <article><span>{{i18n "discussion_bridge.admin.publisher_connected_platforms"}}</span><strong>{{@model.metrics.connected_platforms}}</strong></article>
+        <article><span>{{i18n
+              "discussion_bridge.admin.publisher_published_topics"
+            }}</span><strong
+          >{{@model.metrics.published_topics}}</strong></article>
+        <article><span>{{i18n
+              "discussion_bridge.admin.publisher_presentations"
+            }}</span><strong>{{@model.metrics.presentations}}</strong></article>
+        <article><span>{{i18n
+              "discussion_bridge.admin.publisher_connected_platforms"
+            }}</span><strong
+          >{{@model.metrics.connected_platforms}}</strong></article>
       </div>
 
       {{#if @model.product.blockers.length}}
         <section class="discussion-bridge-publishing__connection">
-          <h3>{{i18n "discussion_bridge.admin.publisher_configuration_blockers"}}</h3>
-          <ul>{{#each @model.product.blockers as |blocker|}}<li><code>{{blocker}}</code></li>{{/each}}</ul>
+          <h3>{{i18n
+              "discussion_bridge.admin.publisher_configuration_blockers"
+            }}</h3>
+          <ul>{{#each @model.product.blockers as |blocker|}}<li><code
+                >{{blocker}}</code></li>{{/each}}</ul>
         </section>
       {{/if}}
 
       <div class="discussion-bridge-publishing__actions">
         <form {{on "submit" this.publishTopic}}>
           <h3>{{i18n "discussion_bridge.admin.publisher_publish_title"}}</h3>
-          <p>{{i18n "discussion_bridge.admin.publisher_publish_description"}}</p>
-          <label class="discussion-bridge-publishing__topic-id">{{i18n "discussion_bridge.admin.publisher_local_topic_id"}}<input required min="1" type="number" value={{this.topicId}} {{on "input" this.updateTopicId}} /></label>
+          <p>{{i18n
+              "discussion_bridge.admin.publisher_publish_description"
+            }}</p>
+          <label class="discussion-bridge-publishing__topic-id">{{i18n
+              "discussion_bridge.admin.publisher_local_topic_id"
+            }}<input
+              required
+              min="1"
+              type="number"
+              value={{this.topicId}}
+              {{on "input" this.updateTopicId}}
+            /></label>
           <label>{{i18n "discussion_bridge.admin.publisher_connection"}}
             <select required {{on "change" this.updateConnectionId}}>
               <option value="">—</option>
-              {{#each @model.connections as |connection|}}<option value={{connection.id}} selected={{eq connection.id this.connectionId}}>{{connection.name}} · {{this.displayToken connection.platform}}</option>{{/each}}
+              {{#each @model.connections as |connection|}}<option
+                  value={{connection.id}}
+                  selected={{eq connection.id this.connectionId}}
+                >{{connection.name}}
+                  ·
+                  {{this.displayToken connection.platform}}</option>{{/each}}
             </select>
           </label>
           {{#if this.selectedLanes.length}}
             <label>{{i18n "discussion_bridge.admin.publisher_lane"}}
               <select required {{on "change" this.updateLane}}>
                 <option value="">—</option>
-                {{#each this.selectedLanes as |lane|}}<option value={{lane}} selected={{eq lane this.lane}}>{{lane}}</option>{{/each}}
+                {{#each this.selectedLanes as |lane|}}<option
+                    value={{lane}}
+                    selected={{eq lane this.lane}}
+                  >{{lane}}</option>{{/each}}
               </select>
-              <small>{{i18n "discussion_bridge.admin.publisher_lane_description"}}</small>
+              <small>{{i18n
+                  "discussion_bridge.admin.publisher_lane_description"
+                }}</small>
             </label>
           {{/if}}
-          <label>{{i18n "discussion_bridge.admin.external_id"}}<input required value={{this.externalId}} {{on "input" this.updateExternalId}} /></label>
-          <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.canonicalUrl}} {{on "input" this.updateCanonicalUrl}} /></label>
-          <label class="discussion-bridge-publishing__checkbox"><input type="checkbox" checked={{this.nativeMaterialization}} {{on "change" this.updateNativeMaterialization}} /><span>{{i18n "discussion_bridge.admin.publisher_native_materialization"}}</span></label>
-          <DButton @type="submit" @label="discussion_bridge.admin.publisher_publish" @disabled={{this.working}} class="btn-primary" />
+          <label>{{i18n "discussion_bridge.admin.external_id"}}<input
+              required
+              value={{this.externalId}}
+              {{on "input" this.updateExternalId}}
+            /></label>
+          <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input
+              required
+              type="url"
+              value={{this.canonicalUrl}}
+              {{on "input" this.updateCanonicalUrl}}
+            /></label>
+          <label class="discussion-bridge-publishing__checkbox"><input
+              type="checkbox"
+              checked={{this.nativeMaterialization}}
+              {{on "change" this.updateNativeMaterialization}}
+            /><span>{{i18n
+                "discussion_bridge.admin.publisher_native_materialization"
+              }}</span></label>
+          <DButton
+            @type="submit"
+            @label="discussion_bridge.admin.publisher_publish"
+            @disabled={{this.working}}
+            class="btn-primary"
+          />
           {{#if (eq this.noticeContext "publication")}}
-            <p class="discussion-bridge-publishing__notice" role="status"><strong>{{this.notice}}</strong>{{#if this.createdRecord}} · <a href={{this.createdRecord.topic_url}}>Open topic {{this.createdRecord.topic_id}}</a>{{/if}}</p>
+            <p
+              class="discussion-bridge-publishing__notice"
+              role="status"
+            ><strong>{{this.notice}}</strong>{{#if this.createdRecord}}
+                ·
+                <a href={{this.createdRecord.topic_url}}>Open topic
+                  {{this.createdRecord.topic_id}}</a>{{/if}}</p>
           {{/if}}
         </form>
       </div>
@@ -224,26 +307,85 @@ export default class DiscussionBridgePublishing extends Component {
       <section class="discussion-bridge-publishing__recent">
         <h3>{{i18n "discussion_bridge.admin.publisher_recent_activity"}}</h3>
         {{#if (eq this.noticeContext "correction")}}
-          <p class="discussion-bridge-publishing__notice" role="status"><strong>{{this.notice}}</strong>{{#if this.createdRecord}} · <a href={{this.createdRecord.topic_url}}>Open topic {{this.createdRecord.topic_id}}</a>{{/if}}</p>
+          <p class="discussion-bridge-publishing__notice" role="status"><strong
+            >{{this.notice}}</strong>{{#if this.createdRecord}}
+              ·
+              <a href={{this.createdRecord.topic_url}}>Open topic
+                {{this.createdRecord.topic_id}}</a>{{/if}}</p>
         {{/if}}
-        <table><thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th>{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n "discussion_bridge.admin.state"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
+        <table><thead><tr><th>{{i18n
+                  "discussion_bridge.admin.publisher_local_topic"
+                }}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th
+              >{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n
+                  "discussion_bridge.admin.state"
+                }}</th><th>{{i18n
+                  "discussion_bridge.admin.actions"
+                }}</th></tr></thead>
           <tbody>{{#each @model.recent_records as |record|}}
-            <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small><code>{{record.resource_id}}</code></small></td><td>{{this.displayToken record.platform}}</td><td><a href={{this.presentationUrl record}}>{{record.connection_name}}</a></td><td>{{record.state}}</td><td><DButton @label="discussion_bridge.admin.publisher_edit_presentation" @action={{this.beginPresentationCorrection}} @actionParam={{record}} /></td></tr>
-            {{#if this.editingRecord}}
-              {{#if (eq record.resource_id this.editingRecord.resource_id)}}
-                <tr class="discussion-bridge-publishing__correction-row"><td colspan="5">
-                  <form class="discussion-bridge-publishing__correction" {{on "submit" this.correctPresentation}}>
-                    <h4>{{i18n "discussion_bridge.admin.publisher_edit_presentation"}}</h4>
-                    <p>{{i18n "discussion_bridge.admin.publisher_edit_presentation_description"}}</p>
-                    <label>{{i18n "discussion_bridge.admin.presentation_url"}}<input required type="url" value={{this.correctedCanonicalUrl}} {{on "input" this.updateCorrectedCanonicalUrl}} /></label>
-                    <label class="discussion-bridge-publishing__checkbox"><input required type="checkbox" checked={{this.nativeIdentityConfirmed}} {{on "change" this.updateNativeIdentityConfirmed}} /><span>{{i18n "discussion_bridge.admin.publisher_confirm_native_identity"}}</span></label>
-                    <DButton @type="submit" @label="discussion_bridge.admin.publisher_save_presentation" @disabled={{or this.working (not this.nativeIdentityConfirmed)}} class="btn-primary" />
-                    <DButton @label="discussion_bridge.admin.cancel" @action={{this.cancelPresentationCorrection}} @disabled={{this.working}} />
-                  </form>
-                </td></tr>
+              <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small
+                  ><code>{{record.resource_id}}</code></small></td><td
+                >{{this.displayToken record.platform}}</td><td><a
+                    href={{this.presentationUrl record}}
+                  >{{record.connection_name}}</a></td><td
+                >{{record.state}}</td><td><DButton
+                    @label="discussion_bridge.admin.publisher_edit_presentation"
+                    @action={{this.beginPresentationCorrection}}
+                    @actionParam={{record}}
+                  /></td></tr>
+              {{#if this.editingRecord}}
+                {{#if (eq record.resource_id this.editingRecord.resource_id)}}
+                  <tr class="discussion-bridge-publishing__correction-row"><td
+                      colspan="5"
+                    >
+                      <form
+                        class="discussion-bridge-publishing__correction"
+                        {{on "submit" this.correctPresentation}}
+                      >
+                        <h4>{{i18n
+                            "discussion_bridge.admin.publisher_edit_presentation"
+                          }}</h4>
+                        <p>{{i18n
+                            "discussion_bridge.admin.publisher_edit_presentation_description"
+                          }}</p>
+                        <label>{{i18n
+                            "discussion_bridge.admin.presentation_url"
+                          }}<input
+                            required
+                            type="url"
+                            value={{this.correctedCanonicalUrl}}
+                            {{on "input" this.updateCorrectedCanonicalUrl}}
+                          /></label>
+                        <label
+                          class="discussion-bridge-publishing__checkbox"
+                        ><input
+                            required
+                            type="checkbox"
+                            checked={{this.nativeIdentityConfirmed}}
+                            {{on "change" this.updateNativeIdentityConfirmed}}
+                          /><span>{{i18n
+                              "discussion_bridge.admin.publisher_confirm_native_identity"
+                            }}</span></label>
+                        <DButton
+                          @type="submit"
+                          @label="discussion_bridge.admin.publisher_save_presentation"
+                          @disabled={{or
+                            this.working
+                            (not this.nativeIdentityConfirmed)
+                          }}
+                          class="btn-primary"
+                        />
+                        <DButton
+                          @label="discussion_bridge.admin.cancel"
+                          @action={{this.cancelPresentationCorrection}}
+                          @disabled={{this.working}}
+                        />
+                      </form>
+                    </td></tr>
+                {{/if}}
               {{/if}}
-            {{/if}}
-          {{else}}<tr><td colspan="5">{{i18n "discussion_bridge.admin.publisher_no_activity"}}</td></tr>{{/each}}</tbody>
+            {{else}}<tr><td colspan="5">{{i18n
+                    "discussion_bridge.admin.publisher_no_activity"
+                  }}</td></tr>{{/each}}</tbody>
         </table>
       </section>
     </section>

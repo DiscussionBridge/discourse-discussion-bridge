@@ -70,7 +70,9 @@ end
 #  available_at                  :datetime
 #  catalog_revision              :string(255)      not null
 #  deployed_at                   :datetime
+#  deployed_at_wire              :string(40)
 #  failed_at                     :datetime
+#  failed_at_wire                :string(40)
 #  failure_code                  :string(64)
 #  failure_detail                :text
 #  failure_request_digest        :string(64)
@@ -85,6 +87,7 @@ end
 #  policy_revision               :string(255)      not null
 #  presentation_mode             :string(32)       not null
 #  publicly_verified_at          :datetime
+#  publicly_verified_at_wire     :string(40)
 #  resolution_error              :string(64)
 #  resolved_author               :jsonb            not null
 #  resolved_container            :jsonb            not null
@@ -96,6 +99,7 @@ end
 #  state                         :string(32)       default("available"), not null
 #  superseded_at                 :datetime
 #  synchronized_at               :datetime
+#  synchronized_at_wire          :string(40)
 #  total_lease_seconds           :integer          default(0), not null
 #  created_at                    :datetime         not null
 #  updated_at                    :datetime         not null

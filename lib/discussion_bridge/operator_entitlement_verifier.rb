@@ -86,10 +86,14 @@ module DiscussionBridge
     def self.normalize(payload)
       raise VerificationError, "entitlement_invalid_signature" unless payload.is_a?(Hash)
 
+      DiscussionBridge::OperatorCanonicalJson.generate(payload)
+
       claims = payload.deep_stringify_keys
       raise VerificationError, "entitlement_invalid_signature" unless claims.keys.sort == REQUIRED_FIELDS.sort
 
       claims
+    rescue DiscussionBridge::OperatorCanonicalJson::InvalidValue
+      raise VerificationError, "entitlement_invalid_signature"
     end
     private_class_method :normalize
 

@@ -164,7 +164,16 @@ describe DiscussionBridge::PublisherController do
           "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("bridge_record", "bindings")).to eq([])
+    binding = response.parsed_body.dig("bridge_record", "bindings").sole
+    expect(binding).to include(
+      "connection_id" => @connection.public_id,
+      "role" => "presentation",
+      "state" => "active",
+      "external_id" => "roadmap",
+      "canonical_url" => "https://astro.example.com/roadmap/",
+      "presentation_mode" => "interactive",
+    )
+    expect(binding.fetch("binding_id")).to match(/\Adbb_[0-9a-f]{32}\z/)
   end
 
   it "rejects malformed native materialization authority" do

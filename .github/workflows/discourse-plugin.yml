@@ -16,11 +16,14 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Verify release identity
         run: ruby script/verify_release_identity.rb
+      - name: Verify immutable CI inputs
+        run: ruby script/verify_ci_pins.rb
       - name: Checkout released Adapter Protocol
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: DiscussionBridge/discussionbridge-adapter-contract
-          ref: v0.2.0-alpha.21
+          # Peeled commit for v0.2.0-alpha.21. Do not replace with the movable tag.
+          ref: 72b3925316e1cb68788e34d0fe2037e0681780af
           path: .adapter-contract
       - name: Verify exact request boundary
         run: >-
@@ -29,6 +32,9 @@ jobs:
           .adapter-contract/operator-service-contract.json
 
   ci:
-    uses: discourse/.github/.github/workflows/discourse-plugin.yml@bee9ee78c8e6fd574a8496f415e08c6eb412d3df
+    # Vendored from discourse/.github@bee9ee78c8e6fd574a8496f415e08c6eb412d3df.
+    # Its nested actions are commit-pinned in the local workflow.
+    uses: ./.github/workflows/discourse-plugin-pinned.yml
     with:
       core_ref: 36698aae084678151dffa875d49c8d59216d2733
+      container: discourse/discourse_test:slim-browsers@sha256:2da24a18bb34116edf6b5ce62da87740805dc2ed02a3a9d6194d38da1400bbe2

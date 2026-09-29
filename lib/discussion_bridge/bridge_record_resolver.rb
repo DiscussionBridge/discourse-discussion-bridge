@@ -78,6 +78,8 @@ module DiscussionBridge
           source_revision_sequence: @request.fetch(:source_revision_sequence),
           source_created_at: @request.fetch(:source_created_at),
           source_updated_at: @request.fetch(:source_updated_at),
+          source_created_at_wire: @request.fetch(:source_created_at_wire),
+          source_updated_at_wire: @request.fetch(:source_updated_at_wire),
           content_disposition: @request.fetch(:content_disposition),
           source_content_bytes: @request.fetch(:source_content_bytes),
           source_content_sha256: @request.fetch(:source_content_sha256),
@@ -267,7 +269,7 @@ module DiscussionBridge
       end
 
       if @request.fetch(:source_revision) == record.source_revision ||
-          @request.fetch(:source_created_at) != record.source_created_at ||
+          @request.fetch(:source_created_at_wire) != record.source_created_at_wire ||
           @request[:lane].to_s != record.lane.to_s
         raise AdapterRequestBoundary::Error, "revision_conflict"
       end
@@ -277,8 +279,8 @@ module DiscussionBridge
 
     def exact_replay?(record)
       record.source_revision == @request.fetch(:source_revision) &&
-        record.source_created_at == @request.fetch(:source_created_at) &&
-        record.source_updated_at == @request.fetch(:source_updated_at) &&
+        record.source_created_at_wire == @request.fetch(:source_created_at_wire) &&
+        record.source_updated_at_wire == @request.fetch(:source_updated_at_wire) &&
         record.source_content_bytes == @request.fetch(:source_content_bytes) &&
         record.source_content_sha256 == @request.fetch(:source_content_sha256) &&
         record.delivered_content_sha256 == Digest::SHA256.hexdigest(@request.fetch(:content_html)) &&
@@ -298,6 +300,8 @@ module DiscussionBridge
         source_revision_sequence: @request.fetch(:source_revision_sequence),
         source_created_at: @request.fetch(:source_created_at),
         source_updated_at: @request.fetch(:source_updated_at),
+        source_created_at_wire: @request.fetch(:source_created_at_wire),
+        source_updated_at_wire: @request.fetch(:source_updated_at_wire),
         content_disposition: @request.fetch(:content_disposition),
         source_content_bytes: @request.fetch(:source_content_bytes),
         source_content_sha256: @request.fetch(:source_content_sha256),

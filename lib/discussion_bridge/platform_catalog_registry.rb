@@ -37,7 +37,11 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "validation_failed" if
         PlatformCatalogProtocol::SEGMENT_TYPES.exclude?(segment_type)
 
-      revision, offset = resolve_page(catalog_revision: catalog_revision, cursor: cursor)
+      revision, offset = resolve_page(
+        segment_type: segment_type,
+        catalog_revision: catalog_revision,
+        cursor: cursor,
+      )
       items = segment_items(revision, segment_type).sort_by { |item| item.fetch("id") }
       page_items = items.slice(offset, limit) || []
       next_offset = offset + page_items.length
@@ -106,11 +110,12 @@ module DiscussionBridge
 
     private
 
-    def resolve_page(catalog_revision:, cursor:)
+    def resolve_page(segment_type:, catalog_revision:, cursor:)
       if cursor.present?
         payload = SourceCursor.read(cursor, kind: "catalog")
         valid = payload["connection_id"] == @connection.public_id &&
           payload["platform_profile"] == @platform_profile &&
+          payload["segment_type"] == segment_type &&
           payload["catalog_revision"].is_a?(String) &&
           payload["offset"].is_a?(Integer) && payload["offset"] >= 0
         raise AdapterRequestBoundary::Error, "cursor_snapshot_mismatch" unless valid

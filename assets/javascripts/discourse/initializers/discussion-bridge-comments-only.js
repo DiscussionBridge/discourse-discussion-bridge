@@ -1,5 +1,5 @@
-import { withPluginApi } from "discourse/lib/plugin-api";
 import logout from "discourse/lib/logout";
+import { withPluginApi } from "discourse/lib/plugin-api";
 import { i18n } from "discourse-i18n";
 
 const CSS_CLASS = "discussion-bridge-comments-only";
@@ -43,7 +43,7 @@ function restoreSubmitControl(button) {
   }
 
   OWNED_ATTRIBUTES.forEach((name) =>
-    applyAttributeState(button, name, state.original[name]),
+    applyAttributeState(button, name, state.original[name])
   );
   ownedElements.delete(button);
   ownedState.delete(button);
@@ -86,8 +86,8 @@ function captureExternalAttributeChange(button, attributeName) {
 function labelSubmitControls() {
   const eligible = new Set(
     document.querySelectorAll(
-      ".embed-mode-composer .docked-composer__submit-btn",
-    ),
+      ".embed-mode-composer .docked-composer__submit-btn"
+    )
   );
   [...ownedElements].forEach((button) => {
     if (!eligible.has(button)) {
@@ -96,35 +96,32 @@ function labelSubmitControls() {
   });
 
   eligible.forEach((button) => {
-      let state = ownedState.get(button);
-      if (!state) {
-        state = {
-          original: Object.fromEntries(
-            OWNED_ATTRIBUTES.map((name) => [
-              name,
-              attributeState(button, name),
-            ]),
-          ),
-          expected: {},
-        };
-        ownedState.set(button, state);
-        ownedElements.add(button);
-      }
+    let state = ownedState.get(button);
+    if (!state) {
+      state = {
+        original: Object.fromEntries(
+          OWNED_ATTRIBUTES.map((name) => [name, attributeState(button, name)])
+        ),
+        expected: {},
+      };
+      ownedState.set(button, state);
+      ownedElements.add(button);
+    }
 
-      const editing = button
-        .closest(".embed-mode-composer")
-        ?.querySelector(".embed-mode-composer__editing");
-      const label = i18n(
-        editing
-          ? "discussion_bridge.composer_save_edit"
-          : "discussion_bridge.composer_submit",
-      );
-      OWNED_ATTRIBUTES.forEach((name) => {
-        state.expected[name] = { present: true, value: label };
-        if (button.getAttribute(name) !== label) {
-          button.setAttribute(name, label);
-        }
-      });
+    const editing = button
+      .closest(".embed-mode-composer")
+      ?.querySelector(".embed-mode-composer__editing");
+    const label = i18n(
+      editing
+        ? "discussion_bridge.composer_save_edit"
+        : "discussion_bridge.composer_submit"
+    );
+    OWNED_ATTRIBUTES.forEach((name) => {
+      state.expected[name] = { present: true, value: label };
+      if (button.getAttribute(name) !== label) {
+        button.setAttribute(name, label);
+      }
+    });
   });
 }
 
@@ -188,7 +185,7 @@ function topicIdFromPath(pathname = window.location.pathname) {
 function serverAttestedCompletedMapping() {
   const topicId = topicIdFromPath();
   const attestedTopicId = document.querySelector(
-    COMPLETED_MAPPING_META,
+    COMPLETED_MAPPING_META
   )?.content;
 
   return topicId && attestedTopicId === topicId ? topicId : null;
@@ -236,7 +233,7 @@ export default {
 
     const topicId = serverAttestedCompletedMapping();
     const token = new URL(window.location.href).searchParams.get(
-      "discussion_bridge_embed_token",
+      "discussion_bridge_embed_token"
     );
     if (!commentsOnlyRequested() || !topicId || !token) {
       return;
@@ -273,7 +270,7 @@ export default {
         document[active ? "addEventListener" : "removeEventListener"](
           "click",
           clickHandler,
-          true,
+          true
         );
         listening = active;
       };
@@ -289,7 +286,7 @@ export default {
             matchesQualifiedMapping(qualification);
           document.documentElement.toggleAttribute(
             ATTESTED_ATTRIBUTE,
-            qualified,
+            qualified
           );
           if (qualified) {
             labelSubmitControls();
@@ -309,8 +306,8 @@ export default {
           .forEach((mutation) =>
             captureExternalAttributeChange(
               mutation.target,
-              mutation.attributeName,
-            ),
+              mutation.attributeName
+            )
           );
         mutations.forEach((mutation) => {
           mutation.removedNodes.forEach(restoreRemovedSubmitControls);

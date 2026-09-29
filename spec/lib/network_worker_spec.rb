@@ -21,7 +21,23 @@ describe DiscussionBridge::NetworkWorker do
     def bridge_record(resource_id, correlation_id:)
       raise "wrong resource" unless resource_id == @work.fetch("resource_id")
 
-      { "topic_id" => @detail.fetch("topic_id"), "correlation_id" => correlation_id }
+      {
+        "resource_id" => @work.fetch("resource_id"),
+        "topic_id" => @detail.fetch("topic_id"),
+        "source_revision" => @work.fetch("source_revision"),
+        "source_revision_sequence" => @work.fetch("source_revision_sequence"),
+        "bindings" => [
+          {
+            "binding_id" => "dbb_#{"4" * 32}",
+            "connection_id" => @work.fetch("connection_id"),
+            "role" => "presentation",
+            "state" => "active",
+            "external_id" => "national-page-42",
+            "canonical_url" => "https://national.example/articles/network-source",
+          },
+        ],
+        "correlation_id" => correlation_id,
+      }
     end
 
     def source_detail(topic_id:, source_revision:, correlation_id:)
@@ -119,6 +135,7 @@ describe DiscussionBridge::NetworkWorker do
   def work(action: "publish")
     {
       "work_id" => "dbw_#{"1" * 32}",
+      "connection_id" => @peer.remote_connection_id,
       "resource_id" => source_detail.fetch("resource_id"),
       "action" => action,
       "source_revision" => source_detail.fetch("source_revision"),
@@ -138,8 +155,10 @@ describe DiscussionBridge::NetworkWorker do
     expect(client.failures).to be_empty
     acknowledgement = client.acknowledgements.sole
     expect(acknowledgement.fetch(:destination_binding)).to include(
+      binding_id: "dbb_#{"4" * 32}",
       content_disposition: "complete",
-      external_id: "network:dbf_11111111111111111111111111111111:#{source_detail.fetch("resource_id")}",
+      external_id: "national-page-42",
+      canonical_url: "https://national.example/articles/network-source",
     )
     expect(DiscussionBridgeBridgeRecord.where(direction: "to_discourse").count).to eq(1)
   end

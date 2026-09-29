@@ -56,6 +56,11 @@ module DiscussionBridge
         correlation_id: correlation_id,
         maximum_bytes: SOURCE_DETAIL_MAXIMUM_BYTES,
       )
+      validate_source_descriptor!(
+        payload,
+        topic_id: topic_id,
+        source_revision: source_revision,
+      )
       transport = payload.fetch("content_transport")
       return [payload, nil] if transport["mode"] == "inline"
 
@@ -66,7 +71,12 @@ module DiscussionBridge
           correlation_id: correlation_id,
           maximum_bytes: CONTENT_CHUNK_MAXIMUM_BYTES,
         )
-        validate_chunk!(response, chunk: chunk, descriptor: transport)
+        validate_chunk!(
+          response,
+          chunk: chunk,
+          descriptor: transport,
+          source_revision: source_revision,
+        )
       end
       content = chunks.join
       raise Error, "integrity_failed" unless content.bytesize == transport.fetch("byte_length") &&
@@ -76,7 +86,7 @@ module DiscussionBridge
     end
 
     def acknowledge(work:, destination_binding:, correlation_id:)
-      put(
+      response = put(
         "/discussion-bridge/v1/publication-work/#{CGI.escape(work.fetch("work_id"))}/acknowledgement.json",
         {
           lease_token: work.fetch("lease_token"),
@@ -96,6 +106,16 @@ module DiscussionBridge
         },
         correlation_id: correlation_id,
       )
+      expected = {
+        "work_id" => work.fetch("work_id"),
+        "accepted_stage" => "synchronized",
+        "resulting_state" => "acknowledged",
+        "terminal" => true,
+        "correlation_id" => correlation_id,
+      }
+      raise Error, "validation_failed" unless response == expected
+
+      response
     end
 
     def fail(work:, error_code:, correlation_id:)
@@ -163,6 +183,7 @@ module DiscussionBridge
       raise Error, "destination_unavailable" unless response_type.start_with?("application/json")
 
       payload = JSON.parse(response_body)
+      raise Error, "validation_failed" unless payload["correlation_id"] == correlation_id
       unless response_code.between?(200, 299)
         code = payload["error_code"]
         raise Error, AdapterRequestBoundary::ERROR_STATUSES.key?(code) ? code : "destination_unavailable"
@@ -176,9 +197,33 @@ module DiscussionBridge
       raise Error, "destination_unavailable"
     end
 
-    def validate_chunk!(payload, chunk:, descriptor:)
+    def validate_source_descriptor!(payload, topic_id:, source_revision:)
+      raise Error, "validation_failed" unless
+        payload.is_a?(Hash) && payload.keys.sort == SourcePublicationProtocol::DETAIL_FIELDS.sort &&
+          payload["topic_id"] == topic_id && payload["source_revision"] == source_revision
+
+      transport = payload["content_transport"]
+      raise Error, "validation_failed" unless transport.is_a?(Hash)
+      return if transport["mode"] == "inline"
+
+      byte_length = transport["byte_length"]
+      chunk_count = transport["chunk_count"]
+      chunk_maximum = transport["decoded_chunk_maximum_bytes"]
+      maximum_chunks = (SourcePublicationProtocol::MAXIMUM_SOURCE_CONTENT_BYTES.to_f /
+        SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES).ceil
+      valid = transport.keys.sort == SourcePublicationProtocol::CHUNK_DESCRIPTOR_FIELDS.sort &&
+        byte_length.is_a?(Integer) &&
+        byte_length.between?(SourcePublicationProtocol::INLINE_MAXIMUM_BYTES + 1,
+                            SourcePublicationProtocol::MAXIMUM_SOURCE_CONTENT_BYTES) &&
+        chunk_maximum == SourcePublicationProtocol::CHUNK_MAXIMUM_BYTES &&
+        chunk_count.is_a?(Integer) && chunk_count.between?(1, maximum_chunks) &&
+        chunk_count == (byte_length.to_f / chunk_maximum).ceil
+      raise Error, "validation_failed" unless valid
+    end
+
+    def validate_chunk!(payload, chunk:, descriptor:, source_revision:)
       unless payload.keys.sort == SourcePublicationProtocol::CONTENT_FIELDS.sort &&
-          payload.fetch("source_revision").is_a?(String) &&
+          payload.fetch("source_revision") == source_revision &&
           payload.fetch("chunk") == chunk &&
           payload.fetch("chunk_count") == descriptor.fetch("chunk_count")
         raise Error, "validation_failed"

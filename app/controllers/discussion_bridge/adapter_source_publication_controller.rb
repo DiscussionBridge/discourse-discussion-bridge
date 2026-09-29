@@ -130,6 +130,14 @@ module DiscussionBridge
         ).distinct.first
       raise ActiveRecord::RecordNotFound unless record
 
+      binding = record.content_bindings.find do |candidate|
+        candidate.content_connection_id == @content_connection.id &&
+          candidate.role == "presentation" && candidate.state == "active"
+      end
+      raise AdapterRequestBoundary::Error, "scope_denied" unless
+        binding && @content_connection.allows_lane?(record.lane) &&
+          @content_connection.allows_origin?(binding.canonical_url)
+
       record
     end
 

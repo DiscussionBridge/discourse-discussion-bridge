@@ -24,6 +24,7 @@ describe DiscussionBridge::AdapterRequestBoundary do
 
   it "accepts only bounded nonblank correlation identifiers without control bytes" do
     expect(described_class.valid_correlation?("request-1")).to eq(true)
+    expect(described_class.valid_correlation?("request/1")).to eq(true)
     expect(described_class.valid_correlation?(" ")).to eq(false)
     expect(described_class.valid_correlation?("a" * 201)).to eq(false)
     expect(described_class.valid_correlation?("request\n1")).to eq(false)

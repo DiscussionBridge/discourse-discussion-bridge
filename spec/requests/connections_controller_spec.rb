@@ -707,6 +707,28 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "unmapped_author_policy" => "fallback",
       "generate_topic_toc" => true,
       "default_category_id" => selected_category.id,
+      "catalog_required" => false,
+    )
+    expect(created.fetch("policy_revision")).to start_with("policy:admin:")
+    expect(created.fetch("destination_policies").sole).to include(
+      "destination_policy_id" => "destination:discourse_as_publisher:default",
+      "profile" => "discourse_as_publisher",
+      "presentation_mode" => "interactive",
+    )
+    ordinary_connection = DiscussionBridgeContentConnection.find(created.fetch("id"))
+    ordinary_topic = Fabricate(:topic, user: admin, category: selected_category, visible: true)
+    Fabricate(:post, topic: ordinary_topic, user: admin, post_number: 1, raw: "Ordinary Discourse publication")
+    ordinary_record = DiscussionBridge::FromDiscourseRecordCreator.call(
+      user: admin,
+      connection_id: ordinary_connection.id,
+      topic_id: ordinary_topic.id,
+      external_id: "ordinary-discourse-topic",
+      canonical_url: "https://publishing.example/topics/ordinary-discourse-topic",
+    ).record
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(ordinary_topic.id)
+    expect(ordinary_record.publication_works.sole).to have_attributes(
+      destination_policy_id: "destination:discourse_as_publisher:default",
+      state: "available",
     )
 
     get "/discussion-bridge/admin/content-connections.json"

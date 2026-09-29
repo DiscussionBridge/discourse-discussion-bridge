@@ -187,25 +187,31 @@ module DiscussionBridge
     def adapter_record(record)
       topic = record.topic
       first_post = topic&.first_post
-      revision = record.direction == "from_discourse" ? discourse_revision(record, first_post) : stored_revision(record)
+      persisted_revision = record.direction == "from_discourse" ?
+        record.source_revisions.order(source_revision_sequence: :desc).first : nil
+      revision = record.direction == "from_discourse" ?
+        discourse_revision(persisted_revision, first_post) : stored_revision(record)
+      source_title = persisted_revision&.title || topic&.title
+      source_content = persisted_revision&.content_html || first_post&.cooked
       payload = {
         resource_id: record.resource_id,
         direction: record.direction,
         state: record.state,
-        title: record.direction == "from_discourse" ? topic.title : record.title,
+        title: record.direction == "from_discourse" ? source_title : record.title,
         topic_id: record.topic_id,
         topic_url: topic&.url,
         source_revision: revision.fetch(:source_revision),
         source_revision_sequence: revision.fetch(:source_revision_sequence),
         source_created_at: revision.fetch(:source_created_at),
         source_updated_at: revision.fetch(:source_updated_at),
-        bindings: record.content_bindings.where(content_connection_id: @content_connection.id).filter_map do |binding|
+        bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
           adapter_binding(binding, record, first_post)
         end,
       }
       if record.direction == "from_discourse"
         payload[:content_disposition] = "complete"
-        payload[:content_transport] = inline_transport(first_post.cooked) if first_post.cooked.bytesize <= 1_048_576
+        payload[:content_transport] = inline_transport(source_content) if
+          source_content.bytesize <= BridgeRecordRequest::MAX_CONTENT_HTML_BYTES
       elsif record.content_disposition.present?
         payload[:content_disposition] = record.content_disposition
       end
@@ -221,8 +227,7 @@ module DiscussionBridge
         @content_connection.allows_origin?(binding.canonical_url)
     end
 
-    def discourse_revision(record, first_post)
-      persisted = record.source_revisions.order(source_revision_sequence: :desc).first
+    def discourse_revision(persisted, first_post)
       return {
         source_revision: persisted.source_revision,
         source_revision_sequence: persisted.source_revision_sequence,
@@ -242,8 +247,8 @@ module DiscussionBridge
       {
         source_revision: record.source_revision,
         source_revision_sequence: record.source_revision_sequence,
-        source_created_at: record.source_created_at.iso8601(6),
-        source_updated_at: record.source_updated_at.iso8601(6),
+        source_created_at: record.source_created_at_wire.presence || record.source_created_at.iso8601(6),
+        source_updated_at: record.source_updated_at_wire.presence || record.source_updated_at.iso8601(6),
       }
     end
 
@@ -258,26 +263,35 @@ module DiscussionBridge
     end
 
     def adapter_binding(binding, record, first_post)
-      return nil if binding.presentation_mode.blank?
-
       dynamic = record.direction == "to_discourse"
-      {
+      payload = {
         binding_id: binding.binding_id,
         connection_id: binding.content_connection.public_id,
         role: binding.role,
         state: external_binding_state(binding.state),
         external_id: binding.external_id,
         canonical_url: binding.canonical_url,
-        presentation_mode: binding.presentation_mode,
+        presentation_mode: binding.presentation_mode || source_presentation_mode(record),
         applied_source_revision: binding.applied_source_revision,
         publication_revision: binding.publication_revision || (dynamic ? "post:#{first_post.id}:version:#{first_post.version}" : nil),
         content_disposition: binding.content_disposition,
-        synchronized_at: binding.synchronized_at&.iso8601(6),
+        synchronized_at: binding.synchronized_at_wire.presence || binding.synchronized_at&.iso8601(6),
         deployment_state: dynamic ? "not_required" : binding.deployment_state,
-        deployed_at: binding.deployed_at&.iso8601(6),
+        deployed_at: binding.deployed_at_wire.presence || binding.deployed_at&.iso8601(6),
         verification_state: dynamic ? "not_required" : binding.verification_state,
-        publicly_verified_at: binding.publicly_verified_at&.iso8601(6),
+        publicly_verified_at: binding.publicly_verified_at_wire.presence || binding.publicly_verified_at&.iso8601(6),
       }
+      payload
+    end
+
+    def source_presentation_mode(record)
+      revision_mode = record.source_revisions.order(source_revision_sequence: :desc).pick(:presentation_mode)
+      return revision_mode if revision_mode.present?
+
+      modes = Array(@content_connection.destination_policies).filter_map do |policy|
+        policy.stringify_keys["presentation_mode"]
+      end.uniq
+      modes.one? ? modes.first : "interactive"
     end
 
     def external_binding_state(state)

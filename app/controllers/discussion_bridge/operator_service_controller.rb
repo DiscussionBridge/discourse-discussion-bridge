@@ -102,9 +102,13 @@ module DiscussionBridge
     end
 
     def enroll_entitlement
+      envelope = DiscussionBridge::OperatorCanonicalJson.parse(request.raw_post)
+      raise ActionController::ParameterMissing, :entitlement unless
+        envelope.is_a?(Hash) && envelope.keys == ["entitlement"] && envelope["entitlement"].is_a?(Hash)
+
       DiscussionBridgeOperatorEntitlement.transaction do
         entitlement = DiscussionBridge::OperatorEntitlementVerifier.call(
-          payload: params.require(:entitlement).to_unsafe_h,
+          payload: envelope.fetch("entitlement"),
           enrollment: enrollment,
           actor: current_user,
         )
@@ -112,6 +116,7 @@ module DiscussionBridge
       end
       render json: payload
     rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid,
+           DiscussionBridge::OperatorCanonicalJson::InvalidValue,
            DiscussionBridge::OperatorEntitlementVerifier::VerificationError => error
       render_error(error)
     end

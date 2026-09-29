@@ -21,11 +21,16 @@ module DiscussionBridge
       work = @client.claim(correlation_id: claim_correlation).first
       return { outcome: "idle" } unless work
 
-      result = process(work)
+      remote_record = @client.bridge_record(
+        work.fetch("resource_id"),
+        correlation_id: correlation_id("record"),
+      )
+      validate_remote_record!(work, remote_record)
+      result = process(work, remote_record)
       record = local_record(work.fetch("resource_id"))
       @client.acknowledge(
         work: work,
-        destination_binding: destination_binding(record),
+        destination_binding: destination_binding(record, remote_record, work),
         correlation_id: correlation_id("ack"),
       )
       { outcome: "acknowledged", work_id: work.fetch("work_id"), result: result }
@@ -42,24 +47,26 @@ module DiscussionBridge
 
     private
 
-    def process(work)
+    def process(work, remote_record)
       action = work.fetch("action")
-      return synchronize(work) if MUTATING_ACTIONS.include?(action)
+      return synchronize(work, remote_record) if MUTATING_ACTIONS.include?(action)
       return retain_existing(work) if PASSIVE_ACTIONS.include?(action)
 
       raise AdapterRequestBoundary::Error, "content_unsupported"
     end
 
-    def synchronize(work)
-      remote_record = @client.bridge_record(
-        work.fetch("resource_id"),
-        correlation_id: correlation_id("record"),
-      )
+    def synchronize(work, remote_record)
       detail, content = @client.source_detail(
         topic_id: remote_record.fetch("topic_id"),
         source_revision: work.fetch("source_revision"),
         correlation_id: correlation_id("source"),
       )
+      unless detail["resource_id"] == work.fetch("resource_id") &&
+          detail["topic_id"] == remote_record.fetch("topic_id") &&
+          detail["source_revision"] == work.fetch("source_revision") &&
+          detail["source_revision_sequence"] == work.fetch("source_revision_sequence")
+        raise AdapterRequestBoundary::Error, "revision_conflict"
+      end
       NetworkReceiver.call(
         peer: @peer,
         source_detail: detail,
@@ -93,22 +100,37 @@ module DiscussionBridge
       )
     end
 
-    def destination_binding(record)
+    def destination_binding(record, remote_record, work)
       raise AdapterRequestBoundary::Error, "reconciliation_required" unless
         record&.state == "healthy" && record.topic&.first_post
 
-      binding = record.content_bindings.find_by!(
+      local_binding = record.content_bindings.find_by!(
         content_connection_id: @peer.content_connection_id,
         role: "source",
         state: "active",
       )
+      remote_bindings = Array(remote_record.fetch("bindings"))
+      authoritative = remote_bindings.select do |candidate|
+        candidate["connection_id"] == work.fetch("connection_id") &&
+          candidate["role"] == "presentation" && candidate["state"] == "active"
+      end
+      raise AdapterRequestBoundary::Error, "reconciliation_required" unless authoritative.one?
+
       {
-        binding_id: binding.binding_id,
-        external_id: binding.external_id,
-        canonical_url: binding.canonical_url,
+        binding_id: authoritative.first.fetch("binding_id"),
+        external_id: authoritative.first.fetch("external_id"),
+        canonical_url: authoritative.first.fetch("canonical_url"),
         publication_revision: "post:#{record.topic.first_post.id}:version:#{record.topic.first_post.version}",
-        content_disposition: binding.content_disposition || record.content_disposition,
+        content_disposition: local_binding.content_disposition || record.content_disposition,
       }
+    end
+
+    def validate_remote_record!(work, record)
+      unless record["resource_id"] == work.fetch("resource_id") &&
+          record["source_revision"] == work.fetch("source_revision") &&
+          record["source_revision_sequence"] == work.fetch("source_revision_sequence")
+        raise AdapterRequestBoundary::Error, "revision_conflict"
+      end
     end
 
     def report_failure(work, error_code)

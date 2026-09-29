@@ -150,6 +150,38 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     expect(record.reload.source_revision).to eq(latest.fetch("source_revision"))
   end
 
+  it "serializes one retained revision instead of mixing later live topic content" do
+    topic, post, record = create_source(
+      title: "Retained publication title",
+      content: "<p>Retained body</p>",
+    )
+    inventory
+    retained = record.source_revisions.order(:source_revision_sequence).last
+    topic.update_columns(title: "Unmaterialized live title")
+    post.update_columns(cooked: "<p>Unmaterialized live body</p>", updated_at: 1.minute.from_now)
+
+    get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json",
+        headers: headers(correlation: "retained-record-detail")
+    expect(response).to have_http_status(:ok), response.body
+    payload = response.parsed_body.fetch("bridge_record")
+    expect(payload).to include(
+      "title" => retained.title,
+      "source_revision" => retained.source_revision,
+      "source_revision_sequence" => retained.source_revision_sequence,
+    )
+    expect(payload.dig("content_transport", "content_html")).to eq("<p>Retained body</p>")
+    expect(payload.dig("content_transport", "sha256")).to eq(retained.content_sha256)
+    binding = record.active_binding("presentation")
+    expect(payload.fetch("bindings").sole).to include(
+      "binding_id" => binding.binding_id,
+      "connection_id" => @connection.public_id,
+      "role" => "presentation",
+      "state" => "active",
+      "external_id" => binding.external_id,
+      "canonical_url" => binding.canonical_url,
+    )
+  end
+
   it "uses exact bounded chunks for source content larger than the inline ceiling" do
     content = "<p>#{"x" * 70_000}</p>"
     topic, = create_source(content: content)
@@ -199,6 +231,26 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
       expect(error.error_code).to eq("content_unsupported")
     end
     expect(record.source_revisions).to be_empty
+  end
+
+  it "denies retained revision and chunk reads after current scope narrows" do
+    content = "<p>#{"x" * 70_000}</p>"
+    topic, = create_source(content: content)
+    inventory
+    revision = response.parsed_body.dig("items", 0, "source_revision")
+    @connection.update!(allowed_lanes: ["news"])
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}.json",
+        headers: headers(correlation: "source-narrowed-detail"),
+        params: { source_revision: revision }
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}/content.json",
+        headers: headers(correlation: "source-narrowed-chunk"),
+        params: { source_revision: revision, chunk: 1 }
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body.fetch("error_code")).to eq("scope_denied")
   end
 
   it "expires inactive snapshots without mutating source publication state" do

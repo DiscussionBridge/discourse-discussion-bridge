@@ -171,6 +171,10 @@ module DiscussionBridge
       candidates.each do |candidate|
         break if claims.length >= maximum
 
+        unless currently_authorized?(candidate)
+          candidate.update!(state: "superseded", superseded_at: now)
+          next
+        end
         claim = claim_one(candidate, worker_id: worker_id, lease_seconds: lease_seconds, now: now)
         claims << claim if claim
       end
@@ -186,8 +190,10 @@ module DiscussionBridge
       work.with_lock do
         now = Time.zone.now
         raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
+        raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
         raise AdapterRequestBoundary::Error, "work_expired" unless
-          work.state == "leased" && work.lease_expires_at&.>(now)
+          %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
+            work.lease_expires_at&.>(now)
         raise AdapterRequestBoundary::Error, "lease_conflict" unless
           PublicationWorkProtocol.secure_token_match?(work.lease_token_digest, lease_token)
         total = work.total_lease_seconds + requested_lease_seconds
@@ -274,6 +280,7 @@ module DiscussionBridge
           failure_code: code,
           failure_detail: payload.fetch("error_detail"),
           failed_at: PublicationWorkProtocol.parse_time!(payload.fetch("failed_at")),
+          failed_at_wire: payload.fetch("failed_at"),
           failure_request_digest: digest,
           failure_response_payload: response,
         )
@@ -285,9 +292,7 @@ module DiscussionBridge
     private
 
     def policies
-      Array(@connection.destination_policies).map(&:deep_stringify_keys).select do |policy|
-        policy["profile"] != "discourse_as_publisher" || @connection.network_enabled
-      end
+      Array(@connection.destination_policies).map(&:deep_stringify_keys)
     end
 
     def destination_binding(record)
@@ -422,9 +427,11 @@ module DiscussionBridge
           )
         end
       end
-      @connection.publication_works.where(state: "leased").where("lease_expires_at <= ?", now).find_each do |work|
+      @connection.publication_works.where(state: %w[leased awaiting_deployment awaiting_verification])
+        .where("lease_expires_at <= ?", now).find_each do |work|
         work.with_lock do
-          next unless work.state == "leased" && work.lease_expires_at&.<=(now)
+          next unless %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
+            work.lease_expires_at&.<=(now)
 
           newer = @connection.publication_works.where(content_binding_id: work.content_binding_id)
             .where.not(id: work.id).where.not(state: %w[acknowledged superseded])
@@ -469,6 +476,17 @@ module DiscussionBridge
       claim
     end
 
+    def currently_authorized?(work)
+      binding = work.content_binding
+      policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
+        candidate["destination_policy_id"] == work.destination_policy_id
+      end
+      @connection.enabled && @connection.allows_direction?("from_discourse") &&
+        @connection.policy_revision == work.policy_revision && policy.present? &&
+        binding&.state == "active" && @connection.allows_lane?(work.bridge_record.lane) &&
+        @connection.allows_origin?(binding.canonical_url)
+    end
+
     def resumed_claim_state(work)
       case work.last_acknowledged_stage
       when nil
@@ -510,6 +528,7 @@ module DiscussionBridge
 
     def validate_acknowledgement!(work, payload)
       raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
+      raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
       raise AdapterRequestBoundary::Error, "stage_conflict" if
         PublicationWorkProtocol::STAGES.exclude?(payload["stage"])
       validate_work_identity!(work, payload)
@@ -559,7 +578,7 @@ module DiscussionBridge
         raise AdapterRequestBoundary::Error, "work_expired" unless
           work.state == "leased" && work.lease_expires_at&.>(Time.zone.now)
         raise AdapterRequestBoundary::Error, "stage_conflict" unless work.last_acknowledged_stage.nil?
-        dynamic = payload["deployment_state"] == "not_required"
+        dynamic = !static_deployment?(work)
         valid = if dynamic
           payload["verification_state"] == "not_required"
         else
@@ -573,7 +592,8 @@ module DiscussionBridge
             payload["deployment_state"] == "deployed" && payload["verification_state"] == "pending" &&
             payload.key?("deployed_at") && !payload.key?("publicly_verified_at")
         deployed_at = PublicationWorkProtocol.parse_time!(payload.fetch("deployed_at"))
-        raise AdapterRequestBoundary::Error, "stage_conflict" if deployed_at < synchronized_at
+        raise AdapterRequestBoundary::Error, "stage_conflict" if
+          payload.fetch("synchronized_at") != work.synchronized_at_wire || deployed_at < synchronized_at
       when "verified"
         raise AdapterRequestBoundary::Error, "stage_conflict" unless
           work.state == "awaiting_verification" && work.last_acknowledged_stage == "deployed" &&
@@ -582,8 +602,20 @@ module DiscussionBridge
         deployed_at = PublicationWorkProtocol.parse_time!(payload.fetch("deployed_at"))
         verified_at = PublicationWorkProtocol.parse_time!(payload.fetch("publicly_verified_at"))
         raise AdapterRequestBoundary::Error, "stage_conflict" if
-          deployed_at < synchronized_at || verified_at < deployed_at
+          payload.fetch("synchronized_at") != work.synchronized_at_wire ||
+            payload.fetch("deployed_at") != work.deployed_at_wire ||
+            deployed_at < synchronized_at || verified_at < deployed_at
       end
+    end
+
+    def static_deployment?(work)
+      policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
+        candidate["destination_policy_id"] == work.destination_policy_id
+      end
+      raise AdapterRequestBoundary::Error, "policy_denied" unless
+        policy && @connection.policy_revision == work.policy_revision
+
+      ConnectionCapability.static_deployment_policy?(policy)
     end
 
     def validate_content_disposition!(work, disposition)
@@ -610,20 +642,26 @@ module DiscussionBridge
         publication_revision: destination.fetch("publication_revision"),
         content_disposition: destination.fetch("content_disposition"),
         synchronized_at: synchronized_at,
+        synchronized_at_wire: payload.fetch("synchronized_at"),
       }
       response = { work_id: work.work_id, accepted_stage: stage }
       case stage
       when "synchronized"
-        if payload.fetch("deployment_state") == "not_required"
+        if !static_deployment?(work)
           binding.update!(
             **common_binding,
             deployment_state: "not_required",
             verification_state: "not_required",
+            deployed_at: nil,
+            deployed_at_wire: nil,
+            publicly_verified_at: nil,
+            publicly_verified_at_wire: nil,
           )
           work.update!(
             state: "acknowledged",
             last_acknowledged_stage: stage,
             synchronized_at: synchronized_at,
+            synchronized_at_wire: payload.fetch("synchronized_at"),
             acknowledged_at: Time.zone.now,
           )
           response.merge!(resulting_state: "acknowledged", terminal: true)
@@ -633,11 +671,16 @@ module DiscussionBridge
             **common_binding,
             deployment_state: "pending",
             verification_state: "pending",
+            deployed_at: nil,
+            deployed_at_wire: nil,
+            publicly_verified_at: nil,
+            publicly_verified_at_wire: nil,
           )
           work.update!(
             state: "awaiting_deployment",
             last_acknowledged_stage: stage,
             synchronized_at: synchronized_at,
+            synchronized_at_wire: payload.fetch("synchronized_at"),
             stage_token_digest: PublicationWorkProtocol.token_digest(next_token),
           )
           response.merge!(
@@ -649,11 +692,16 @@ module DiscussionBridge
       when "deployed"
         next_token = PublicationWorkProtocol.token
         deployed_at = PublicationWorkProtocol.parse_time!(payload.fetch("deployed_at"))
-        binding.update!(deployment_state: "deployed", deployed_at: deployed_at)
+        binding.update!(
+          deployment_state: "deployed",
+          deployed_at: deployed_at,
+          deployed_at_wire: payload.fetch("deployed_at"),
+        )
         work.update!(
           state: "awaiting_verification",
           last_acknowledged_stage: stage,
           deployed_at: deployed_at,
+          deployed_at_wire: payload.fetch("deployed_at"),
           stage_token_digest: PublicationWorkProtocol.token_digest(next_token),
         )
         response.merge!(
@@ -666,15 +714,15 @@ module DiscussionBridge
         verified_at = PublicationWorkProtocol.parse_time!(payload.fetch("publicly_verified_at"))
         binding.update!(
           deployment_state: "deployed",
-          deployed_at: deployed_at,
           verification_state: "verified",
           publicly_verified_at: verified_at,
+          publicly_verified_at_wire: payload.fetch("publicly_verified_at"),
         )
         work.update!(
           state: "acknowledged",
           last_acknowledged_stage: stage,
-          deployed_at: deployed_at,
           publicly_verified_at: verified_at,
+          publicly_verified_at_wire: payload.fetch("publicly_verified_at"),
           acknowledged_at: Time.zone.now,
         )
         response.merge!(resulting_state: "acknowledged", terminal: true)
@@ -684,6 +732,7 @@ module DiscussionBridge
 
     def validate_failure!(work, payload)
       raise AdapterRequestBoundary::Error, "work_superseded" if work.state == "superseded"
+      raise AdapterRequestBoundary::Error, "scope_denied" unless currently_authorized?(work)
       raise AdapterRequestBoundary::Error, "stage_conflict" if
         %w[leased awaiting_deployment awaiting_verification].exclude?(work.state)
       raise AdapterRequestBoundary::Error, "lease_conflict" unless

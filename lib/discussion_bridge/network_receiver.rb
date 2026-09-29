@@ -137,6 +137,8 @@ module DiscussionBridge
         source_revision_sequence: detail.fetch("source_revision_sequence"),
         source_created_at: detail.fetch("source_created_at"),
         source_updated_at: detail.fetch("source_updated_at"),
+        source_created_at_wire: detail.fetch("source_created_at"),
+        source_updated_at_wire: detail.fetch("source_updated_at"),
         content_disposition: content.fetch(:content_disposition),
         source_content_bytes: detail.fetch("content_transport").fetch("byte_length"),
         source_content_sha256: detail.fetch("content_transport").fetch("sha256"),

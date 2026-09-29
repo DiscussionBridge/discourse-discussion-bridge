@@ -217,6 +217,8 @@ module DiscussionBridge
         source_content_sha256: revision.content_sha256,
         delivered_content_sha256: revision.content_sha256,
       )
+      source_binding&.update!(presentation_mode: revision.presentation_mode) if
+        source_binding&.presentation_mode != revision.presentation_mode
     end
 
     def source_binding
