@@ -27,7 +27,21 @@ module DiscussionBridge
 
     def update
       connection = DiscussionBridgeContentConnection.find(params[:id])
-      connection.update!(connection_params(existing: connection))
+      DiscussionBridgeContentConnection.transaction do
+        connection.lock!
+        attributes = connection_params(existing: connection)
+        previous_authority = {
+          enabled: connection.enabled,
+          allowed_directions: Array(connection.allowed_directions),
+          destination_policies: Array(connection.destination_policies).map(&:deep_dup),
+          policy_revision: connection.policy_revision,
+        }
+        connection.update!(attributes)
+        SourceRevocationRegistry.reconcile_policy_removal!(
+          connection: connection,
+          previous_authority: previous_authority,
+        )
+      end
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -107,6 +121,8 @@ module DiscussionBridge
         :network_enabled,
         :network_peer_forum_id,
         :network_relationship,
+        :preserve_existing_policy_fields,
+        :replace_existing_policy_fields,
         allowed_origins: [],
         allowed_directions: [],
         allowed_lanes: [],
@@ -122,6 +138,13 @@ module DiscussionBridge
         ],
       ).to_h.symbolize_keys
       publication_policy = raw.delete(:publication_policy)
+      preserve_existing_policy_fields =
+        ActiveModel::Type::Boolean.new.cast(raw.delete(:preserve_existing_policy_fields))
+      replace_existing_policy_fields =
+        ActiveModel::Type::Boolean.new.cast(raw.delete(:replace_existing_policy_fields))
+      if preserve_existing_policy_fields && replace_existing_policy_fields
+        raise ArgumentError, "publication policy fields cannot be both preserved and replaced"
+      end
       if raw.key?(:author_username)
         username = raw.delete(:author_username).to_s.strip
         raw[:author_user_id] = username.present? ? author_user!(username).id : nil
@@ -137,7 +160,15 @@ module DiscussionBridge
       configure_publication_policy!(raw, existing: existing) if publication_policy.nil? &&
         !ActiveModel::Type::Boolean.new.cast(raw.fetch(:network_enabled, existing&.network_enabled)) &&
           publication_authority_changed?(raw, existing)
-      configure_explicit_publication_policy!(raw, existing, publication_policy) if publication_policy
+      if publication_policy
+        configure_explicit_publication_policy!(
+          raw,
+          existing,
+          publication_policy,
+          preserve_existing_policy_fields: preserve_existing_policy_fields,
+          replace_existing_policy_fields: replace_existing_policy_fields,
+        )
+      end
       raw
     end
 
@@ -146,7 +177,8 @@ module DiscussionBridge
       return true if raw.key?(:network_enabled) && existing.network_enabled
       return true if raw.key?(:platform) && raw[:platform] != existing.platform
 
-      raw.key?(:allowed_directions) && raw[:allowed_directions] != existing.allowed_directions
+      raw.key?(:allowed_directions) &&
+        Array(raw[:allowed_directions]).map(&:to_s).sort != Array(existing.allowed_directions).map(&:to_s).sort
     end
 
     def configure_publication_policy!(raw, existing:)
@@ -195,12 +227,36 @@ module DiscussionBridge
       raw[:catalog_required] = profile != "discourse_as_publisher"
     end
 
-    def configure_explicit_publication_policy!(raw, existing, supplied)
+    def configure_explicit_publication_policy!(
+      raw,
+      existing,
+      supplied,
+      preserve_existing_policy_fields: false,
+      replace_existing_policy_fields: false
+    )
       raise ArgumentError, "publication policy can only update an existing connection" unless existing
       raise ArgumentError, "network policy is receiver-owned" if
         ActiveModel::Type::Boolean.new.cast(raw.fetch(:network_enabled, existing.network_enabled))
 
       policy = supplied.deep_stringify_keys
+      existing_policy = Array(existing.destination_policies).map(&:deep_stringify_keys).find do |candidate|
+        candidate["profile"] == policy["profile"] &&
+          candidate["destination_policy_id"] == policy["destination_policy_id"] &&
+          candidate.dig("container_mapping", "destination") !=
+            "discussion-bridge:pending-catalog-mapping"
+      end
+      preserve_existing = preserve_existing_policy_fields ||
+        (generic_attribution_mappings?(policy) && !replace_existing_policy_fields)
+      if existing_policy && preserve_existing
+        policy["destination_policy_id"] = existing_policy.fetch("destination_policy_id")
+        policy["container_mapping"]["source"] = existing_policy.fetch("container_mapping").fetch("source")
+        policy["taxonomy_mapping"] = existing_policy.fetch("taxonomy_mapping")
+        policy["author_mapping"] = existing_policy.fetch("author_mapping")
+      end
+      native_limit_policy = policy.fetch("native_limit_policy")
+      maximum_bytes = native_limit_policy.fetch("maximum_bytes")
+      native_limit_policy["maximum_bytes"] =
+        maximum_bytes.is_a?(Integer) ? maximum_bytes : Integer(maximum_bytes, 10)
       platform = raw[:platform] || existing.platform
       directions = raw[:allowed_directions] || existing.allowed_directions
       allowed_profiles = publication_profiles(platform, directions)
@@ -229,6 +285,11 @@ module DiscussionBridge
       raw[:destination_policies] = [policy]
       raw[:policy_revision] = "policy:admin:#{Digest::SHA256.hexdigest(JSON.generate(policy))[0, 32]}"
       raw[:catalog_required] = true
+    end
+
+    def generic_attribution_mappings?(policy)
+      policy["taxonomy_mapping"] == { "mode" => "source_attribution" } &&
+        policy["author_mapping"] == { "mode" => "source_attribution" }
     end
 
     def publication_profiles(platform, directions)
@@ -345,6 +406,7 @@ module DiscussionBridge
         policy_revision: connection.policy_revision,
         destination_policies: connection.destination_policies,
         catalog_required: connection.catalog_required,
+        publication_active: ConnectionCapability.publication_active?(connection),
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
         attention_count: attention_records,
@@ -403,6 +465,7 @@ module DiscussionBridge
             platform_profile: catalog.platform_profile,
             catalog_revision: catalog.catalog_revision,
             updated_at: catalog.updated_at,
+            segments: catalog.segments.order(:segment_type).index_by(&:segment_type).transform_values(&:items),
           }
         end,
       }

@@ -22,6 +22,25 @@ describe "DiscussionBridge native product administration" do
       adapter_id: "wordpress-discussion-bridge",
       adapter_version: "0.2.0-alpha.20",
       last_seen_at: Time.zone.now,
+      destination_policies: [
+        {
+          "destination_policy_id" => "destination:wordpress:approved",
+          "profile" => "wordpress",
+          "presentation_mode" => "interactive",
+          "container_mapping" => {
+            "source" => "discourse:topics",
+            "destination" => "wordpress:posts",
+          },
+          "taxonomy_mapping" => { "mode" => "source_attribution" },
+          "author_mapping" => { "mode" => "source_attribution" },
+          "native_limit_policy" => {
+            "maximum_bytes" => 49_152,
+            "overflow_behavior" => "excerpt_with_read_more",
+          },
+          "catalog_revision" => "catalog:wordpress:approved",
+        },
+      ],
+      policy_revision: "policy:system:approved",
     )
     DiscussionBridgeSourceAuthor.create!(
       content_connection: @connection,
@@ -135,6 +154,127 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
     expect(created.generate_topic_toc).to eq(true)
+
+    catalog = created.platform_catalogs.create!(
+      platform_profile: "ghost",
+      catalog_revision: "catalog:ghost:system",
+      current: true,
+    )
+    {
+      "containers" => [
+        { "id" => "ghost:posts", "name" => "Ghost posts", "kind" => "post_type", "available" => true },
+      ],
+      "taxonomies" => [],
+      "terms" => [],
+      "authors" => [],
+      "presentation_modes" => [
+        { "id" => "interactive", "name" => "Interactive", "available" => true },
+      ],
+      "native_limits" => [
+        {
+          "id" => "ghost:html",
+          "name" => "Ghost HTML",
+          "maximum_bytes" => 49_152,
+          "overflow_behavior" => "excerpt_with_read_more",
+          "available" => true,
+        },
+      ],
+    }.each do |segment_type, items|
+      catalog.segments.create!(segment_type: segment_type, items: items)
+    end
+
+    visit("/admin/plugins/discourse-discussion-bridge/connections")
+    within(".discussion-bridge-connection-card", text: "Editorial Ghost Updated") do
+      click_button("Manage")
+    end
+    click_button("Publishing")
+    select("ghost", from: "Destination profile")
+    select("Ghost posts", from: "Destination container")
+    select("Interactive", from: "Presentation mode")
+    select("Ghost HTML", from: "Native content limit")
+    click_button("Approve publication destination")
+
+    expect(page).to have_content("Editorial Ghost Updated", wait: 30)
+    expect(DiscussionBridge::ConnectionCapability.publication_active?(created.reload)).to be(true)
+    expect(created.destination_policies.sole).to include(
+      "profile" => "ghost",
+      "container_mapping" => include("destination" => "ghost:posts"),
+      "catalog_revision" => "catalog:ghost:system",
+    )
+  end
+
+  it "preserves mapped authors, terms, and policy identity when approving a new container" do
+    mapped_policy = @connection.destination_policies.sole.deep_stringify_keys
+    mapped_policy["catalog_revision"] = "catalog:wordpress:mapped"
+    mapped_policy["taxonomy_mapping"] = {
+      "mode" => "mapped_only",
+      "items" => [
+        { "source" => "discourse:tag:news", "destination" => "wordpress:term:news" },
+      ],
+    }
+    mapped_policy["author_mapping"] = {
+      "mode" => "mapped_only",
+      "items" => [
+        { "source" => "discourse:user:admin", "destination" => "wordpress:author:editor" },
+      ],
+    }
+    @connection.update!(destination_policies: [mapped_policy], policy_revision: "policy:mapped:1")
+    catalog = @connection.platform_catalogs.create!(
+      platform_profile: "wordpress",
+      catalog_revision: mapped_policy.fetch("catalog_revision"),
+      current: true,
+    )
+    {
+      "containers" => [
+        { "id" => "wordpress:posts", "name" => "WordPress posts", "kind" => "post_type", "available" => true },
+      ],
+      "taxonomies" => [],
+      "terms" => [
+        {
+          "id" => "wordpress:term:news",
+          "taxonomy_id" => "wordpress:taxonomy:category",
+          "name" => "News",
+          "parent_id" => nil,
+          "available" => true,
+        },
+      ],
+      "authors" => [
+        { "id" => "wordpress:author:editor", "name" => "Editor", "available" => true },
+      ],
+      "presentation_modes" => [
+        { "id" => "interactive", "name" => "Interactive", "available" => true },
+      ],
+      "native_limits" => [
+        {
+          "id" => "wordpress:html",
+          "name" => "WordPress HTML",
+          "maximum_bytes" => 49_152,
+          "overflow_behavior" => "excerpt_with_read_more",
+          "available" => true,
+        },
+      ],
+    }.each do |segment_type, items|
+      catalog.segments.create!(segment_type: segment_type, items: items)
+    end
+
+    sign_in(admin)
+    visit("/admin/plugins/discourse-discussion-bridge/connections")
+    within(".discussion-bridge-connection-card", text: "Main publication") do
+      click_button("Manage")
+    end
+    click_button("Publishing")
+    select("wordpress", from: "Destination profile")
+    select("WordPress posts", from: "Destination container")
+    select("Interactive", from: "Presentation mode")
+    select("WordPress HTML", from: "Native content limit")
+    click_button("Approve publication destination")
+
+    retained = @connection.reload.destination_policies.sole.deep_stringify_keys
+    expect(retained).to include(
+      "destination_policy_id" => mapped_policy.fetch("destination_policy_id"),
+      "taxonomy_mapping" => mapped_policy.fetch("taxonomy_mapping"),
+      "author_mapping" => mapped_policy.fetch("author_mapping"),
+    )
   end
 
   it "persists the selected publishing connection and creates a native platform record" do

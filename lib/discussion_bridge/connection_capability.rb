@@ -47,6 +47,7 @@ module DiscussionBridge
     MAPPING_MODES = %w[mapped_only source_attribution].freeze
     OVERFLOW_BEHAVIORS = %w[complete excerpt_with_read_more operator_attention].freeze
     STATIC_DEPLOYMENT_PROFILES = %w[astro hugo statamic_flat statamic_ssg].freeze
+    PENDING_CATALOG_DESTINATION = "discussion-bridge:pending-catalog-mapping"
     BOUNDS = {
       resolve_json_bytes: 65_536,
       source_content_bytes: 16_777_216,
@@ -87,6 +88,19 @@ module DiscussionBridge
         policies_within_connection_scope?(connection)
     end
 
+    def self.publication_active?(connection)
+      connection.enabled && connection.allows_direction?("from_discourse") &&
+        configured?(connection) && Array(connection.destination_policies).none? do |policy|
+        pending_catalog_policy?(policy)
+      end
+    end
+
+    def self.pending_catalog_policy?(policy)
+      value = policy.deep_stringify_keys
+      value["destination_policy_id"].to_s.end_with?(":pending") ||
+        value.dig("container_mapping", "destination") == PENDING_CATALOG_DESTINATION
+    end
+
     def self.valid_destination_policies?(policies)
       return false unless policies.is_a?(Array) && policies.any? && policies.all? do |policy|
         policy.is_a?(Hash) && valid_policy?(policy.deep_stringify_keys)
@@ -105,10 +119,17 @@ module DiscussionBridge
     end
 
     def self.policies_within_connection_scope?(connection)
-      allowed_profiles = []
-      allowed_profiles << "discourse_as_publisher" if connection.allows_direction?("to_discourse")
+      allowed_profiles = profiles_within_connection_scope(connection)
+      Array(connection.destination_policies).all? do |policy|
+        allowed_profiles.include?(policy.stringify_keys["profile"])
+      end
+    end
+
+    def self.profiles_within_connection_scope(connection)
+      profiles = []
+      profiles << "discourse_as_publisher" if connection.allows_direction?("to_discourse")
       if connection.allows_direction?("from_discourse")
-        allowed_profiles.concat(
+        profiles.concat(
           case connection.platform
           when "statamic"
             %w[statamic_db statamic_flat statamic_ssg]
@@ -119,9 +140,7 @@ module DiscussionBridge
           end,
         )
       end
-      Array(connection.destination_policies).all? do |policy|
-        allowed_profiles.include?(policy.stringify_keys["profile"])
-      end
+      profiles.uniq
     end
 
     def self.valid_policy?(policy)

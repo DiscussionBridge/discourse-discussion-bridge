@@ -198,8 +198,11 @@ module DiscussionBridge
       @request[:network_restore] == true && record.state == "attention" &&
         topic&.closed && !topic&.visible &&
         %w[hold unpublish].include?(stored["local_passive_action"]) &&
-        stored["local_passive_source_revision"] == @request.fetch(:source_revision) &&
-        stored["local_passive_policy_revision"] == @connection.policy_revision
+        stored["local_passive_policy_revision"] == @connection.policy_revision &&
+        stored["local_passive_predecessor_revision"] == record.source_revision &&
+        stored["local_passive_predecessor_revision_sequence"] == record.source_revision_sequence &&
+        stored["local_passive_source_revision_sequence"].is_a?(Integer) &&
+        @request.fetch(:source_revision_sequence) > stored["local_passive_source_revision_sequence"]
     end
 
     def topic_request(canonical)

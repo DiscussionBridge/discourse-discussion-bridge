@@ -108,8 +108,15 @@ module DiscussionBridge
     end
 
     def authenticate_content_connection
-      @content_connection = ContentConnectionAuthenticator.call(request)
+      @content_connection = ContentConnectionAuthenticator.call(
+        request,
+        allow_disabled: allow_disabled_connection?,
+      )
       raise AdapterRequestBoundary::Error, "authentication_failed" unless @content_connection
+    end
+
+    def allow_disabled_connection?
+      false
     end
 
     def maximum_json_bytes

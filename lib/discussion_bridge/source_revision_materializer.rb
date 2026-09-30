@@ -21,11 +21,15 @@ module DiscussionBridge
     end
 
     def call(force_revision: false)
-      reason = unavailability_reason
-      return Result.new(revision: nil, reason: reason) if reason
+      result = nil
+      @connection.with_lock do
+        reason = unavailability_reason
+        if reason
+          result = Result.new(revision: nil, reason: reason)
+          next
+        end
 
-      revision = nil
-      @record.with_lock do
+        @record.lock!
         payload = source_payload
         fingerprint = Digest::SHA256.hexdigest(JSON.generate(fingerprint_payload(payload)))
         revision = @record.source_revisions.where(fingerprint: fingerprint)
@@ -58,8 +62,9 @@ module DiscussionBridge
           connection: @connection,
           revision: revision,
         )
+        result = Result.new(revision: revision, reason: nil)
       end
-      Result.new(revision: revision, reason: nil)
+      result
     rescue ActiveRecord::RecordNotUnique
       retry
     end

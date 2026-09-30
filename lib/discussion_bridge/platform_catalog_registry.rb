@@ -192,6 +192,7 @@ module DiscussionBridge
 
     def initial_revision
       revisions = @policies.map { |policy| policy.fetch("catalog_revision") }.uniq
+      return "catalog:#{@platform_profile}:initial" if revisions.empty?
       raise AdapterRequestBoundary::Error, "policy_denied" unless revisions.one?
 
       revisions.first

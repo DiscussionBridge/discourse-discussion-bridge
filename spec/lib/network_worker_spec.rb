@@ -132,14 +132,14 @@ describe DiscussionBridge::NetworkWorker do
     )
   end
 
-  def work(action: "publish")
+  def work(action: "publish", detail: source_detail)
     {
       "work_id" => "dbw_#{"1" * 32}",
       "connection_id" => @peer.remote_connection_id,
       "resource_id" => source_detail.fetch("resource_id"),
       "action" => action,
-      "source_revision" => source_detail.fetch("source_revision"),
-      "source_revision_sequence" => source_detail.fetch("source_revision_sequence"),
+      "source_revision" => detail.fetch("source_revision"),
+      "source_revision_sequence" => detail.fetch("source_revision_sequence"),
       "policy_revision" => "policy:2026-09-27:1",
       "destination_policy_id" => destination_policy.fetch("destination_policy_id"),
       "lease_token" => "2" * 64,
@@ -210,14 +210,37 @@ describe DiscussionBridge::NetworkWorker do
     first_post_id = topic.first_post.id
     reply = Fabricate(:post, topic: topic, user: admin, post_number: 2, raw: "Local reply survives restore")
 
-    passive = FakeNetworkPeerClient.new(work: work(action: "unpublish"), detail: source_detail)
+    passive_detail = source_detail.merge(
+      "source_revision" => "revocation:c4965d46:3",
+      "source_revision_sequence" => 3,
+    )
+    passive = FakeNetworkPeerClient.new(
+      work: work(action: "unpublish", detail: passive_detail),
+      detail: passive_detail,
+    )
     expect(described_class.call(@peer, client: passive)[:outcome]).to eq("acknowledged")
     expect(record.reload.network_provenance).to include(
       "local_passive_action" => "unpublish",
-      "local_passive_source_revision" => source_detail.fetch("source_revision"),
+      "local_passive_source_revision" => passive_detail.fetch("source_revision"),
+      "local_passive_source_revision_sequence" => 3,
+      "local_passive_predecessor_revision" => source_detail.fetch("source_revision"),
+      "local_passive_predecessor_revision_sequence" => 2,
     )
 
-    restore = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    restore_detail = source_detail.deep_dup
+    restore_detail["source_revision"] = "post:501:version:4"
+    restore_detail["source_revision_sequence"] = 4
+    restore_detail["source_updated_at"] = "2026-09-29T18:30:00Z"
+    restore_detail["content_transport"]["content_html"] = "<p>National program restored.</p>"
+    restore_detail["content_transport"]["byte_length"] = restore_detail.dig("content_transport", "content_html").bytesize
+    restore_detail["content_transport"]["sha256"] = Digest::SHA256.hexdigest(
+      restore_detail.dig("content_transport", "content_html"),
+    )
+    restore_detail["network_provenance"]["operation_id"] = "dbo_44444444444444444444444444444444"
+    restore = FakeNetworkPeerClient.new(
+      work: work(action: "restore", detail: restore_detail),
+      detail: restore_detail,
+    )
     restored = described_class.call(@peer, client: restore)
     expect(restored).to include(outcome: "acknowledged")
     expect(restored.dig(:result, "mutated")).to be(true)
@@ -225,13 +248,38 @@ describe DiscussionBridge::NetworkWorker do
     expect(record.reload).to have_attributes(state: "healthy", topic_id: topic.id)
     expect(topic.reload).to have_attributes(closed: false, visible: true)
     expect(topic.first_post.id).to eq(first_post_id)
+    expect(topic.first_post.raw).to include("National program restored")
     expect(topic.posts.find(reply.id).raw).to eq("Local reply survives restore")
     expect(record.network_provenance).not_to have_key("local_passive_action")
 
-    replay = FakeNetworkPeerClient.new(work: work(action: "restore"), detail: source_detail)
+    replay = FakeNetworkPeerClient.new(
+      work: work(action: "restore", detail: restore_detail),
+      detail: restore_detail,
+    )
     replayed = described_class.call(@peer, client: replay)
     expect(replayed).to include(outcome: "acknowledged")
     expect(replayed.dig(:result, "mutated")).to be(false)
+
+    second_passive_detail = restore_detail.merge(
+      "source_revision" => "revocation:c4965d46:5",
+      "source_revision_sequence" => 5,
+    )
+    second_passive = FakeNetworkPeerClient.new(
+      work: work(action: "unpublish", detail: second_passive_detail),
+      detail: second_passive_detail,
+    )
+    expect(described_class.call(@peer, client: second_passive)[:outcome]).to eq("acknowledged")
+    @connection.update!(allowed_origins: ["https://withdrawn.example"])
+    unauthorized_replay = FakeNetworkPeerClient.new(
+      work: work(action: "restore", detail: restore_detail),
+      detail: restore_detail,
+    )
+    expect(described_class.call(@peer, client: unauthorized_replay)).to include(
+      outcome: "failed",
+      error_code: "scope_denied",
+    )
+    expect(record.reload.state).to eq("attention")
+    expect(topic.reload).to have_attributes(closed: true, visible: false)
   end
 
   it "rejects restore from unrelated attention or stale policy authority" do

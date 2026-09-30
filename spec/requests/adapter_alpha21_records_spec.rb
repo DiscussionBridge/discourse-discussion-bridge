@@ -381,6 +381,44 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 records" do
     )
   end
 
+  it "accepts a visibly exact Read More label split by inline formatting" do
+    excerpt = <<~HTML.strip
+      <p>This is a bounded excerpt of the complete guide.</p><p><a href="https://publisher.example/articles/community-guide/">Read <strong>Mo</strong>re</a></p>
+    HTML
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers(correlation: "formatted-read-more"),
+         params: payload(
+           content_html: excerpt,
+           correlation: "formatted-read-more",
+           content_disposition: "excerpt",
+           source_content_bytes: excerpt.bytesize + 1,
+           source_content_sha256: "b" * 64,
+           read_more_url: "https://publisher.example/articles/community-guide/",
+         ),
+         as: :json
+
+    expect(response).to have_http_status(:created), response.body
+  end
+
+  it "accepts a visibly exact Read More label split by an explicit line break" do
+    excerpt = <<~HTML.strip
+      <p>This is a bounded excerpt of the complete guide.</p><p><a href="https://publisher.example/articles/community-guide/">Read<br>More</a></p>
+    HTML
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers(correlation: "line-break-read-more"),
+         params: payload(
+           content_html: excerpt,
+           correlation: "line-break-read-more",
+           content_disposition: "excerpt",
+           source_content_bytes: excerpt.bytesize + 1,
+           source_content_sha256: "c" * 64,
+           read_more_url: "https://publisher.example/articles/community-guide/",
+         ),
+         as: :json
+
+    expect(response).to have_http_status(:created), response.body
+  end
+
   it "rejects comment-only, plain-text, and hidden excerpt notices or Read More references" do
     invalid_markup = [
       "<!-- excerpt --><p>Read More</p>",

@@ -19,6 +19,32 @@ describe DiscussionBridge::PublisherController do
       allowed_directions: ["from_discourse"],
       allowed_lanes: [],
     )
+    activate_publication!(@connection)
+  end
+
+  def activate_publication!(connection)
+    profile = connection.platform == "statamic" ? "statamic_db" : connection.platform
+    connection.update!(
+      destination_policies: [
+        {
+          "destination_policy_id" => "destination:#{profile}:spec-approved",
+          "profile" => profile,
+          "presentation_mode" => "interactive",
+          "container_mapping" => {
+            "source" => "discourse:topics",
+            "destination" => "#{profile}:spec-container",
+          },
+          "taxonomy_mapping" => { "mode" => "source_attribution" },
+          "author_mapping" => { "mode" => "source_attribution" },
+          "native_limit_policy" => {
+            "maximum_bytes" => 49_152,
+            "overflow_behavior" => "excerpt_with_read_more",
+          },
+          "catalog_revision" => "catalog:#{profile}:spec-approved",
+        },
+      ],
+      policy_revision: "policy:#{profile}:spec-approved",
+    )
   end
 
   def publication(connection: @connection, external_id: "roadmap", canonical_url: "https://astro.example.com/roadmap/", lane: :omitted, native_materialization: false)
@@ -194,6 +220,7 @@ describe DiscussionBridge::PublisherController do
       allowed_directions: ["from_discourse"],
       allowed_lanes: [],
     )
+    activate_publication!(wordpress)
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
          params: publication,
@@ -220,6 +247,7 @@ describe DiscussionBridge::PublisherController do
       allowed_directions: ["from_discourse"],
       allowed_lanes: ["statamic-demo"],
     )
+    activate_publication!(scoped)
     sign_in(admin)
     post "/discussion-bridge/v1/publisher/topics/#{topic.id}/publish.json",
          params: publication(
@@ -256,6 +284,7 @@ describe DiscussionBridge::PublisherController do
       allowed_directions: ["from_discourse"],
       allowed_lanes: ["news", "guides"],
     )
+    activate_publication!(scoped)
     sign_in(admin)
     attributes = {
       connection: scoped,

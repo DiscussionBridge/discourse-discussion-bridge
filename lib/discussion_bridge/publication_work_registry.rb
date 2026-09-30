@@ -20,6 +20,15 @@ module DiscussionBridge
       )
     end
 
+    def self.ensure_policy_withdrawal!(record:, connection:, revocation:, policies:, policy_revision:)
+      new(connection: connection).ensure_policy_withdrawal!(
+        record: record,
+        revocation: revocation,
+        policies: policies,
+        policy_revision: policy_revision,
+      )
+    end
+
     def self.claim(connection:, worker_id:, maximum_items:, requested_lease_seconds:, correlation_id:)
       new(connection: connection).claim(
         worker_id: worker_id,
@@ -48,6 +57,9 @@ module DiscussionBridge
     def self.manual_retry!(work:, authorized_by:, condition_corrected:)
       raise AdapterRequestBoundary::Error, "policy_denied" unless authorized_by&.staff?
       raise ArgumentError, "condition correction must be confirmed" unless condition_corrected == true
+      registry = new(connection: work.content_connection)
+      raise AdapterRequestBoundary::Error, "scope_denied" unless
+        registry.send(:currently_authorized, work)
 
       work.with_lock do
         raise AdapterRequestBoundary::Error, "stage_conflict" unless work.state == "operator_attention"
@@ -80,6 +92,10 @@ module DiscussionBridge
       work
     end
 
+    def currently_authorized(work)
+      currently_authorized?(work, allow_withdrawal: true, allow_policy_change: true)
+    end
+
     def initialize(connection:)
       @connection = connection
     end
@@ -104,10 +120,66 @@ module DiscussionBridge
       )
     end
 
+    def ensure_policy_withdrawal!(record:, revocation:, policies:, policy_revision:)
+      binding = destination_binding(record)
+      action = revocation.reason == "operator_hold" ? "hold" : "unpublish"
+      Array(policies).map(&:deep_stringify_keys).each do |policy|
+        prior_scope = @connection.publication_works.where(
+          content_binding_id: binding.id,
+          destination_policy_id: policy.fetch("destination_policy_id"),
+        ).where.not(action: %w[hold unpublish]).order(id: :desc)
+        prior = prior_scope.where(may_have_materialized: true).first
+        prior ||= prior_scope.first if binding.publication_revision.present?
+        next unless prior
+
+        DiscussionBridgePublicationWork.transaction do
+          @connection.lock!
+          binding.lock!
+          existing = @connection.publication_works.find_by(
+            content_binding_id: binding.id,
+            source_revision: revocation.source_revision,
+            policy_revision: policy_revision,
+            destination_policy_id: policy.fetch("destination_policy_id"),
+            action: action,
+          )
+          next existing if existing
+
+          supersede_prior_work!(
+            binding: binding,
+            destination_policy_id: policy.fetch("destination_policy_id"),
+          )
+          @connection.publication_works.create!(
+            bridge_record: record,
+            content_binding: binding,
+            source_revocation_record: revocation,
+            action: action,
+            state: "available",
+            source_revision: revocation.source_revision,
+            source_revision_sequence: revocation.source_revision_sequence,
+            policy_revision: policy_revision,
+            destination_policy_id: policy.fetch("destination_policy_id"),
+            catalog_revision: prior.catalog_revision,
+            presentation_mode: prior.presentation_mode,
+            static_deployment: prior.static_deployment,
+            resolved_container: prior.resolved_container,
+            resolved_taxonomy: prior.resolved_taxonomy,
+            resolved_author: prior.resolved_author,
+            native_limit_policy: prior.native_limit_policy,
+            attempt_count: 1,
+            retry_generation: 0,
+            available_at: Time.zone.now,
+          )
+        end
+      end
+    rescue ActiveRecord::RecordNotUnique
+      retry
+    end
+
     def ensure_work!(record:, source_revision_record:, source_revocation_record:, source_revision:,
                      source_revision_sequence:, action:)
       raise AdapterRequestBoundary::Error, "direction_denied" unless
-        @connection.enabled && @connection.allows_direction?("from_discourse")
+        @connection.enabled && @connection.allows_direction?("from_discourse") &&
+          ConnectionCapability.publication_active?(@connection)
 
       policies.each do |policy|
         binding = destination_binding(record)
@@ -142,6 +214,7 @@ module DiscussionBridge
               destination_policy_id: policy.fetch("destination_policy_id"),
               catalog_revision: policy.fetch("catalog_revision"),
               presentation_mode: policy.fetch("presentation_mode"),
+              static_deployment: ConnectionCapability.static_deployment_policy?(policy),
               attempt_count: 1,
               retry_generation: 0,
               available_at: Time.zone.now,
@@ -439,8 +512,16 @@ module DiscussionBridge
       @connection.publication_works.where(
         content_binding_id: binding.id,
         destination_policy_id: destination_policy_id,
-        state: %w[available retry_wait awaiting_deployment awaiting_verification operator_attention],
-      ).update_all(state: "superseded", superseded_at: now, updated_at: now)
+        state: %w[available retry_wait operator_attention],
+      ).where.not(action: %w[hold unpublish])
+        .update_all(state: "superseded", superseded_at: now, updated_at: now)
+      @connection.publication_works.where(
+        content_binding_id: binding.id,
+        destination_policy_id: destination_policy_id,
+        state: %w[awaiting_deployment awaiting_verification],
+      ).where.not(action: %w[hold unpublish])
+        .where("lease_expires_at IS NULL OR lease_expires_at <= ?", now)
+        .update_all(state: "superseded", superseded_at: now, updated_at: now)
     end
 
     def reconcile_expired!(now)
@@ -490,8 +571,11 @@ module DiscussionBridge
 
     def claim_one(candidate, worker_id:, lease_seconds:, now:)
       claim = nil
-      candidate.with_lock do
+      DiscussionBridgePublicationWork.transaction do
+        @connection.lock!
+        candidate.lock!
         next unless candidate.state == "available" && candidate.resolution_error.nil?
+        next unless currently_authorized?(candidate, allow_withdrawal: true)
         blocker = @connection.publication_works.where(content_binding_id: candidate.content_binding_id)
           .where(state: %w[leased awaiting_deployment awaiting_verification]).where.not(id: candidate.id).exists?
         next if blocker
@@ -506,6 +590,7 @@ module DiscussionBridge
           total_lease_seconds: lease_seconds,
           leased_at: now,
           lease_expires_at: now + lease_seconds.seconds,
+          may_have_materialized: true,
         )
         claim = Claim.new(work: candidate, lease_token: lease_token, stage_token: stage_token)
       end
@@ -514,6 +599,23 @@ module DiscussionBridge
 
     def currently_authorized?(work, allow_withdrawal: false, allow_policy_change: false)
       binding = work.content_binding
+      if allow_withdrawal && %w[hold unpublish].include?(work.action)
+        revocation = work.source_revocation_record
+        tied = binding&.state == "active" && binding.content_connection_id == @connection.id &&
+          revocation&.content_connection_id == @connection.id &&
+          revocation.bridge_record_id == work.bridge_record_id
+        return false unless tied
+        if revocation.reason == "policy_removed"
+          retained_policy_still_current = ConnectionCapability.publication_active?(@connection) &&
+            @connection.policy_revision == work.policy_revision &&
+            Array(@connection.destination_policies).any? do |candidate|
+              candidate.stringify_keys["destination_policy_id"] == work.destination_policy_id
+            end
+          return !retained_policy_still_current
+        end
+        return revocation.restored_at.nil?
+      end
+
       policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
         candidate["destination_policy_id"] == work.destination_policy_id
       end
@@ -521,8 +623,6 @@ module DiscussionBridge
         (allow_policy_change || @connection.policy_revision == work.policy_revision) && policy.present? &&
         binding&.state == "active" && binding.content_connection_id == @connection.id
       return false unless base_authorized
-      return true if allow_withdrawal && %w[hold unpublish].include?(work.action)
-
       @connection.allows_lane?(work.bridge_record.lane) &&
         @connection.allows_origin?(binding.canonical_url)
     end
@@ -649,12 +749,7 @@ module DiscussionBridge
     end
 
     def static_deployment?(work)
-      policy = Array(@connection.destination_policies).map(&:deep_stringify_keys).find do |candidate|
-        candidate["destination_policy_id"] == work.destination_policy_id
-      end
-      raise AdapterRequestBoundary::Error, "policy_denied" unless policy
-
-      ConnectionCapability.static_deployment_policy?(policy)
+      work.static_deployment
     end
 
     def validate_content_disposition!(work, disposition)

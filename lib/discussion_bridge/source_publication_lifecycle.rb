@@ -64,7 +64,7 @@ module DiscussionBridge
         connection = binding.content_connection
         next unless connection.enabled && connection.allows_direction?("from_discourse") &&
           connection.allows_lane?(record.lane) && connection.allows_origin?(binding.canonical_url) &&
-          connection.destination_policies.present?
+          ConnectionCapability.publication_active?(connection)
 
         connection
       end

@@ -38,7 +38,8 @@ module DiscussionBridge
       DiscussionBridgeBridgeRecord.transaction do
         connection = DiscussionBridgeContentConnection.lock.find(@connection_id)
         raise ArgumentError, "connection does not permit From Discourse" unless
-          connection.enabled && connection.allows_direction?("from_discourse")
+          connection.enabled && connection.allows_direction?("from_discourse") &&
+            ConnectionCapability.publication_active?(connection)
         lane = resolved_lane(connection)
 
         topic = Topic.lock.find(@topic_id)

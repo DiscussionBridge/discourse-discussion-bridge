@@ -15,6 +15,10 @@ module DiscussionBridge
       new(connection: connection).reconcile_record!(record)
     end
 
+    def self.reconcile_policy_removal!(connection:, previous_authority:)
+      new(connection: connection).reconcile_policy_removal!(previous_authority)
+    end
+
     def initialize(connection:)
       @connection = connection
     end
@@ -39,6 +43,41 @@ module DiscussionBridge
       end
     end
 
+    def reconcile_policy_removal!(previous_authority)
+      previous = previous_authority.deep_stringify_keys
+      return unless previous["enabled"] &&
+        Array(previous["allowed_directions"]).include?("from_discourse")
+
+      previous_policies = Array(previous["destination_policies"]).map(&:deep_stringify_keys)
+      previous_policies.reject! { |policy| ConnectionCapability.pending_catalog_policy?(policy) }
+      return if previous_policies.empty?
+
+      current_policies = if @connection.enabled && @connection.allows_direction?("from_discourse")
+        Array(@connection.destination_policies).map(&:deep_stringify_keys)
+      else
+        []
+      end
+      removed = previous_policies.reject do |policy|
+        current_policies.any? { |current| current == policy }
+      end
+      return if removed.empty?
+
+      source_records.find_each do |record|
+        revocation = policy_removed_revocation!(
+          record,
+          policy_revision: previous.fetch("policy_revision"),
+        )
+        PublicationWorkRegistry.ensure_policy_withdrawal!(
+          record: record,
+          connection: @connection,
+          revocation: revocation,
+          policies: removed,
+          policy_revision: previous.fetch("policy_revision"),
+        )
+        restore!(record) if ConnectionCapability.publication_active?(@connection)
+      end
+    end
+
     private
 
     def source_records
@@ -55,39 +94,86 @@ module DiscussionBridge
     end
 
     def revoke!(record, reason)
-      record.with_lock do
-        current = active_revocations(record).order(source_revision_sequence: :desc).first
-        return current if current&.reason == reason
+      result = nil
+      @connection.with_lock do
+        record.with_lock do
+          current = active_revocations(record).order(source_revision_sequence: :desc).first
+          if current&.reason == reason
+            result = current
+            next
+          end
 
-        sequence = next_sequence(record)
-        revision = "revocation:#{record.resource_id}:#{sequence}"
-        revocation = DiscussionBridgeSourceRevocation.create!(
-          bridge_record: record,
-          content_connection: @connection,
-          revocation_id: "dbr_#{SecureRandom.hex(16)}",
-          source_revision: revision,
-          source_revision_sequence: sequence,
-          reason: reason,
-          effective_at: Time.zone.now,
-          restorable: true,
-          affected_binding_ids: record.content_bindings.where(
-            content_connection_id: @connection.id,
-            state: "active",
-          ).pluck(:binding_id),
-          policy_revision: @connection.policy_revision,
-        )
-        record.update!(
-          source_revision: revision,
-          source_revision_sequence: sequence,
-          source_updated_at: revocation.effective_at,
-        )
-        PublicationWorkRegistry.ensure_revocation!(
-          record: record,
-          connection: @connection,
-          revocation: revocation,
-        )
-        revocation
+          sequence = next_sequence(record)
+          revision = "revocation:#{record.resource_id}:#{sequence}"
+          revocation = DiscussionBridgeSourceRevocation.create!(
+            bridge_record: record,
+            content_connection: @connection,
+            revocation_id: "dbr_#{SecureRandom.hex(16)}",
+            source_revision: revision,
+            source_revision_sequence: sequence,
+            reason: reason,
+            effective_at: Time.zone.now,
+            restorable: true,
+            affected_binding_ids: record.content_bindings.where(
+              content_connection_id: @connection.id,
+              state: "active",
+            ).pluck(:binding_id),
+            policy_revision: @connection.policy_revision,
+          )
+          record.update!(
+            source_revision: revision,
+            source_revision_sequence: sequence,
+            source_updated_at: revocation.effective_at,
+          )
+          PublicationWorkRegistry.ensure_revocation!(
+            record: record,
+            connection: @connection,
+            revocation: revocation,
+          )
+          result = revocation
+        end
       end
+      result
+    rescue ActiveRecord::RecordNotUnique
+      retry
+    end
+
+    def policy_removed_revocation!(record, policy_revision:)
+      result = nil
+      @connection.with_lock do
+        record.with_lock do
+          current = active_revocations(record).order(source_revision_sequence: :desc).first
+          if current&.reason == "policy_removed"
+            result = current
+            next
+          end
+
+          sequence = next_sequence(record)
+          revision = "revocation:#{record.resource_id}:#{sequence}"
+          revocation = DiscussionBridgeSourceRevocation.create!(
+            bridge_record: record,
+            content_connection: @connection,
+            revocation_id: "dbr_#{SecureRandom.hex(16)}",
+            source_revision: revision,
+            source_revision_sequence: sequence,
+            reason: "policy_removed",
+            effective_at: Time.zone.now,
+            restorable: true,
+            affected_binding_ids: record.content_bindings.where(
+              content_connection_id: @connection.id,
+              state: "active",
+            ).pluck(:binding_id),
+            policy_revision: policy_revision,
+          )
+          record.update!(
+            source_revision: revision,
+            source_revision_sequence: sequence,
+            source_updated_at: revocation.effective_at,
+          )
+          result = revocation
+        end
+      end
+      result
     rescue ActiveRecord::RecordNotUnique
       retry
     end

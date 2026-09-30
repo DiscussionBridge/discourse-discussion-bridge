@@ -82,6 +82,7 @@ end
 #  lease_token_digest            :string(64)
 #  leased_at                     :datetime
 #  manual_retry_authorized_at    :datetime
+#  may_have_materialized         :boolean          default(FALSE), not null
 #  native_limit_policy           :jsonb            not null
 #  next_retry_at                 :datetime
 #  policy_revision               :string(255)      not null
@@ -96,6 +97,7 @@ end
 #  source_revision               :string(255)      not null
 #  source_revision_sequence      :bigint           not null
 #  stage_token_digest            :string(64)
+#  static_deployment             :boolean          default(FALSE), not null
 #  state                         :string(32)       default("available"), not null
 #  superseded_at                 :datetime
 #  synchronized_at               :datetime

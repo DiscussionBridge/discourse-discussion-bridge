@@ -142,7 +142,10 @@ module ::DiscussionBridge
       @available_connections ||= DiscussionBridgeContentConnection
         .where(enabled: true)
         .order(:platform, :name, :id)
-        .select { |connection| connection.allows_direction?("from_discourse") }
+        .select do |connection|
+          connection.allows_direction?("from_discourse") &&
+            ConnectionCapability.publication_active?(connection)
+        end
     end
 
     def from_discourse_records

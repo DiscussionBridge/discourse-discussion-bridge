@@ -51,6 +51,11 @@ module DiscussionBridge
     RFC3339_UTC_PATTERN = /\A\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):\d{2}:\d{2}(?:\.\d+)?Z\z/
     IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
     CONTROL_PATTERN = /[\x00-\x1f\x7f]/
+    BLOCK_TEXT_ELEMENTS = %w[
+      address article aside blockquote br dd div dl dt fieldset figcaption figure
+      footer form h1 h2 h3 h4 h5 h6 header hr li main nav ol p pre section table
+      tbody td tfoot th thead tr ul
+    ].freeze
 
     def self.call(parameters)
       raise ArgumentError, "bridge_record must be an object" unless parameters.is_a?(ActionController::Parameters)
@@ -169,10 +174,25 @@ module DiscussionBridge
     private_class_method :valid_excerpt_markup?
 
     def self.visible_text_within(element)
-      element.xpath(".//text()").select { |node| visible_excerpt_node?(node) }
-        .map(&:text).join(" ").squish
+      pieces = []
+      append_visible_text(element, pieces)
+      pieces.join.squish
     end
     private_class_method :visible_text_within
+
+    def self.append_visible_text(node, pieces)
+      return unless visible_excerpt_node?(node)
+      if node.text?
+        pieces << node.text
+        return
+      end
+
+      boundary = node.name.casecmp?("br") || BLOCK_TEXT_ELEMENTS.include?(node.name.downcase)
+      pieces << " " if boundary && pieces.any?
+      node.children.each { |child| append_visible_text(child, pieces) }
+      pieces << " " if boundary && pieces.any?
+    end
+    private_class_method :append_visible_text
 
     def self.visible_excerpt_node?(node)
       visibility_chain = node.element? ? [node, *node.ancestors] : node.ancestors

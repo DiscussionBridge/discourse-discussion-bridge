@@ -166,6 +166,33 @@ RSpec.describe ActiveRecord::MigrationContext do
     )
   end
 
+  it "snapshots deployment mode only from the exact current policy revision" do
+    migration_context.up(20_260_929_000_002)
+    seed_publication_work_for_mode(
+      connection_policy_revision: "policy:exact:1",
+      work_policy_revision: "policy:exact:1",
+      profile: "astro",
+    )
+
+    migration_context.up(20_260_929_000_003)
+
+    expect(select_value("SELECT static_deployment FROM discussion_bridge_publication_works WHERE id = 1")).to eq(true)
+  end
+
+  it "refuses to invent deployment mode from a different current policy revision" do
+    migration_context.up(20_260_929_000_002)
+    seed_publication_work_for_mode(
+      connection_policy_revision: "policy:current:2",
+      work_policy_revision: "policy:issued:1",
+      profile: "astro",
+    )
+
+    expect { migration_context.up(20_260_929_000_003) }.to raise_error(
+      StandardError,
+      /deployment mode cannot be proven/,
+    )
+  end
+
   def migration_context
     ActiveRecord::MigrationContext.new(migration_path)
   end
@@ -266,6 +293,42 @@ RSpec.describe ActiveRecord::MigrationContext do
          bridge_record_id, event_type, outcome, details, created_at)
       VALUES (1, 1, #{OPERATOR_ID}, #{TOPIC_ID}, 1, 1, 'legacy_event', 'retained',
               '{"retained":true}', #{now});
+    SQL
+  end
+
+  def seed_publication_work_for_mode(connection_policy_revision:, work_policy_revision:, profile:)
+    now = connection.quote(Time.zone.parse("2026-09-29T12:00:00Z"))
+    policy = [
+      {
+        destination_policy_id: "destination:test:1",
+        profile: profile,
+      },
+    ]
+    connection.execute <<~SQL
+      INSERT INTO discussion_bridge_content_connections
+        (id, public_id, name, platform, secret_digest, allowed_origins, allowed_directions,
+         allowed_lanes, enabled, destination_policies, policy_revision, created_at, updated_at)
+      VALUES (1, 'dbc_mode_test', 'Mode test', 'astro', '#{"a" * 64}',
+              '["https://source.example"]', '["from_discourse"]', '["article"]', true,
+              #{connection.quote(JSON.generate(policy))}::jsonb,
+              #{connection.quote(connection_policy_revision)}, #{now}, #{now});
+      INSERT INTO discussion_bridge_bridge_records
+        (id, resource_id, direction, state, title, topic_id, lane, created_at, updated_at)
+      VALUES (1, 'dbr_mode_test', 'from_discourse', 'active', 'Mode test', #{TOPIC_ID},
+              'article', #{now}, #{now});
+      INSERT INTO discussion_bridge_content_bindings
+        (id, bridge_record_id, content_connection_id, role, state, external_id,
+         canonical_url, identity_digest, canonical_url_digest, binding_id, created_at, updated_at)
+      VALUES (1, 1, 1, 'presentation', 'active', 'mode-test',
+              'https://source.example/mode-test', '#{"b" * 64}', '#{"c" * 64}',
+              'dbb_#{"d" * 32}', #{now}, #{now});
+      INSERT INTO discussion_bridge_publication_works
+        (id, content_connection_id, bridge_record_id, content_binding_id, work_id, action, state,
+         source_revision, source_revision_sequence, policy_revision, destination_policy_id,
+         catalog_revision, presentation_mode, created_at, updated_at)
+      VALUES (1, 1, 1, 1, 'dbw_#{"e" * 32}', 'publish', 'available',
+              'revision:1', 1, #{connection.quote(work_policy_revision)}, 'destination:test:1',
+              'catalog:test:1', 'interactive', #{now}, #{now});
     SQL
   end
 

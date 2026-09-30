@@ -14,11 +14,11 @@ module DiscussionBridge
       creator = PostCreator.new(
         actor,
         title: request.fetch(:title),
-        raw: companion_post(
-          source_url,
-          request.fetch(:content_html),
-          request[:source_authors],
-          request.fetch(:generate_topic_toc, false),
+        raw: self.class.companion_post(
+          source_url: source_url,
+          content_html: request.fetch(:content_html),
+          source_authors: request[:source_authors],
+          generate_topic_toc: request.fetch(:generate_topic_toc, false),
         ),
         category: policy.effective_category_id,
         tags: policy.effective_tags,
@@ -56,11 +56,11 @@ module DiscussionBridge
         actor,
         {
           title: request.fetch(:title),
-          raw: companion_post(
-            source_url,
-            request.fetch(:content_html),
-            request[:source_authors],
-            request.fetch(:generate_topic_toc, false),
+          raw: self.class.companion_post(
+            source_url: source_url,
+            content_html: request.fetch(:content_html),
+            source_authors: request[:source_authors],
+            generate_topic_toc: request.fetch(:generate_topic_toc, false),
           ),
           edit_reason: "DiscussionBridge source revision #{request.fetch(:source_revision)}",
         },
@@ -71,9 +71,7 @@ module DiscussionBridge
       first_post.reload
     end
 
-    private
-
-    def companion_post(source_url, content_html, source_authors, generate_topic_toc)
+    def self.companion_post(source_url:, content_html:, source_authors:, generate_topic_toc:)
       credit = SourceAuthorship.credit_html(source_authors)
       parts = [PortableContent.to_discourse_raw(content_html)]
       parts.unshift('<div data-theme-toc="true"></div>') if generate_topic_toc &&

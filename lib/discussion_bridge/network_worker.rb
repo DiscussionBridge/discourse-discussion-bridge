@@ -90,7 +90,10 @@ module DiscussionBridge
           network_provenance: record.network_provenance.merge(
             "local_passive_action" => work.fetch("action"),
             "local_passive_source_revision" => work.fetch("source_revision"),
+            "local_passive_source_revision_sequence" => work.fetch("source_revision_sequence"),
             "local_passive_policy_revision" => work.fetch("policy_revision"),
+            "local_passive_predecessor_revision" => record.source_revision,
+            "local_passive_predecessor_revision_sequence" => record.source_revision_sequence,
           ),
         )
       end

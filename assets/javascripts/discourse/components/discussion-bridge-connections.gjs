@@ -1,12 +1,12 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { fn } from "@ember/helper";
+import { concat, fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
-import { eq } from "discourse/truth-helpers";
+import { eq, not } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
@@ -38,6 +38,10 @@ export default class DiscussionBridgeConnections extends Component {
   @tracked previewConnectionId = null;
   @tracked publicationPreview = null;
   @tracked connectionActionId = null;
+  @tracked policyProfile = "";
+  @tracked policyContainer = "";
+  @tracked policyPresentationMode = "";
+  @tracked policyNativeLimit = "";
 
   @action
   updateName(event) {
@@ -72,6 +76,34 @@ export default class DiscussionBridgeConnections extends Component {
   @action
   showAuthorsTab() {
     this.editingTab = "authors";
+  }
+
+  @action
+  showPublishingTab() {
+    this.editingTab = "publishing";
+  }
+
+  @action
+  updatePolicyProfile(event) {
+    this.policyProfile = event.target.value;
+    this.policyContainer = "";
+    this.policyPresentationMode = "";
+    this.policyNativeLimit = "";
+  }
+
+  @action
+  updatePolicyContainer(event) {
+    this.policyContainer = event.target.value;
+  }
+
+  @action
+  updatePolicyPresentationMode(event) {
+    this.policyPresentationMode = event.target.value;
+  }
+
+  @action
+  updatePolicyNativeLimit(event) {
+    this.policyNativeLimit = event.target.value;
   }
 
   @action
@@ -193,6 +225,60 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   @action
+  async adoptPublicationPolicy() {
+    const catalog = this.selectedCatalog;
+    const nativeLimit = this.selectedNativeLimit;
+    const existingPolicy = this.selectedExistingPolicy;
+    if (!catalog || !nativeLimit || !this.policySelectionReady) {
+      return;
+    }
+
+    this.connectionActionId = this.editingConnectionId;
+    try {
+      await ajax(
+        `/discussion-bridge/admin/content-connections/${this.editingConnectionId}.json`,
+        {
+          type: "PUT",
+          data: {
+            content_connection: {
+              preserve_existing_policy_fields: "true",
+              publication_policy: {
+                destination_policy_id:
+                  existingPolicy?.destination_policy_id ??
+                  `destination:${this.policyProfile}:approved`,
+                profile: this.policyProfile,
+                presentation_mode: this.policyPresentationMode,
+                catalog_revision: catalog.catalog_revision,
+                container_mapping: {
+                  source:
+                    existingPolicy?.container_mapping?.source ??
+                    "discourse:topics",
+                  destination: this.policyContainer,
+                },
+                taxonomy_mapping: existingPolicy?.taxonomy_mapping ?? {
+                  mode: "source_attribution",
+                },
+                author_mapping: existingPolicy?.author_mapping ?? {
+                  mode: "source_attribution",
+                },
+                native_limit_policy: {
+                  maximum_bytes: nativeLimit.maximum_bytes,
+                  overflow_behavior: nativeLimit.overflow_behavior,
+                },
+              },
+            },
+          },
+        }
+      );
+      this.router.refresh();
+    } catch (error) {
+      popupAjaxError(error);
+    } finally {
+      this.connectionActionId = null;
+    }
+  }
+
+  @action
   editConnection(connection) {
     this.editingConnectionId = connection.id;
     this.name = connection.name;
@@ -220,6 +306,20 @@ export default class DiscussionBridgeConnections extends Component {
     this.networkPeerForumId = connection.network_peer_forum_id ?? "";
     this.networkRelationship =
       connection.network_relationship ?? "hub_to_spoke";
+    const policy = connection.destination_policies?.[0];
+    this.policyProfile =
+      policy?.profile ??
+      connection.catalog.current?.[0]?.platform_profile ??
+      "";
+    this.policyContainer =
+      policy?.container_mapping?.destination ===
+      "discussion-bridge:pending-catalog-mapping"
+        ? ""
+        : (policy?.container_mapping?.destination ?? "");
+    this.policyPresentationMode = policy?.presentation_mode ?? "";
+    this.policyNativeLimit = policy?.native_limit_policy
+      ? `${policy.native_limit_policy.maximum_bytes}:${policy.native_limit_policy.overflow_behavior}`
+      : "";
   }
 
   @action
@@ -339,6 +439,10 @@ export default class DiscussionBridgeConnections extends Component {
     this.networkEnabled = false;
     this.networkPeerForumId = "";
     this.networkRelationship = "hub_to_spoke";
+    this.policyProfile = "";
+    this.policyContainer = "";
+    this.policyPresentationMode = "";
+    this.policyNativeLimit = "";
   }
 
   displayToken(value) {
@@ -354,7 +458,45 @@ export default class DiscussionBridgeConnections extends Component {
   }
 
   canPublish(connection) {
-    return connection.allowed_directions.includes("from_discourse");
+    return connection.publication_active;
+  }
+
+  get editingConnection() {
+    return this.args.model.content_connections.find(
+      (connection) => connection.id === this.editingConnectionId
+    );
+  }
+
+  get selectedCatalog() {
+    return this.editingConnection?.catalog.current.find(
+      (catalog) => catalog.platform_profile === this.policyProfile
+    );
+  }
+
+  get selectedNativeLimit() {
+    return this.selectedCatalog?.segments.native_limits?.find(
+      (item) =>
+        `${item.maximum_bytes}:${item.overflow_behavior}` ===
+        this.policyNativeLimit
+    );
+  }
+
+  get selectedExistingPolicy() {
+    return this.editingConnection?.destination_policies?.find(
+      (policy) =>
+        policy.profile === this.policyProfile &&
+        policy.container_mapping?.destination !==
+          "discussion-bridge:pending-catalog-mapping"
+    );
+  }
+
+  get policySelectionReady() {
+    return Boolean(
+      this.policyProfile &&
+      this.policyContainer &&
+      this.policyPresentationMode &&
+      this.selectedNativeLimit
+    );
   }
 
   displayTimestamp(value) {
@@ -594,6 +736,11 @@ export default class DiscussionBridgeConnections extends Component {
               class={{if (eq this.editingTab "authors") "active"}}
               {{on "click" this.showAuthorsTab}}
             >{{i18n "discussion_bridge.admin.authors_tab"}}</button>
+            <button
+              type="button"
+              class={{if (eq this.editingTab "publishing") "active"}}
+              {{on "click" this.showPublishingTab}}
+            >{{i18n "discussion_bridge.admin.publishing_tab"}}</button>
           </nav>
         {{/if}}
 
@@ -727,7 +874,7 @@ export default class DiscussionBridgeConnections extends Component {
               {{/if}}
             </fieldset>
           {{/if}}
-        {{else}}
+        {{else if (eq this.editingTab "authors")}}
           <section class="discussion-bridge-authors-panel">
             <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>
             <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
@@ -807,6 +954,115 @@ export default class DiscussionBridgeConnections extends Component {
                 {{/each}}
               </tbody>
             </table>
+          </section>
+        {{else}}
+          <section class="discussion-bridge-publishing-panel">
+            <p>{{i18n
+                "discussion_bridge.admin.connection_publishing_description"
+              }}</p>
+            {{#if this.networkEnabled}}
+              <p>{{i18n "discussion_bridge.admin.network_policy_owned"}}</p>
+            {{else if this.editingConnection.catalog.current.length}}
+              <label>{{i18n "discussion_bridge.admin.publication_profile"}}
+                <select {{on "change" this.updatePolicyProfile}}>
+                  <option value="" selected={{eq this.policyProfile ""}}>{{i18n
+                      "discussion_bridge.admin.select_publication_profile"
+                    }}</option>
+                  {{#each this.editingConnection.catalog.current as |catalog|}}
+                    <option
+                      value={{catalog.platform_profile}}
+                      selected={{eq
+                        catalog.platform_profile
+                        this.policyProfile
+                      }}
+                    >{{this.displayToken catalog.platform_profile}}</option>
+                  {{/each}}
+                </select>
+              </label>
+              {{#if this.selectedCatalog}}
+                <label>{{i18n "discussion_bridge.admin.publication_container"}}
+                  <select {{on "change" this.updatePolicyContainer}}>
+                    <option
+                      value=""
+                      selected={{eq this.policyContainer ""}}
+                    >{{i18n
+                        "discussion_bridge.admin.select_publication_container"
+                      }}</option>
+                    {{#each this.selectedCatalog.segments.containers as |item|}}
+                      {{#if item.available}}
+                        <option
+                          value={{item.id}}
+                          selected={{eq item.id this.policyContainer}}
+                        >{{item.name}}</option>
+                      {{/if}}
+                    {{/each}}
+                  </select>
+                </label>
+                <label>{{i18n
+                    "discussion_bridge.admin.publication_presentation_mode"
+                  }}
+                  <select {{on "change" this.updatePolicyPresentationMode}}>
+                    <option
+                      value=""
+                      selected={{eq this.policyPresentationMode ""}}
+                    >{{i18n
+                        "discussion_bridge.admin.select_publication_presentation_mode"
+                      }}</option>
+                    {{#each
+                      this.selectedCatalog.segments.presentation_modes
+                      as |item|
+                    }}
+                      {{#if item.available}}
+                        <option
+                          value={{item.id}}
+                          selected={{eq item.id this.policyPresentationMode}}
+                        >{{item.name}}</option>
+                      {{/if}}
+                    {{/each}}
+                  </select>
+                </label>
+                <label>{{i18n
+                    "discussion_bridge.admin.publication_native_limit"
+                  }}
+                  <select {{on "change" this.updatePolicyNativeLimit}}>
+                    <option
+                      value=""
+                      selected={{eq this.policyNativeLimit ""}}
+                    >{{i18n
+                        "discussion_bridge.admin.select_publication_native_limit"
+                      }}</option>
+                    {{#each
+                      this.selectedCatalog.segments.native_limits
+                      as |item|
+                    }}
+                      {{#if item.available}}
+                        <option
+                          value={{concat
+                            item.maximum_bytes
+                            ":"
+                            item.overflow_behavior
+                          }}
+                          selected={{eq
+                            (concat
+                              item.maximum_bytes ":" item.overflow_behavior
+                            )
+                            this.policyNativeLimit
+                          }}
+                        >{{item.name}}</option>
+                      {{/if}}
+                    {{/each}}
+                  </select>
+                </label>
+                <DButton
+                  @label="discussion_bridge.admin.adopt_publication_policy"
+                  @action={{this.adoptPublicationPolicy}}
+                  @disabled={{not this.policySelectionReady}}
+                  class="btn-primary"
+                />
+              {{/if}}
+            {{else}}
+              <p>{{i18n "discussion_bridge.admin.catalog_waiting"}}</p>
+            {{/if}}
           </section>
         {{/if}}
         <DButton

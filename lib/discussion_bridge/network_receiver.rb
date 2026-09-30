@@ -34,6 +34,7 @@ module DiscussionBridge
       )
       raise AdapterRequestBoundary::Error, "integrity_failed" unless
         provenance.fetch("origin_topic_url") == detail.fetch("topic_url")
+      require_current_authority!(detail, provenance)
       immutable = DiscourseNetworkProtocol.immutable_operation(
         source_detail: detail,
         provenance: provenance,
@@ -123,8 +124,53 @@ module DiscussionBridge
       stored = record.network_provenance || {}
       record.state == "attention" && topic.closed && !topic.visible &&
         %w[hold unpublish].include?(stored["local_passive_action"]) &&
-        stored["local_passive_source_revision"] == detail.fetch("source_revision") &&
-        stored["local_passive_policy_revision"] == @policy_revision
+        stored["local_passive_policy_revision"] == @policy_revision &&
+        stored["local_passive_predecessor_revision"] == record.source_revision &&
+        stored["local_passive_predecessor_revision_sequence"] == record.source_revision_sequence &&
+        stored["local_passive_source_revision_sequence"].is_a?(Integer) &&
+        detail.fetch("source_revision_sequence") > stored["local_passive_source_revision_sequence"]
+    end
+
+    def require_current_authority!(detail, provenance)
+      connection = @peer.content_connection
+      raise AdapterRequestBoundary::Error, "policy_denied" unless
+        @policy_revision == connection.policy_revision
+      request = {
+        connection_id: connection.public_id,
+        source_url: provenance.fetch("origin_topic_url"),
+        visibility: "unlisted",
+        lane: resolved_lane(connection),
+      }
+      unless connection.enabled && connection.allows_direction?("to_discourse") &&
+          connection.allows_lane?(request[:lane]) && connection.allows_origin?(request[:source_url])
+        raise AdapterRequestBoundary::Error, "scope_denied"
+      end
+
+      actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase)
+      lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: request[:lane])
+      authority = ForumAuthority.call(
+        actor: actor,
+        category_id: lane_resolution.category_id || connection.default_category_id ||
+          SiteSetting.discussion_bridge_effective_category_id,
+        tags: lane_resolution.tags || SiteSetting.discussion_bridge_effective_tags,
+      ) if actor
+      policy = PolicyEvaluator.call(
+        request: request,
+        settings: PolicyEvaluator::Settings.new(
+          enabled: SiteSetting.discussion_bridge_enabled,
+          endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
+          connection_id: connection.public_id,
+          trusted_origins: connection.allowed_origins,
+          service_username: SiteSetting.discussion_bridge_service_username,
+        ),
+        actor: actor,
+        author: connection.effective_author,
+        authority: authority,
+        lane_resolution: lane_resolution,
+      )
+      raise AdapterRequestBoundary::Error, "scope_denied" unless policy.allowed
+
+      true
     end
 
     def existing_record(detail)
@@ -213,8 +259,7 @@ module DiscussionBridge
       effective_maximum = [maximum, BridgeRecordRequest::MAX_CONTENT_HTML_BYTES].min
       complete_content = body + boundary
       read_more = provenance.fetch("origin_topic_url")
-      if complete_content.bytesize <= effective_maximum &&
-          companion_raw_length(complete_content, read_more) <= SiteSetting.max_post_length
+      if content_within_limits?(complete_content, read_more, connection, effective_maximum)
         return { content_html: complete_content, content_disposition: "complete" }
       end
 
@@ -244,8 +289,7 @@ module DiscussionBridge
       while low <= high
         midpoint = (low + high) / 2
         candidate = excerpt_body(characters.first(midpoint).join, read_more, boundary)
-        raw_length = companion_raw_length(candidate, read_more)
-        if candidate.bytesize <= maximum_bytes && raw_length <= SiteSetting.max_post_length
+        if content_within_limits?(candidate, read_more, @peer.content_connection, maximum_bytes)
           accepted = candidate
           low = midpoint + 1
         else
@@ -257,12 +301,27 @@ module DiscussionBridge
       accepted
     end
 
-    def companion_raw_length(content_html, source_url)
-      PortableContent.to_discourse_raw(content_html).length + 2 + source_credit(source_url).length
+    def content_within_limits?(content_html, source_url, connection, maximum_bytes)
+      raw = companion_raw(
+        content_html,
+        source_url,
+        connection: connection,
+      )
+      content_html.bytesize <= BridgeRecordRequest::MAX_CONTENT_HTML_BYTES &&
+        raw.bytesize <= maximum_bytes && raw.length <= SiteSetting.max_post_length
     end
 
-    def source_credit(source_url)
-      "---\n\nOriginally published at [#{source_url}](#{source_url})"
+    def companion_raw_length(content_html, source_url, connection: @peer.content_connection)
+      companion_raw(content_html, source_url, connection: connection).length
+    end
+
+    def companion_raw(content_html, source_url, connection:)
+      TopicCreator.companion_post(
+        source_url: source_url,
+        content_html: content_html,
+        source_authors: [],
+        generate_topic_toc: connection.generate_topic_toc,
+      )
     end
 
     def excerpt_body(text, read_more, boundary)

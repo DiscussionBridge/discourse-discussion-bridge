@@ -250,6 +250,59 @@ describe DiscussionBridge::NetworkReceiver do
     ).to be <= SiteSetting.max_post_length
   end
 
+  it "sizes complete and excerpt network content from the same final raw assembly with a generated TOC" do
+    @connection.update!(generate_topic_toc: true)
+    detail = source_detail
+    parsed = DiscussionBridge::NetworkSourceDetail.call(payload: detail)
+    receiver = described_class.new(
+      peer: @peer,
+      source_detail: detail,
+      policy_revision: "policy:2026-09-27:1",
+      content_html: nil,
+    )
+    provenance = parsed.fetch("network_provenance")
+    boundary = receiver.send(:provenance_boundary, provenance)
+    read_more = provenance.fetch("origin_topic_url")
+    shell = "<h2>One</h2><h2>Two</h2><p></p>#{boundary}"
+    character_count = SiteSetting.max_post_length -
+      receiver.send(:companion_raw_length, shell, read_more)
+    expect(character_count).to be_positive
+
+    exact_body = "<h2>One</h2><h2>Two</h2><p>#{"x" * character_count}</p>"
+    exact_output = receiver.send(
+      :content_for_destination,
+      parsed.merge("content_html" => exact_body),
+      provenance,
+      @connection,
+    )
+    exact_raw = DiscussionBridge::TopicCreator.companion_post(
+      source_url: read_more,
+      content_html: exact_output.fetch(:content_html),
+      source_authors: [],
+      generate_topic_toc: true,
+    )
+    expect(exact_output.fetch(:content_disposition)).to eq("complete")
+    expect(exact_raw).to include('<div data-theme-toc="true"></div>')
+    expect(exact_raw.length).to eq(SiteSetting.max_post_length)
+
+    overflow_body = "<h2>One</h2><h2>Two</h2><p>#{"x" * (character_count + 1)}</p>"
+    overflow_output = receiver.send(
+      :content_for_destination,
+      parsed.merge("content_html" => overflow_body),
+      provenance,
+      @connection,
+    )
+    overflow_raw = DiscussionBridge::TopicCreator.companion_post(
+      source_url: read_more,
+      content_html: overflow_output.fetch(:content_html),
+      source_authors: [],
+      generate_topic_toc: true,
+    )
+    expect(overflow_output.fetch(:content_disposition)).to eq("excerpt")
+    expect(overflow_raw.length).to be <= SiteSetting.max_post_length
+    expect(overflow_raw.bytesize).to be <= destination_policy.dig("native_limit_policy", "maximum_bytes")
+  end
+
   it "preserves the exact network source timestamp wire value" do
     detail = source_detail
     timestamp = "2026-09-27T18:00:00.123456789Z"

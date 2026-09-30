@@ -380,7 +380,28 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "lets an administrator create a From Discourse record and exposes it only to its connection" do
-    @connection.update!(allowed_lanes: [])
+    @connection.update!(
+      allowed_lanes: [],
+      destination_policies: [
+        {
+          "destination_policy_id" => "destination:wordpress:approved",
+          "profile" => "wordpress",
+          "presentation_mode" => "interactive",
+          "container_mapping" => {
+            "source" => "discourse:topics",
+            "destination" => "wordpress:posts",
+          },
+          "taxonomy_mapping" => { "mode" => "source_attribution" },
+          "author_mapping" => { "mode" => "source_attribution" },
+          "native_limit_policy" => {
+            "maximum_bytes" => 49_152,
+            "overflow_behavior" => "excerpt_with_read_more",
+          },
+          "catalog_revision" => "catalog:wordpress:approved",
+        },
+      ],
+      policy_revision: "policy:test:approved",
+    )
     topic = Fabricate(:topic, user: service_actor, category: category)
     Fabricate(:post, topic: topic, user: service_actor, post_number: 1)
     sign_in(admin)
@@ -747,5 +768,173 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)
+  end
+
+  it "loads only the bounded record page instead of materializing the complete inventory" do
+    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    expect(response).to have_http_status(:created), response.body
+    base = DiscussionBridgeBridgeRecord.last
+    base_binding = base.content_bindings.sole
+    last_record = nil
+    100.times do |index|
+      record = base.dup
+      record.assign_attributes(
+        resource_id: SecureRandom.uuid,
+        source_revision: "wordpress:post:#{index}:revision:9",
+      )
+      record.save!
+      canonical_url = "https://example.com/articles/inventory-#{index}/"
+      external_id = "inventory-#{index}"
+      binding = base_binding.dup
+      binding.assign_attributes(
+        bridge_record: record,
+        binding_id: "dbb_#{SecureRandom.hex(16)}",
+        external_id: external_id,
+        canonical_url: canonical_url,
+        identity_digest: Digest::SHA256.hexdigest("#{@connection.public_id}\n#{external_id}"),
+        canonical_url_digest: Digest::SHA256.hexdigest("#{@connection.public_id}\n#{canonical_url}"),
+      )
+      binding.save!
+      last_record = record
+    end
+    25.times do |index|
+      content = "<p>Historical revision #{index}</p>"
+      digest = Digest::SHA256.hexdigest(content)
+      last_record.source_revisions.create!(
+        source_revision: "historical:#{index + 1}",
+        source_revision_sequence: index + 1,
+        fingerprint: digest,
+        topic_url: "https://example.com/articles/inventory-99/",
+        title: "Historical revision #{index}",
+        source_created_at: Time.zone.now,
+        source_updated_at: Time.zone.now,
+        source_authors: [],
+        categories: [],
+        tags: [],
+        presentation_mode: "interactive",
+        content_html: content,
+        byte_length: content.bytesize,
+        content_sha256: digest,
+      )
+    end
+
+    instantiated = Hash.new(0)
+    subscriber = ActiveSupport::Notifications.subscribe("instantiation.active_record") do |*, event|
+      instantiated[event[:class_name]] += event[:record_count]
+    end
+    get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("page" => 2, "total_pages" => 2)
+    expect(response.parsed_body.fetch("records").length).to eq(1)
+    expect(instantiated["DiscussionBridgeBridgeRecord"]).to be <= DiscussionBridge::AdapterProtocolRecords::PER_PAGE
+    expect(instantiated["DiscussionBridgeSourceRevision"]).to eq(1)
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
+  end
+
+  it "excludes private-message records before network inventory count and paging" do
+    network_policy = {
+      "destination_policy_id" => "destination:discourse:network:inventory",
+      "profile" => "discourse_as_publisher",
+      "presentation_mode" => "interactive",
+      "container_mapping" => {
+        "source" => "discourse:topics",
+        "destination" => "discourse:category:network",
+      },
+      "taxonomy_mapping" => { "mode" => "mapped_only" },
+      "author_mapping" => { "mode" => "source_attribution" },
+      "native_limit_policy" => {
+        "maximum_bytes" => 49_152,
+        "overflow_behavior" => "excerpt_with_read_more",
+      },
+      "catalog_revision" => "catalog:discourse:inventory:1",
+    }
+    @connection.update!(
+      platform: "discourse",
+      allowed_directions: ["from_discourse"],
+      destination_policies: [network_policy],
+      policy_revision: "policy:network:inventory:1",
+      network_enabled: true,
+      network_peer_forum_id: "dbf_#{"1" * 32}",
+      network_relationship: "hub_to_spoke",
+    )
+    private_topic = Fabricate(:topic, user: admin, category: category, visible: true)
+    private_topic.update_columns(archetype: Archetype.private_message, category_id: nil)
+    Fabricate(:post, topic: private_topic, user: admin, post_number: 1, raw: "Private source")
+    public_topic = Fabricate(:topic, user: admin, category: category, visible: true)
+    Fabricate(:post, topic: public_topic, user: admin, post_number: 1, raw: "Public source")
+
+    create_record = lambda do |topic, index|
+      record = DiscussionBridgeBridgeRecord.create!(
+        resource_id: SecureRandom.uuid,
+        direction: "from_discourse",
+        state: "healthy",
+        title: "Inventory source #{index}",
+        topic: topic,
+        lane: "articles",
+      )
+      external_id = "network-inventory-#{index}"
+      canonical_url = "https://example.com/articles/network-inventory-#{index}/"
+      record.content_bindings.create!(
+        content_connection: @connection,
+        role: "presentation",
+        state: "active",
+        external_id: external_id,
+        canonical_url: canonical_url,
+        identity_digest: Digest::SHA256.hexdigest("#{@connection.public_id}\n#{external_id}"),
+        canonical_url_digest: Digest::SHA256.hexdigest("#{@connection.public_id}\n#{canonical_url}"),
+      )
+      record
+    end
+    100.times { |index| create_record.call(private_topic, index) }
+    public_record = create_record.call(public_topic, "public")
+
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers(correlation: "network-private-page")
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("page" => 1, "total_pages" => 1)
+    expect(response.parsed_body.fetch("records").map { |item| item.fetch("resource_id") }).to eq(
+      [public_record.resource_id],
+    )
+  end
+
+
+  it "preserves approved publication authority when direction membership is only reordered" do
+    policy = {
+      "destination_policy_id" => "destination:wordpress:approved",
+      "profile" => "wordpress",
+      "presentation_mode" => "interactive",
+      "container_mapping" => { "source" => "discourse:topics", "destination" => "wordpress:posts" },
+      "taxonomy_mapping" => { "mode" => "source_attribution" },
+      "author_mapping" => { "mode" => "source_attribution" },
+      "native_limit_policy" => {
+        "maximum_bytes" => 49_152,
+        "overflow_behavior" => "excerpt_with_read_more",
+      },
+      "catalog_revision" => "catalog:wordpress:approved",
+    }
+    @connection.update!(
+      destination_policies: [policy],
+      policy_revision: "policy:approved:1",
+      allowed_directions: %w[from_discourse to_discourse],
+    )
+    sign_in(admin)
+
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: {
+          content_connection: {
+            name: "Reordered only",
+            allowed_directions: %w[to_discourse from_discourse],
+          },
+        },
+        as: :json
+
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload).to have_attributes(
+      destination_policies: [policy],
+      policy_revision: "policy:approved:1",
+    )
   end
 end

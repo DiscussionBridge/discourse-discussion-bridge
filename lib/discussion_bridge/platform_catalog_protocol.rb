@@ -65,12 +65,13 @@ module DiscussionBridge
     end
 
     def self.validate_profile!(connection, profile)
+      raise AdapterRequestBoundary::Error, "policy_denied" unless
+        connection.enabled && connection.allows_direction?("from_discourse") &&
+          ConnectionCapability.profiles_within_connection_scope(connection).include?(profile)
+
       policies = Array(connection.destination_policies).map(&:stringify_keys).select do |policy|
         policy["profile"] == profile
       end
-      raise AdapterRequestBoundary::Error, "policy_denied" unless
-        connection.allows_direction?("from_discourse") && policies.any?
-
       policies
     end
 

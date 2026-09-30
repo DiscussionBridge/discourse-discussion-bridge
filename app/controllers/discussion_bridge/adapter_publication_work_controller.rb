@@ -3,7 +3,6 @@
 module DiscussionBridge
   class AdapterPublicationWorkController < AdapterController
     def claim
-      require_from_discourse!
       claimed_at = Time.zone.now
       work = PublicationWorkRegistry.claim(
         connection: @content_connection,
@@ -17,7 +16,6 @@ module DiscussionBridge
     end
 
     def renew
-      require_from_discourse!
       result = PublicationWorkRegistry.renew(
         connection: @content_connection,
         work_id: params.require(:work_id),
@@ -29,7 +27,6 @@ module DiscussionBridge
     end
 
     def acknowledge
-      require_from_discourse!
       result = PublicationWorkRegistry.acknowledge(
         connection: @content_connection,
         work_id: params.require(:work_id),
@@ -40,7 +37,6 @@ module DiscussionBridge
     end
 
     def failure
-      require_from_discourse!
       result = PublicationWorkRegistry.fail(
         connection: @content_connection,
         work_id: params.require(:work_id),
@@ -52,9 +48,8 @@ module DiscussionBridge
 
     private
 
-    def require_from_discourse!
-      raise AdapterRequestBoundary::Error, "direction_denied" unless
-        @content_connection.allows_direction?("from_discourse")
+    def allow_disabled_connection?
+      true
     end
 
     def maximum_json_bytes
