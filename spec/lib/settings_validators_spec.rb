@@ -46,9 +46,33 @@ describe DiscussionBridge::TrustedOriginsValidator do
   it "accepts only valid forum-owned lane policy categories and tags" do
     validator = DiscussionBridge::LanePoliciesValidator.new
     valid = [{ lane: "docs", category_id: category.id, tags: [tag.name], visibility: "unlisted" }].to_json
-    missing_category = [{ lane: "docs", category_id: 99_999_999, tags: [] }].to_json
-    missing_tag = [{ lane: "docs", category_id: category.id, tags: ["missing-tag"] }].to_json
+    missing_category = [
+      { lane: "docs", category_id: 99_999_999, tags: [tag.name], visibility: "unlisted" },
+    ].to_json
+    missing_tag = [
+      { lane: "docs", category_id: category.id, tags: ["missing-tag"], visibility: "unlisted" },
+    ].to_json
 
+    expect(DiscussionBridge::LanePolicies.parse(missing_category)).to eq(
+      [
+        {
+          lane: "docs",
+          category_id: 99_999_999,
+          tags: [tag.name],
+          visibility: "unlisted",
+        },
+      ],
+    )
+    expect(DiscussionBridge::LanePolicies.parse(missing_tag)).to eq(
+      [
+        {
+          lane: "docs",
+          category_id: category.id,
+          tags: ["missing-tag"],
+          visibility: "unlisted",
+        },
+      ],
+    )
     expect(validator.valid_value?(valid)).to eq(true)
     expect(validator.valid_value?(missing_category)).to eq(false)
     expect(validator.valid_value?(missing_tag)).to eq(false)

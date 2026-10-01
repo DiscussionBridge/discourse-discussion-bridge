@@ -177,9 +177,8 @@ module DiscussionBridge
 
     def ensure_work!(record:, source_revision_record:, source_revocation_record:, source_revision:,
                      source_revision_sequence:, action:)
-      raise AdapterRequestBoundary::Error, "direction_denied" unless
-        @connection.enabled && @connection.allows_direction?("from_discourse") &&
-          ConnectionCapability.publication_active?(@connection)
+      readiness = ConnectionCapability.publication_readiness(@connection)
+      raise AdapterRequestBoundary::Error, readiness.to_s unless readiness == :active
 
       policies.each do |policy|
         binding = destination_binding(record)
@@ -298,7 +297,7 @@ module DiscussionBridge
 
       response = nil
       DiscussionBridgePublicationWork.transaction do
-        work.lock!
+        lock_work_projection!(work)
         existing = work.acknowledgements.find_by(stage: payload["stage"])
         if existing
           raise AdapterRequestBoundary::Error, "stage_conflict" unless existing.request_digest == digest
@@ -330,7 +329,8 @@ module DiscussionBridge
       end
 
       response = nil
-      work.with_lock do
+      DiscussionBridgePublicationWork.transaction do
+        lock_work_projection!(work)
         if work.failure_request_digest.present?
           raise AdapterRequestBoundary::Error, "operation_replay_mismatch" unless
             work.failure_request_digest == digest
@@ -369,6 +369,24 @@ module DiscussionBridge
 
     def policies
       Array(@connection.destination_policies).map(&:deep_stringify_keys)
+    end
+
+    def lock_work_projection!(work)
+      @connection.lock!
+      binding = DiscussionBridgeContentBinding.lock.find_by(
+        id: work.content_binding_id,
+        content_connection_id: @connection.id,
+      )
+      raise AdapterRequestBoundary::Error, "scope_denied" unless binding
+
+      work.lock!
+      raise AdapterRequestBoundary::Error, "scope_denied" unless
+        work.content_connection_id == @connection.id &&
+          work.content_binding_id == binding.id &&
+          work.bridge_record_id == binding.bridge_record_id
+
+      work.association(:content_connection).target = @connection
+      work.association(:content_binding).target = binding
     end
 
     def destination_binding(record)
@@ -550,10 +568,7 @@ module DiscussionBridge
           next unless %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
             work.lease_expires_at&.<=(now)
 
-          newer = @connection.publication_works.where(content_binding_id: work.content_binding_id)
-            .where.not(id: work.id).where.not(state: %w[acknowledged superseded])
-            .where("source_revision_sequence > ? OR created_at > ?", work.source_revision_sequence, work.created_at)
-            .exists?
+          newer = newer_work_supersedes?(work)
           work.update!(
             state: newer ? "superseded" : "available",
             superseded_at: newer ? now : nil,
@@ -606,6 +621,8 @@ module DiscussionBridge
           revocation.bridge_record_id == work.bridge_record_id
         return false unless tied
         if revocation.reason == "policy_removed"
+          return false if restored_destination_materialized?(work)
+
           retained_policy_still_current = ConnectionCapability.publication_active?(@connection) &&
             @connection.policy_revision == work.policy_revision &&
             Array(@connection.destination_policies).any? do |candidate|
@@ -704,10 +721,11 @@ module DiscussionBridge
       }
       raise AdapterRequestBoundary::Error, "identity_conflict" unless
         expected.all? { |key, value| binding_payload[key] == value }
-      existing_revision = binding.publication_revision
-      raise AdapterRequestBoundary::Error, "identity_conflict" if
-        existing_revision.present? && work.last_acknowledged_stage.present? &&
-          existing_revision != binding_payload["publication_revision"]
+      return if work.last_acknowledged_stage.blank?
+
+      synchronized_revision = synchronized_publication_revision(work)
+      raise AdapterRequestBoundary::Error, "identity_conflict" unless
+        synchronized_revision.present? && synchronized_revision == binding_payload["publication_revision"]
     end
 
     def validate_stage!(work, payload)
@@ -826,11 +844,13 @@ module DiscussionBridge
       when "deployed"
         next_token = PublicationWorkProtocol.token
         deployed_at = PublicationWorkProtocol.parse_time!(payload.fetch("deployed_at"))
-        binding.update!(
-          deployment_state: "deployed",
-          deployed_at: deployed_at,
-          deployed_at_wire: payload.fetch("deployed_at"),
-        )
+        if work_owns_binding_projection?(work)
+          binding.update!(
+            deployment_state: "deployed",
+            deployed_at: deployed_at,
+            deployed_at_wire: payload.fetch("deployed_at"),
+          )
+        end
         work.update!(
           state: "awaiting_verification",
           last_acknowledged_stage: stage,
@@ -846,12 +866,14 @@ module DiscussionBridge
       when "verified"
         deployed_at = PublicationWorkProtocol.parse_time!(payload.fetch("deployed_at"))
         verified_at = PublicationWorkProtocol.parse_time!(payload.fetch("publicly_verified_at"))
-        binding.update!(
-          deployment_state: "deployed",
-          verification_state: "verified",
-          publicly_verified_at: verified_at,
-          publicly_verified_at_wire: payload.fetch("publicly_verified_at"),
-        )
+        if work_owns_binding_projection?(work)
+          binding.update!(
+            deployment_state: "deployed",
+            verification_state: "verified",
+            publicly_verified_at: verified_at,
+            publicly_verified_at_wire: payload.fetch("publicly_verified_at"),
+          )
+        end
         work.update!(
           state: "acknowledged",
           last_acknowledged_stage: stage,
@@ -882,12 +904,63 @@ module DiscussionBridge
     end
 
     def mark_binding_failure!(work)
+      return unless work_owns_binding_projection?(work)
+
       case work.last_acknowledged_stage
       when "synchronized"
         work.content_binding.update!(deployment_state: "failed")
       when "deployed"
         work.content_binding.update!(verification_state: "failed")
       end
+    end
+
+    def newer_work_supersedes?(work)
+      scope = @connection.publication_works.where(
+        content_binding_id: work.content_binding_id,
+        destination_policy_id: work.destination_policy_id,
+        resolved_container: work.resolved_container,
+      ).where.not(id: work.id)
+        .where("source_revision_sequence > ? OR created_at > ?", work.source_revision_sequence, work.created_at)
+      if %w[hold unpublish].include?(work.action)
+        scope.where.not(action: %w[hold unpublish])
+          .where(may_have_materialized: true)
+          .where.not(state: "superseded")
+          .exists?
+      else
+        scope.where.not(state: %w[acknowledged superseded]).exists?
+      end
+    end
+
+    def restored_destination_materialized?(work)
+      @connection.publication_works.where(
+        content_binding_id: work.content_binding_id,
+        destination_policy_id: work.destination_policy_id,
+        may_have_materialized: true,
+        resolved_container: work.resolved_container,
+      ).where.not(id: work.id).where.not(action: %w[hold unpublish])
+        .where("source_revision_sequence > ? OR created_at > ?", work.source_revision_sequence, work.created_at)
+        .where.not(state: "superseded")
+        .exists?
+    end
+
+    def synchronized_publication_revision(work)
+      work.acknowledgements.find_by(stage: "synchronized")&.request_payload&.dig(
+        "destination_binding",
+        "publication_revision",
+      )
+    end
+
+    def work_owns_binding_projection?(work)
+      synchronized = work.acknowledgements.find_by(stage: "synchronized")
+      return false unless synchronized
+      return false unless work.content_binding.publication_revision == synchronized_publication_revision(work)
+
+      @connection.publication_works.where(content_binding_id: work.content_binding_id)
+        .where.not(id: work.id)
+        .joins(:acknowledgements)
+        .where(discussion_bridge_publication_acknowledgements: { stage: "synchronized" })
+        .where("discussion_bridge_publication_acknowledgements.id > ?", synchronized.id)
+        .none?
     end
 
     def find_work(work_id)

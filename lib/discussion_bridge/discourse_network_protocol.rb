@@ -69,6 +69,10 @@ module DiscussionBridge
       "policy:discourse-network:#{digest(policy.merge("relationship" => relationship))[0, 32]}"
     end
 
+    def self.expected_source_policy_revision(local_forum_id:, relationship:)
+      policy_revision(peer_forum_id: local_forum_id, relationship: relationship)
+    end
+
     def self.validate_provenance!(value, peer:, local_identity:)
       raw = exact_object!(value, PROVENANCE_FIELDS)
       validate_id!(raw["origin_forum_id"], FORUM_ID_PATTERN)

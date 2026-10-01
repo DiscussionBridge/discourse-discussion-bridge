@@ -30,14 +30,23 @@ describe DiscussionBridge::LanePolicies do
 
   it "rejects duplicate lanes, listed visibility, and malformed JSON" do
     duplicate = [
-      { lane: "docs", category_id: 1 },
-      { lane: "docs", category_id: 2 },
+      { lane: "docs", category_id: 1, tags: [], visibility: "unlisted" },
+      { lane: "docs", category_id: 2, tags: [], visibility: "unlisted" },
     ].to_json
-    listed = [{ lane: "docs", category_id: 1, visibility: "listed" }].to_json
+    listed = [{ lane: "docs", category_id: 1, tags: [], visibility: "listed" }].to_json
 
-    expect { described_class.parse(duplicate) }.to raise_error(described_class::ParseError)
-    expect { described_class.parse(listed) }.to raise_error(described_class::ParseError)
-    expect { described_class.parse("{") }.to raise_error(described_class::ParseError)
+    expect { described_class.parse(duplicate) }.to raise_error(
+      described_class::ParseError,
+      "duplicate lane",
+    )
+    expect { described_class.parse(listed) }.to raise_error(
+      described_class::ParseError,
+      "invalid visibility",
+    )
+    expect { described_class.parse("{") }.to raise_error(
+      described_class::ParseError,
+      "invalid JSON",
+    )
   end
 
   it "requires the exact bounded policy schema" do
@@ -49,23 +58,44 @@ describe DiscussionBridge::LanePolicies do
       { lane: "docs", category_id: 1, tags: %w[Alpha alpha], visibility: "unlisted" },
     ].to_json
 
-    [missing, extra, duplicate_tags].each do |value|
-      expect { described_class.parse(value) }.to raise_error(described_class::ParseError)
-    end
+    expect { described_class.parse(missing) }.to raise_error(
+      described_class::ParseError,
+      "invalid lane policy schema",
+    )
+    expect { described_class.parse(extra) }.to raise_error(
+      described_class::ParseError,
+      "invalid lane policy schema",
+    )
+    expect { described_class.parse(duplicate_tags) }.to raise_error(
+      described_class::ParseError,
+      "duplicate tags",
+    )
   end
 
   it "rejects mistyped lanes and control-bearing tags" do
     invalid = [
-      [{ lane: 1, category_id: 1, tags: [], visibility: "unlisted" }],
-      [{ lane: true, category_id: 1, tags: [], visibility: "unlisted" }],
-      [{ lane: nil, category_id: 1, tags: [], visibility: "unlisted" }],
-      [{ lane: "docs", category_id: 1, tags: ["bad\u0000tag"], visibility: "unlisted" }],
-      [{ lane: "docs", category_id: 1, tags: ["bad\ttag"], visibility: "unlisted" }],
-      [{ lane: "docs", category_id: 1, tags: ["bad\ntag"], visibility: "unlisted" }],
+      [[{ lane: 1, category_id: 1, tags: [], visibility: "unlisted" }], "invalid lane"],
+      [[{ lane: true, category_id: 1, tags: [], visibility: "unlisted" }], "invalid lane"],
+      [[{ lane: nil, category_id: 1, tags: [], visibility: "unlisted" }], "invalid lane"],
+      [
+        [{ lane: "docs", category_id: 1, tags: ["bad\u0000tag"], visibility: "unlisted" }],
+        "invalid tags",
+      ],
+      [
+        [{ lane: "docs", category_id: 1, tags: ["bad\ttag"], visibility: "unlisted" }],
+        "invalid tags",
+      ],
+      [
+        [{ lane: "docs", category_id: 1, tags: ["bad\ntag"], visibility: "unlisted" }],
+        "invalid tags",
+      ],
     ]
 
-    invalid.each do |value|
-      expect { described_class.parse(value.to_json) }.to raise_error(described_class::ParseError)
+    invalid.each do |value, message|
+      expect { described_class.parse(value.to_json) }.to raise_error(
+        described_class::ParseError,
+        message,
+      )
     end
   end
 

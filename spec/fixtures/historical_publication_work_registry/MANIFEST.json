@@ -1,0 +1,12 @@
+{
+  "source_commit": "4841aab89eee3d0927c43ff01da44eae956aae55",
+  "source_path": "lib/discussion_bridge/publication_work_registry.rb",
+  "source_blob_sha1": "00e90703c4cb663125a7bb3b80f51641bd61598e",
+  "fixture": "issue_and_expire_4841aab.rb",
+  "fixture_sha256": "2894a96574e3126158d49f7be68b518217501a5c0e143e18013fadbf63bf55e1",
+  "exact_methods": [
+    "reconcile_expired!",
+    "claim_one",
+    "resumed_claim_state"
+  ]
+}

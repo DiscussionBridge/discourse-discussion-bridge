@@ -60,6 +60,22 @@ describe DiscussionBridgeContentConnection do
     expect(first).not_to allow_value(%w[to_discourse unknown]).for(:allowed_directions)
   end
 
+  it "keeps each issued connection bound to its original platform" do
+    connection, = described_class.issue!(
+      name: "Immutable WordPress",
+      platform: "wordpress",
+      allowed_origins: ["https://immutable.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+    )
+
+    connection.platform = "ghost"
+
+    expect(connection).not_to be_valid
+    expect(connection.errors[:platform]).to include("cannot be changed after creation")
+    expect(connection.reload.platform).to eq("wordpress")
+  end
+
   it "accepts an optional forum-owned companion-topic category" do
     category = Fabricate(:category)
     connection, = described_class.issue!(

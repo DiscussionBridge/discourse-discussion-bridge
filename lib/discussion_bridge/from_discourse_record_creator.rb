@@ -37,9 +37,12 @@ module DiscussionBridge
       connection = nil
       DiscussionBridgeBridgeRecord.transaction do
         connection = DiscussionBridgeContentConnection.lock.find(@connection_id)
-        raise ArgumentError, "connection does not permit From Discourse" unless
-          connection.enabled && connection.allows_direction?("from_discourse") &&
-            ConnectionCapability.publication_active?(connection)
+        case ConnectionCapability.publication_readiness(connection)
+        when :direction_denied
+          raise ArgumentError, "connection does not permit From Discourse"
+        when :temporarily_unavailable
+          raise ArgumentError, "connection publication is temporarily unavailable"
+        end
         lane = resolved_lane(connection)
 
         topic = Topic.lock.find(@topic_id)

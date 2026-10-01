@@ -89,10 +89,17 @@ module DiscussionBridge
     end
 
     def self.publication_active?(connection)
-      connection.enabled && connection.allows_direction?("from_discourse") &&
-        configured?(connection) && Array(connection.destination_policies).none? do |policy|
+      publication_readiness(connection) == :active
+    end
+
+    def self.publication_readiness(connection)
+      return :direction_denied unless connection.enabled && connection.allows_direction?("from_discourse")
+      return :temporarily_unavailable unless configured?(connection)
+      return :temporarily_unavailable if Array(connection.destination_policies).any? do |policy|
         pending_catalog_policy?(policy)
       end
+
+      :active
     end
 
     def self.pending_catalog_policy?(policy)

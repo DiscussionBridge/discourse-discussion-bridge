@@ -186,31 +186,34 @@ export default class DiscussionBridgeConnections extends Component {
     }
     try {
       const editing = this.editingConnectionId;
+      const contentConnection = {
+        name: this.name,
+        author_username: this.authorUsername,
+        authorship_mode: this.authorshipMode,
+        unmapped_author_policy: this.unmappedAuthorPolicy,
+        generate_topic_toc: this.generateTopicToc,
+        allowed_origins: this.lines(this.origins),
+        allowed_directions: directions,
+        allowed_lanes: this.lines(this.lanes),
+        default_category_id: this.defaultCategoryId,
+        network_enabled: this.networkEnabled,
+        network_peer_forum_id: this.networkEnabled
+          ? this.networkPeerForumId
+          : null,
+        network_relationship: this.networkEnabled
+          ? this.networkRelationship
+          : null,
+      };
+      if (!editing) {
+        contentConnection.platform = this.platform;
+      }
       const url = editing
         ? `/discussion-bridge/admin/content-connections/${editing}.json`
         : "/discussion-bridge/admin/content-connections.json";
       const result = await ajax(url, {
         type: editing ? "PUT" : "POST",
         data: {
-          content_connection: {
-            name: this.name,
-            platform: this.platform,
-            author_username: this.authorUsername,
-            authorship_mode: this.authorshipMode,
-            unmapped_author_policy: this.unmappedAuthorPolicy,
-            generate_topic_toc: this.generateTopicToc,
-            allowed_origins: this.lines(this.origins),
-            allowed_directions: directions,
-            allowed_lanes: this.lines(this.lanes),
-            default_category_id: this.defaultCategoryId,
-            network_enabled: this.networkEnabled,
-            network_peer_forum_id: this.networkEnabled
-              ? this.networkPeerForumId
-              : null,
-            network_relationship: this.networkEnabled
-              ? this.networkRelationship
-              : null,
-          },
+          content_connection: contentConnection,
         },
       });
       if (result.secret) {
@@ -751,15 +754,21 @@ export default class DiscussionBridgeConnections extends Component {
               {{on "input" this.updateName}}
             /></label>
           <label>{{i18n "discussion_bridge.admin.platform"}}
-            <select required {{on "change" this.updatePlatform}}>
-              <option value="" selected={{eq this.platform ""}}>{{i18n
-                  "discussion_bridge.admin.select_platform"
-                }}</option>
-              {{#each @model.platforms as |platform|}}<option
-                  value={{platform}}
-                  selected={{eq platform this.platform}}
-                >{{this.displayToken platform}}</option>{{/each}}
-            </select>
+            {{#if this.editingConnectionId}}
+              <span class="discussion-bridge-platform">{{this.displayToken
+                  this.platform
+                }}</span>
+            {{else}}
+              <select required {{on "change" this.updatePlatform}}>
+                <option value="" selected={{eq this.platform ""}}>{{i18n
+                    "discussion_bridge.admin.select_platform"
+                  }}</option>
+                {{#each @model.platforms as |platform|}}<option
+                    value={{platform}}
+                    selected={{eq platform this.platform}}
+                  >{{this.displayToken platform}}</option>{{/each}}
+              </select>
+            {{/if}}
           </label>
           <label>{{i18n "discussion_bridge.admin.topic_author"}}<input
               value={{this.authorUsername}}

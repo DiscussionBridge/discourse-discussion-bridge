@@ -5,6 +5,7 @@ module ::DiscussionBridge
     PUBLICATION_WORK_PAGE_SIZE = 50
     MAX_PUBLICATION_WORK_PAGE = 10_000
     PUBLICATION_WORK_FILTERS = %w[all attention].freeze
+    VISIBILITY_BATCH_SIZE = 500
 
     requires_plugin DiscussionBridge::PLUGIN_NAME
     before_action :ensure_staff
@@ -12,14 +13,15 @@ module ::DiscussionBridge
 
     def overview
       connections = available_connections
-      work_counts = DiscussionBridgePublicationWork.group(:state).count
+      blockers = readiness_blockers(connections)
+      work_counts = visible_publication_work.group(:state).count
       work_page = publication_work_page
       render json: {
         product: {
           name: "DiscussionBridge",
           version: DiscussionBridge::VERSION,
-          ready: readiness_blockers(connections).empty?,
-          blockers: readiness_blockers(connections),
+          ready: blockers.empty?,
+          blockers: blockers,
         },
         connections: connections.map { |connection| connection_payload(connection) },
         metrics: {
@@ -87,6 +89,7 @@ module ::DiscussionBridge
     end
 
     def correct_presentation
+      visible_publication_record!(params.require(:resource_id))
       record = PresentationBindingCorrector.call(
         user: current_user,
         resource_id: params.require(:resource_id),
@@ -101,6 +104,7 @@ module ::DiscussionBridge
 
     def migrate_presentation_url
       input = params.require(:migration)
+      visible_publication_record!(params.require(:resource_id))
       result = VerifiedUrlMigrator.call(
         user: current_user,
         resource_id: params.require(:resource_id),
@@ -121,7 +125,7 @@ module ::DiscussionBridge
     end
 
     def retry_publication_work
-      work = DiscussionBridgePublicationWork.find(params.require(:id))
+      work = visible_publication_work.find(params.require(:id))
       PublicationWorkRegistry.manual_retry!(
         work: work,
         authorized_by: current_user,
@@ -148,8 +152,34 @@ module ::DiscussionBridge
         end
     end
 
-    def from_discourse_records
+    def from_discourse_record_scope
       DiscussionBridgeBridgeRecord.where(direction: "from_discourse")
+    end
+
+    def visible_topic_ids
+      @visible_topic_ids ||= begin
+        ids = []
+        Topic.where(id: from_discourse_record_scope.select(:topic_id).distinct)
+          .includes(:category, :shared_draft)
+          .find_in_batches(batch_size: VISIBILITY_BATCH_SIZE) do |topics|
+            topics.each { |topic| ids << topic.id if guardian.can_see?(topic) }
+          end
+        ids
+      end
+    end
+
+    def from_discourse_records
+      @from_discourse_records ||= from_discourse_record_scope.where(topic_id: visible_topic_ids)
+    end
+
+    def visible_publication_work
+      @visible_publication_work ||= DiscussionBridgePublicationWork
+        .joins(:bridge_record)
+        .merge(from_discourse_records)
+    end
+
+    def visible_publication_record!(resource_id)
+      from_discourse_records.find_by!(resource_id: resource_id)
     end
 
     def readiness_blockers(connections)
@@ -158,7 +188,7 @@ module ::DiscussionBridge
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
       blockers << "from_discourse_connection" if connections.empty?
       blockers << "publication_work_attention" if
-        DiscussionBridgePublicationWork.where(state: "operator_attention").exists?
+        visible_publication_work.where(state: "operator_attention").exists?
       blockers
     end
 
@@ -204,7 +234,11 @@ module ::DiscussionBridge
     end
 
     def recent_records
-      from_discourse_records.includes(:topic, content_bindings: :content_connection)
+      from_discourse_records.includes(
+        :publication_works,
+        :topic,
+        content_bindings: :content_connection,
+      )
         .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
     end
 
@@ -284,7 +318,7 @@ module ::DiscussionBridge
       raise Discourse::InvalidParameters.new(:publication_page) unless
         page&.between?(1, MAX_PUBLICATION_WORK_PAGE)
 
-      scope = DiscussionBridgePublicationWork.includes(
+      scope = visible_publication_work.includes(
         :content_connection,
         bridge_record: :topic,
       ).order(updated_at: :desc, id: :desc)

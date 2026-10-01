@@ -770,6 +770,61 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)
   end
 
+  it "rejects platform replacement and issues a different installation as an independent connection" do
+    original_identity = @connection.attributes.slice(
+      "name",
+      "platform",
+      "public_id",
+      "secret_digest",
+      "destination_policies",
+      "policy_revision",
+    )
+    sign_in(admin)
+
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: {
+          content_connection: {
+            name: "Rejected Ghost replacement",
+            platform: "ghost",
+            allowed_directions: ["to_discourse"],
+          },
+        },
+        as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "connection platform cannot be changed after creation",
+    )
+    expect(@connection.reload.attributes.slice(*original_identity.keys)).to eq(original_identity)
+    expect(@connection.authenticate_secret?(@secret)).to eq(true)
+
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { name: "Main WordPress renamed", platform: "wordpress" } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(@connection.reload).to have_attributes(name: "Main WordPress renamed", platform: "wordpress")
+
+    post "/discussion-bridge/admin/content-connections.json",
+         params: {
+           content_connection: {
+             name: "Independent Ghost",
+             platform: "ghost",
+             allowed_origins: ["https://ghost.example"],
+             allowed_directions: ["to_discourse"],
+             allowed_lanes: [],
+           },
+         },
+         as: :json
+    expect(response).to have_http_status(:created), response.body
+    ghost = DiscussionBridgeContentConnection.find(response.parsed_body.dig("content_connection", "id"))
+    ghost_secret = response.parsed_body.fetch("secret")
+    expect(ghost).to have_attributes(platform: "ghost")
+    expect(ghost.public_id).not_to eq(@connection.public_id)
+    expect(ghost.authenticate_secret?(ghost_secret)).to eq(true)
+    expect(ghost.authenticate_secret?(@secret)).to eq(false)
+    expect(@connection.authenticate_secret?(ghost_secret)).to eq(false)
+  end
+
   it "loads only the bounded record page instead of materializing the complete inventory" do
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     expect(response).to have_http_status(:created), response.body
@@ -851,9 +906,12 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       },
       "catalog_revision" => "catalog:discourse:inventory:1",
     }
-    @connection.update!(
+    @connection, @secret = DiscussionBridgeContentConnection.issue!(
+      name: "Network inventory Discourse",
       platform: "discourse",
+      allowed_origins: ["https://example.com"],
       allowed_directions: ["from_discourse"],
+      allowed_lanes: ["articles"],
       destination_policies: [network_policy],
       policy_revision: "policy:network:inventory:1",
       network_enabled: true,

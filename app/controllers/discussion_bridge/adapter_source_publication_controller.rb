@@ -6,6 +6,7 @@ require "digest"
 module DiscussionBridge
   class AdapterSourcePublicationController < AdapterController
     before_action :require_source_capability
+    before_action :require_active_publication, only: :index
 
     def index
       page = SourceSnapshotManager.page(
@@ -86,6 +87,11 @@ module DiscussionBridge
         @content_connection.enabled && @content_connection.allows_direction?("from_discourse")
       raise AdapterRequestBoundary::Error, "temporarily_unavailable" unless
         ConnectionCapability.configured?(@content_connection)
+    end
+
+    def require_active_publication
+      readiness = ConnectionCapability.publication_readiness(@content_connection)
+      raise AdapterRequestBoundary::Error, readiness.to_s unless readiness == :active
     end
 
     def requested_limit

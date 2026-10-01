@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require_relative "adapter_contract_comparisons"
 
 contract_path = ARGV.fetch(0) do
   abort "usage: ruby script/verify_adapter_contract.rb PATH_TO_CONTRACT_JSON PATH_TO_OPERATOR_CONTRACT_JSON"
@@ -28,18 +29,15 @@ authentication = contract.fetch("authentication")
 common = contract.fetch("common")
 errors = contract.fetch("error_responses")
 
-expected = {
-  boundary::CONNECTION_HEADER => authentication.fetch("connection_header"),
-  boundary::SECRET_HEADER => authentication.fetch("secret_header"),
-  boundary::CONTRACT_HEADER => authentication.fetch("contract_header"),
-  boundary::CONTRACT_VERSION => authentication.fetch("contract_header_value"),
-  boundary::CORRELATION_HEADER => common.fetch("correlation_header"),
-  boundary::MAX_CORRELATION_BYTES => common.fetch("correlation_id_maximum_bytes"),
-  boundary::MAX_ERROR_JSON_BYTES => errors.fetch("maximum_json_bytes"),
-}
-
-expected.each do |actual, released|
-  abort "released Adapter Protocol mismatch: #{actual.inspect} != #{released.inspect}" unless actual == released
+begin
+  DiscussionBridge::AdapterContractComparisons.verify_common_boundary!(
+    boundary: boundary,
+    authentication: authentication,
+    common: common,
+    errors: errors,
+  )
+rescue DiscussionBridge::AdapterContractComparisons::Mismatch => error
+  abort error.message
 end
 
 released_connection_pattern = Regexp.new("\\A#{authentication.fetch("connection_id_pattern")}\\z")

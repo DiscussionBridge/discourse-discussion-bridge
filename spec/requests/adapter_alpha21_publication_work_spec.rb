@@ -56,13 +56,15 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     }
   end
 
-  def catalog_segments(authors: [{ "id" => "author:editor", "name" => "Editor", "available" => true }])
+  def catalog_segments(authors: [{ "id" => "author:editor", "name" => "Editor", "available" => true }],
+                       containers: nil)
+    containers ||= [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+    ]
     [
       {
         "segment_type" => "containers",
-        "items" => [
-          { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
-        ],
+        "items" => containers,
       },
       {
         "segment_type" => "taxonomies",
@@ -93,14 +95,15 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     ]
   end
 
-  def install_catalog(authors: [{ "id" => "author:editor", "name" => "Editor", "available" => true }])
+  def install_catalog(authors: [{ "id" => "author:editor", "name" => "Editor", "available" => true }],
+                      containers: nil)
     correlation = "catalog-install-1"
     put "/discussion-bridge/v1/platform-catalog.json",
         headers: headers(correlation: correlation),
         params: {
           platform_profile: "wordpress",
           base_catalog_revision: destination_policy.fetch("catalog_revision"),
-          segments: catalog_segments(authors: authors),
+          segments: catalog_segments(authors: authors, containers: containers),
           correlation_id: correlation,
         },
         as: :json
@@ -111,10 +114,32 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
   end
 
   def make_destination_static!
-    policy = @connection.destination_policies.sole.deep_stringify_keys
+    source_connection = @connection
+    source_catalog = source_connection.platform_catalogs.where(current: true).sole
+    policy = source_connection.destination_policies.sole.deep_stringify_keys
     policy["profile"] = "astro"
-    @connection.platform_catalogs.update_all(platform_profile: "astro")
-    @connection.update!(platform: "astro", destination_policies: [policy])
+    policy["destination_policy_id"] = "destination:astro:articles:1"
+    @connection, @secret = DiscussionBridgeContentConnection.issue!(
+      name: "Alpha.21 work Astro",
+      platform: "astro",
+      allowed_origins: source_connection.allowed_origins,
+      allowed_directions: source_connection.allowed_directions,
+      allowed_lanes: source_connection.allowed_lanes,
+      destination_policies: [policy],
+      catalog_required: true,
+      policy_revision: source_connection.policy_revision,
+    )
+    catalog = @connection.platform_catalogs.create!(
+      platform_profile: "astro",
+      catalog_revision: source_catalog.catalog_revision,
+      current: true,
+    )
+    source_catalog.segments.find_each do |segment|
+      catalog.segments.create!(
+        segment_type: segment.segment_type,
+        items: segment.items.deep_dup,
+      )
+    end
   end
 
   def create_source(content: "<p>Publication body</p>", title: "Publication source")
@@ -153,7 +178,8 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
 
   def acknowledgement(claimed, record, correlation:, deployment_state: "not_required",
                       verification_state: "not_required", stage: "synchronized", stage_token: nil,
-                      synchronized_at: Time.zone.now.iso8601(6), **extra)
+                      synchronized_at: Time.zone.now.iso8601(6),
+                      publication_revision: "wordpress:post:revision:1", **extra)
     {
       lease_token: claimed.fetch("lease_token"),
       resource_id: record.resource_id,
@@ -168,7 +194,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         binding_id: record.active_binding("presentation").binding_id,
         external_id: record.active_binding("presentation").external_id,
         canonical_url: record.active_binding("presentation").canonical_url,
-        publication_revision: "wordpress:post:revision:1",
+        publication_revision: publication_revision,
         content_disposition: "complete",
       },
       synchronized_at: synchronized_at,
@@ -176,6 +202,61 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       verification_state: verification_state,
       correlation_id: correlation,
     }.merge(extra)
+  end
+
+  def complete_static_work(claimed, record, prefix:, publication_revision:)
+    synchronized_at = Time.zone.now.iso8601(6)
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "#{prefix}-synchronized"),
+        params: acknowledgement(
+          claimed,
+          record,
+          correlation: "#{prefix}-synchronized",
+          deployment_state: "pending",
+          verification_state: "pending",
+          synchronized_at: synchronized_at,
+          publication_revision: publication_revision,
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    deployed_token = response.parsed_body.fetch("next_stage_token")
+
+    deployed_at = 1.second.from_now.iso8601(6)
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "#{prefix}-deployed"),
+        params: acknowledgement(
+          claimed,
+          record,
+          correlation: "#{prefix}-deployed",
+          stage: "deployed",
+          stage_token: deployed_token,
+          deployment_state: "deployed",
+          verification_state: "pending",
+          synchronized_at: synchronized_at,
+          deployed_at: deployed_at,
+          publication_revision: publication_revision,
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    verified_token = response.parsed_body.fetch("next_stage_token")
+
+    put "/discussion-bridge/v1/publication-work/#{claimed.fetch("work_id")}/acknowledgement.json",
+        headers: headers(correlation: "#{prefix}-verified"),
+        params: acknowledgement(
+          claimed,
+          record,
+          correlation: "#{prefix}-verified",
+          stage: "verified",
+          stage_token: verified_token,
+          deployment_state: "deployed",
+          verification_state: "verified",
+          synchronized_at: synchronized_at,
+          deployed_at: deployed_at,
+          publicly_verified_at: 2.seconds.from_now.iso8601(6),
+          publication_revision: publication_revision,
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
   end
 
   it "stores immutable descriptive catalog revisions without granting authority" do
@@ -354,9 +435,6 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     materialize_source
     claim(correlation: "static-claim")
     claimed = response.parsed_body.fetch("publication_work").sole
-    dynamic_policy = @connection.destination_policies.sole.deep_stringify_keys
-    dynamic_policy["profile"] = "wordpress"
-    @connection.update!(platform: "wordpress", destination_policies: [dynamic_policy])
     synchronized_at = Time.zone.now.iso8601(6)
 
     forged_dynamic_correlation = "static-forged-dynamic"
@@ -497,7 +575,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  it "withdraws an issued destination when a platform change removes its sole policy" do
+  it "rejects a platform change without disturbing publication authority or queued work" do
     install_catalog
     _, source_post, record = create_source
     materialize_source
@@ -521,45 +599,59 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     queued = @connection.publication_works.order(:id).last
     expect(queued).to have_attributes(action: "update", state: "available", leased_at: nil)
     queued.update_columns(resolved_container: { "id" => "site:queued-only", "kind" => "post_type" })
+    original = @connection.attributes.slice(
+      "name",
+      "platform",
+      "public_id",
+      "secret_digest",
+      "destination_policies",
+      "policy_revision",
+    )
 
     sign_in(admin)
     put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
         params: {
           content_connection: {
+            name: "Rejected Ghost replacement",
             platform: "ghost",
             allowed_directions: ["from_discourse"],
           },
         },
         as: :json
-    expect(response).to have_http_status(:ok), response.body
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.fetch("errors")).to include(
+      "connection platform cannot be changed after creation",
+    )
     sign_out
 
-    expect(DiscussionBridge::ConnectionCapability.publication_active?(@connection.reload)).to be(false)
-    withdrawal = @connection.publication_works.where(action: "unpublish").sole
-    expect(withdrawal).to have_attributes(
-      destination_policy_id: published.fetch("destination_policy_id"),
-      policy_revision: published.fetch("policy_revision"),
-      source_revocation_id: be_present,
+    expect(@connection.reload.attributes.slice(*original.keys)).to eq(original)
+    expect(DiscussionBridge::ConnectionCapability.publication_active?(@connection)).to be(true)
+    expect(@connection.publication_works.where(action: "unpublish")).to be_empty
+    expect(queued.reload).to have_attributes(
+      action: "update",
       state: "available",
+      resolved_container: { "id" => "site:queued-only", "kind" => "post_type" },
     )
-    expect(withdrawal.resolved_container).to eq(
-      DiscussionBridgePublicationWork.find_by!(work_id: published.fetch("work_id")).resolved_container,
-    )
-    expect(withdrawal.resolved_container).not_to eq(queued.reload.resolved_container)
 
-    claim(correlation: "policy-removal-withdrawal")
+    claim(correlation: "platform-change-rejected-claim")
     expect(response).to have_http_status(:ok), response.body
     expect(response.parsed_body.fetch("publication_work").sole).to include(
-      "work_id" => withdrawal.work_id,
-      "action" => "unpublish",
+      "work_id" => queued.work_id,
+      "action" => "update",
       "destination_policy_id" => published.fetch("destination_policy_id"),
     )
   end
 
   it "keeps one removed policy withdrawable while an unchanged policy continues" do
-    install_catalog
+    containers = [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+      { "id" => "site:archive", "name" => "Archive", "kind" => "post_type", "available" => true },
+    ]
+    install_catalog(containers: containers)
     policy_a = @connection.destination_policies.sole.deep_stringify_keys
-    policy_b = policy_a.merge("destination_policy_id" => "destination:wordpress:articles:2")
+    policy_b = policy_a.deep_dup
+    policy_b["destination_policy_id"] = "destination:wordpress:archive:2"
+    policy_b["container_mapping"]["destination"] = "site:archive"
     @connection.update!(
       destination_policies: [policy_a, policy_b],
       policy_revision: "policy:two-destinations:1",
@@ -581,6 +673,10 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       policy_a.fetch("destination_policy_id"),
       policy_b.fetch("destination_policy_id"),
     )
+    expect(published.to_h { |item| [item.fetch("destination_policy_id"), item.dig("resolved_container", "id")] }).to eq(
+      policy_a.fetch("destination_policy_id") => "site:articles",
+      policy_b.fetch("destination_policy_id") => "site:archive",
+    )
 
     sign_in(admin)
     put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
@@ -597,13 +693,764 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(withdrawal.destination_policy_id).to eq(policy_a.fetch("destination_policy_id"))
     expect(withdrawal.source_revocation_record.reload.restored_at).to be_present
 
-    claim(correlation: "multi-policy-withdrawal")
-    claimed = response.parsed_body.fetch("publication_work").sole
-    expect(claimed).to include(
+    restoration = @connection.publication_works.where(
+      destination_policy_id: policy_b.fetch("destination_policy_id"),
+      action: %w[create update],
+    ).where.not(state: "acknowledged").sole
+    expect(restoration.resolved_container.fetch("id")).to eq("site:archive")
+
+    claim(correlation: "multi-policy-withdrawal", lease_seconds: 1)
+    first_withdrawal_claim = response.parsed_body.fetch("publication_work").sole
+    expect(first_withdrawal_claim).to include(
       "work_id" => withdrawal.work_id,
       "action" => "unpublish",
       "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+      "resolved_container" => include("id" => "site:articles"),
     )
+    claim(correlation: "multi-policy-blocked-by-active-withdrawal")
+    expect(response.parsed_body.fetch("publication_work")).to be_empty
+
+    retry_at = nil
+    travel_to(2.seconds.from_now) do
+      claim(correlation: "multi-policy-expired-withdrawal")
+      expired_withdrawal_claim = response.parsed_body.fetch("publication_work").sole
+      expect(expired_withdrawal_claim).to include(
+        "work_id" => withdrawal.work_id,
+        "action" => "unpublish",
+        "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+      )
+      expect(expired_withdrawal_claim.fetch("lease_token")).not_to eq(
+        first_withdrawal_claim.fetch("lease_token"),
+      )
+      claim(correlation: "multi-policy-blocked-by-reclaimed-withdrawal")
+      expect(response.parsed_body.fetch("publication_work")).to be_empty
+
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+          headers: headers(correlation: "multi-policy-withdrawal-failure"),
+          params: {
+            lease_token: expired_withdrawal_claim.fetch("lease_token"),
+            error_code: "destination_unavailable",
+            error_detail: "Articles withdrawal is temporarily unavailable.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: "multi-policy-withdrawal-failure",
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(withdrawal.reload.state).to eq("retry_wait")
+
+      claim(correlation: "multi-policy-restoration")
+      restoration_claim = response.parsed_body.fetch("publication_work").sole
+      expect(restoration_claim).to include(
+        "work_id" => restoration.work_id,
+        "destination_policy_id" => policy_b.fetch("destination_policy_id"),
+        "resolved_container" => include("id" => "site:archive"),
+      )
+      put "/discussion-bridge/v1/publication-work/#{restoration.work_id}/acknowledgement.json",
+          headers: headers(correlation: "multi-policy-restored"),
+          params: acknowledgement(
+            restoration_claim,
+            record,
+            correlation: "multi-policy-restored",
+            publication_revision: "wordpress:archive:revision:2",
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(restoration.reload.state).to eq("acknowledged")
+      retry_at = withdrawal.next_retry_at
+    end
+
+    withdrawal_acknowledgement = nil
+    travel_to(retry_at + 1.second) do
+      claim(correlation: "multi-policy-withdrawal-retry")
+      retried_withdrawal = response.parsed_body.fetch("publication_work").sole
+      expect(retried_withdrawal).to include(
+        "work_id" => withdrawal.work_id,
+        "attempt_count" => 2,
+        "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+        "resolved_container" => include("id" => "site:articles"),
+      )
+      withdrawal_acknowledgement = acknowledgement(
+        retried_withdrawal,
+        record,
+        correlation: "multi-policy-withdrawn",
+        publication_revision: "wordpress:articles:withdrawn:2",
+      )
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+          headers: headers(correlation: "multi-policy-withdrawn"),
+          params: withdrawal_acknowledgement,
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+
+    expect(withdrawal.reload.state).to eq("acknowledged")
+    expect(restoration.reload.state).to eq("acknowledged")
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+        headers: headers(correlation: "multi-policy-withdrawn"),
+        params: withdrawal_acknowledgement,
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body).to include("resulting_state" => "acknowledged", "terminal" => true)
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+      record: record,
+      connection: @connection.reload,
+    )
+    expect(@connection.publication_works.where(action: "unpublish").count).to eq(1)
+  end
+
+  it "retains a static withdrawal revision while another policy completes" do
+    containers = [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+      { "id" => "site:archive", "name" => "Archive", "kind" => "post_type", "available" => true },
+    ]
+    install_catalog(containers: containers)
+    make_destination_static!
+    policy_a = @connection.destination_policies.sole.deep_stringify_keys
+    policy_b = policy_a.deep_dup
+    policy_b["destination_policy_id"] = "destination:astro:archive:2"
+    policy_b["container_mapping"]["destination"] = "site:archive"
+    @connection.update!(
+      destination_policies: [policy_a, policy_b],
+      policy_revision: "policy:static-two-destinations:1",
+    )
+    _, _, record = create_source
+    materialize_source
+
+    2.times do |index|
+      claim(correlation: "static-multi-publish-#{index}")
+      item = response.parsed_body.fetch("publication_work").sole
+      complete_static_work(
+        item,
+        record,
+        prefix: "static-multi-publish-#{index}",
+        publication_revision: "astro:initial:revision:#{index}",
+      )
+    end
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { publication_policy: policy_b } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    sign_out
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+      record: record,
+      connection: @connection.reload,
+    )
+
+    withdrawal = @connection.publication_works.where(action: "unpublish").sole
+    restoration = @connection.publication_works.where(
+      destination_policy_id: policy_b.fetch("destination_policy_id"),
+      action: %w[create update],
+    ).where.not(state: "acknowledged").sole
+    expect(withdrawal.resolved_container.fetch("id")).to eq("site:articles")
+    expect(restoration.resolved_container.fetch("id")).to eq("site:archive")
+
+    claim(correlation: "static-withdrawal-initial")
+    withdrawal_claim = response.parsed_body.fetch("publication_work").sole
+    synchronized_at = Time.zone.now.iso8601(6)
+    publication_revision_a = "astro:articles:withdrawal:PA"
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+        headers: headers(correlation: "static-withdrawal-synchronized"),
+        params: acknowledgement(
+          withdrawal_claim,
+          record,
+          correlation: "static-withdrawal-synchronized",
+          deployment_state: "pending",
+          verification_state: "pending",
+          synchronized_at: synchronized_at,
+          publication_revision: publication_revision_a,
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload).to have_attributes(
+      state: "awaiting_deployment",
+      last_acknowledged_stage: "synchronized",
+    )
+
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+        headers: headers(correlation: "static-withdrawal-deploy-failure"),
+        params: {
+          lease_token: withdrawal_claim.fetch("lease_token"),
+          error_code: "deploy_failed",
+          error_detail: "Articles cleanup deployment is temporarily unavailable.",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "static-withdrawal-deploy-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload.state).to eq("retry_wait")
+
+    publication_revision_b = "astro:archive:restoration:PB"
+    claim(correlation: "static-restoration-claim")
+    restoration_claim = response.parsed_body.fetch("publication_work").sole
+    expect(restoration_claim.fetch("work_id")).to eq(restoration.work_id)
+    complete_static_work(
+      restoration_claim,
+      record,
+      prefix: "static-restoration",
+      publication_revision: publication_revision_b,
+    )
+    binding = record.active_binding("presentation").reload
+    expect(binding).to have_attributes(
+      publication_revision: publication_revision_b,
+      deployment_state: "deployed",
+      verification_state: "verified",
+    )
+
+    first_retry_at = withdrawal.reload.next_retry_at
+    second_retry_at = nil
+    deployed_at = nil
+    travel_to(first_retry_at + 1.second) do
+      claim(correlation: "static-withdrawal-deploy-retry")
+      deploy_claim = response.parsed_body.fetch("publication_work").sole
+      expect(deploy_claim).to include(
+        "work_id" => withdrawal.work_id,
+        "attempt_count" => 2,
+      )
+      deployed_at = Time.zone.now.iso8601(6)
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+          headers: headers(correlation: "static-withdrawal-deployed"),
+          params: acknowledgement(
+            deploy_claim,
+            record,
+            correlation: "static-withdrawal-deployed",
+            stage: "deployed",
+            deployment_state: "deployed",
+            verification_state: "pending",
+            synchronized_at: synchronized_at,
+            deployed_at: deployed_at,
+            publication_revision: publication_revision_a,
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(binding.reload).to have_attributes(
+        publication_revision: publication_revision_b,
+        deployment_state: "deployed",
+        verification_state: "verified",
+      )
+
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+          headers: headers(correlation: "static-withdrawal-verification-failure"),
+          params: {
+            lease_token: deploy_claim.fetch("lease_token"),
+            error_code: "public_verification_failed",
+            error_detail: "Articles cleanup verification is temporarily unavailable.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: "static-withdrawal-verification-failure",
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(binding.reload).to have_attributes(
+        publication_revision: publication_revision_b,
+        deployment_state: "deployed",
+        verification_state: "verified",
+      )
+      second_retry_at = withdrawal.reload.next_retry_at
+    end
+
+    travel_to(second_retry_at + 1.second) do
+      claim(correlation: "static-withdrawal-verification-retry")
+      verification_claim = response.parsed_body.fetch("publication_work").sole
+      expect(verification_claim).to include(
+        "work_id" => withdrawal.work_id,
+        "attempt_count" => 3,
+      )
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+          headers: headers(correlation: "static-withdrawal-verified"),
+          params: acknowledgement(
+            verification_claim,
+            record,
+            correlation: "static-withdrawal-verified",
+            stage: "verified",
+            deployment_state: "deployed",
+            verification_state: "verified",
+            synchronized_at: synchronized_at,
+            deployed_at: deployed_at,
+            publicly_verified_at: Time.zone.now.iso8601(6),
+            publication_revision: publication_revision_a,
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+
+    expect(withdrawal.reload).to have_attributes(
+      state: "acknowledged",
+      last_acknowledged_stage: "verified",
+    )
+    expect(binding.reload).to have_attributes(
+      publication_revision: publication_revision_b,
+      deployment_state: "deployed",
+      verification_state: "verified",
+    )
+  end
+
+  it "preserves removed-policy cleanup through another policy and authorized manual retry" do
+    SiteSetting.discussion_bridge_publisher_enabled = true
+    containers = [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+      { "id" => "site:archive", "name" => "Archive", "kind" => "post_type", "available" => true },
+    ]
+    install_catalog(containers: containers)
+    policy_a = @connection.destination_policies.sole.deep_stringify_keys
+    policy_b = policy_a.deep_dup
+    policy_b["destination_policy_id"] = "destination:wordpress:archive:2"
+    policy_b["container_mapping"]["destination"] = "site:archive"
+    @connection.update!(
+      destination_policies: [policy_a, policy_b],
+      policy_revision: "policy:operator-attention-destinations:1",
+    )
+    _, _, record = create_source
+    materialize_source
+    2.times do |index|
+      claim(correlation: "operator-multi-publish-#{index}")
+      item = response.parsed_body.fetch("publication_work").sole
+      put "/discussion-bridge/v1/publication-work/#{item.fetch("work_id")}/acknowledgement.json",
+          headers: headers(correlation: "operator-multi-published-#{index}"),
+          params: acknowledgement(
+            item,
+            record,
+            correlation: "operator-multi-published-#{index}",
+            publication_revision: "wordpress:operator:initial:#{index}",
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { publication_policy: policy_b } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    sign_out
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+      record: record,
+      connection: @connection.reload,
+    )
+    withdrawal = @connection.publication_works.where(action: "unpublish").sole
+    restoration = @connection.publication_works.where(
+      destination_policy_id: policy_b.fetch("destination_policy_id"),
+      action: %w[create update],
+    ).where.not(state: "acknowledged").sole
+    1.upto(4) do |attempt|
+      claim(correlation: "operator-withdrawal-attempt-#{attempt}")
+      failed_claim = response.parsed_body.fetch("publication_work").sole
+      expect(failed_claim).to include(
+        "work_id" => withdrawal.work_id,
+        "attempt_count" => attempt,
+        "resolved_container" => include("id" => "site:articles"),
+      )
+      correlation = "operator-withdrawal-failure-#{attempt}"
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+          headers: headers(correlation: correlation),
+          params: {
+            lease_token: failed_claim.fetch("lease_token"),
+            error_code: "destination_unavailable",
+            error_detail: "Articles cleanup remained unavailable.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: correlation,
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      withdrawal.reload
+      if attempt < 4
+        expect(withdrawal.state).to eq("retry_wait")
+        travel_to(withdrawal.next_retry_at + 1.second)
+      else
+        expect(withdrawal.state).to eq("operator_attention")
+      end
+    end
+
+    claim(correlation: "operator-surviving-policy")
+    restoration_claim = response.parsed_body.fetch("publication_work").sole
+    expect(restoration_claim.fetch("work_id")).to eq(restoration.work_id)
+    put "/discussion-bridge/v1/publication-work/#{restoration.work_id}/acknowledgement.json",
+        headers: headers(correlation: "operator-surviving-policy-complete"),
+        params: acknowledgement(
+          restoration_claim,
+          record,
+          correlation: "operator-surviving-policy-complete",
+          publication_revision: "wordpress:archive:operator:PB",
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload.state).to eq("operator_attention")
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/publishing/work/#{withdrawal.id}/retry.json",
+         params: { retry: { condition_corrected: false } },
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(withdrawal.reload.state).to eq("operator_attention")
+
+    post "/discussion-bridge/admin/publishing/work/#{withdrawal.id}/retry.json",
+         params: { retry: { condition_corrected: true } },
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload).to have_attributes(
+      state: "available",
+      retry_generation: 1,
+      attempt_count: 1,
+    )
+    sign_out
+
+    claim(correlation: "operator-withdrawal-retry")
+    retried_withdrawal = response.parsed_body.fetch("publication_work").sole
+    expect(retried_withdrawal).to include(
+      "work_id" => withdrawal.work_id,
+      "retry_generation" => 1,
+      "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+      "resolved_container" => include("id" => "site:articles"),
+    )
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+        headers: headers(correlation: "operator-withdrawal-complete"),
+        params: acknowledgement(
+          retried_withdrawal,
+          record,
+          correlation: "operator-withdrawal-complete",
+          publication_revision: "wordpress:articles:operator:PA",
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload.state).to eq("acknowledged")
+    expect(restoration.reload.state).to eq("acknowledged")
+  end
+
+  it "does not infer static binding ownership from an equal revision token" do
+    containers = [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+      { "id" => "site:archive", "name" => "Archive", "kind" => "post_type", "available" => true },
+    ]
+    install_catalog(containers: containers)
+    make_destination_static!
+    policy_a = @connection.destination_policies.sole.deep_stringify_keys
+    policy_b = policy_a.deep_dup
+    policy_b["destination_policy_id"] = "destination:astro:archive:equal-revision"
+    policy_b["container_mapping"]["destination"] = "site:archive"
+    @connection.update!(
+      destination_policies: [policy_a, policy_b],
+      policy_revision: "policy:static-equal-revision",
+    )
+    _, _, record = create_source
+    materialize_source
+
+    claim(correlation: "equal-revision-a-claim")
+    claim_a = response.parsed_body.fetch("publication_work").sole
+    work_a = DiscussionBridgePublicationWork.find_by!(work_id: claim_a.fetch("work_id"))
+    expect(claim_a.dig("resolved_container", "id")).to eq("site:articles")
+    shared_revision = "astro:opaque:shared-revision"
+    synchronized_at = Time.zone.now.iso8601(6)
+    put "/discussion-bridge/v1/publication-work/#{work_a.work_id}/acknowledgement.json",
+        headers: headers(correlation: "equal-revision-a-synchronized"),
+        params: acknowledgement(
+          claim_a,
+          record,
+          correlation: "equal-revision-a-synchronized",
+          deployment_state: "pending",
+          verification_state: "pending",
+          synchronized_at: synchronized_at,
+          publication_revision: shared_revision,
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    put "/discussion-bridge/v1/publication-work/#{work_a.work_id}/failure.json",
+        headers: headers(correlation: "equal-revision-a-failure"),
+        params: {
+          lease_token: claim_a.fetch("lease_token"),
+          error_code: "deploy_failed",
+          error_detail: "Articles deployment is waiting while archive continues.",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "equal-revision-a-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    claim(correlation: "equal-revision-b-claim")
+    claim_b = response.parsed_body.fetch("publication_work").sole
+    expect(claim_b.dig("resolved_container", "id")).to eq("site:archive")
+    complete_static_work(
+      claim_b,
+      record,
+      prefix: "equal-revision-b",
+      publication_revision: shared_revision,
+    )
+    binding = record.active_binding("presentation").reload
+    b_projection = binding.attributes.slice(
+      "publication_revision",
+      "deployment_state",
+      "verification_state",
+      "deployed_at_wire",
+      "publicly_verified_at_wire",
+    )
+    expect(b_projection).to include(
+      "publication_revision" => shared_revision,
+      "deployment_state" => "deployed",
+      "verification_state" => "verified",
+    )
+
+    deployed_at = nil
+    verification_retry_at = nil
+    travel_to(work_a.reload.next_retry_at + 1.second) do
+      claim(correlation: "equal-revision-a-retry")
+      retry_a = response.parsed_body.fetch("publication_work").sole
+      expect(retry_a.fetch("work_id")).to eq(work_a.work_id)
+      deployed_at = Time.zone.now.iso8601(6)
+      put "/discussion-bridge/v1/publication-work/#{work_a.work_id}/acknowledgement.json",
+          headers: headers(correlation: "equal-revision-a-deployed"),
+          params: acknowledgement(
+            retry_a,
+            record,
+            correlation: "equal-revision-a-deployed",
+            stage: "deployed",
+            deployment_state: "deployed",
+            verification_state: "pending",
+            synchronized_at: synchronized_at,
+            deployed_at: deployed_at,
+            publication_revision: shared_revision,
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(binding.reload.attributes.slice(*b_projection.keys)).to eq(b_projection)
+
+      put "/discussion-bridge/v1/publication-work/#{work_a.work_id}/failure.json",
+          headers: headers(correlation: "equal-revision-a-verification-failure"),
+          params: {
+            lease_token: retry_a.fetch("lease_token"),
+            error_code: "public_verification_failed",
+            error_detail: "Articles verification remains unavailable.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: "equal-revision-a-verification-failure",
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(binding.reload.attributes.slice(*b_projection.keys)).to eq(b_projection)
+      verification_retry_at = work_a.reload.next_retry_at
+    end
+
+    travel_to(verification_retry_at + 1.second) do
+      claim(correlation: "equal-revision-a-verification-retry")
+      verification_a = response.parsed_body.fetch("publication_work").sole
+      expect(verification_a.fetch("work_id")).to eq(work_a.work_id)
+      put "/discussion-bridge/v1/publication-work/#{work_a.work_id}/acknowledgement.json",
+          headers: headers(correlation: "equal-revision-a-verified"),
+          params: acknowledgement(
+            verification_a,
+            record,
+            correlation: "equal-revision-a-verified",
+            stage: "verified",
+            deployment_state: "deployed",
+            verification_state: "verified",
+            synchronized_at: synchronized_at,
+            deployed_at: deployed_at,
+            publicly_verified_at: Time.zone.now.iso8601(6),
+            publication_revision: shared_revision,
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(work_a.reload.state).to eq("acknowledged")
+      expect(binding.reload.attributes.slice(*b_projection.keys)).to eq(b_projection)
+    end
+  end
+
+  it "supersedes stale cleanup only after the same destination is restored and issued" do
+    containers = [
+      { "id" => "site:articles", "name" => "Articles", "kind" => "post_type", "available" => true },
+      { "id" => "site:archive", "name" => "Archive", "kind" => "post_type", "available" => true },
+      { "id" => "site:news", "name" => "News", "kind" => "post_type", "available" => true },
+    ]
+    install_catalog(containers: containers)
+    policy_a = @connection.destination_policies.sole.deep_stringify_keys
+    policy_b = policy_a.deep_dup
+    policy_b["destination_policy_id"] = "destination:wordpress:archive:2"
+    policy_b["container_mapping"]["destination"] = "site:archive"
+    @connection.update!(
+      destination_policies: [policy_a, policy_b],
+      policy_revision: "policy:same-target:initial",
+    )
+    _, _, record = create_source
+    materialize_source
+    2.times do |index|
+      claim(correlation: "same-target-publish-#{index}")
+      item = response.parsed_body.fetch("publication_work").sole
+      put "/discussion-bridge/v1/publication-work/#{item.fetch("work_id")}/acknowledgement.json",
+          headers: headers(correlation: "same-target-published-#{index}"),
+          params: acknowledgement(
+            item,
+            record,
+            correlation: "same-target-published-#{index}",
+            publication_revision: "wordpress:same-target:initial:#{index}",
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+
+    sign_in(admin)
+    put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
+        params: { content_connection: { publication_policy: policy_b } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    sign_out
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+      record: record,
+      connection: @connection.reload,
+    )
+    withdrawal = @connection.publication_works.where(action: "unpublish").sole
+    surviving_restoration = @connection.publication_works.where(
+      destination_policy_id: policy_b.fetch("destination_policy_id"),
+      action: %w[create update],
+    ).where.not(state: "acknowledged").sole
+
+    claim(correlation: "same-target-withdrawal")
+    withdrawal_claim = response.parsed_body.fetch("publication_work").sole
+    expect(withdrawal_claim.fetch("work_id")).to eq(withdrawal.work_id)
+    put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+        headers: headers(correlation: "same-target-withdrawal-failure"),
+        params: {
+          lease_token: withdrawal_claim.fetch("lease_token"),
+          error_code: "destination_unavailable",
+          error_detail: "Articles cleanup is waiting for a corrected destination.",
+          failed_at: Time.zone.now.iso8601(6),
+          correlation_id: "same-target-withdrawal-failure",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload.state).to eq("retry_wait")
+
+    claim(correlation: "same-target-surviving-restoration")
+    surviving_claim = response.parsed_body.fetch("publication_work").sole
+    expect(surviving_claim.fetch("work_id")).to eq(surviving_restoration.work_id)
+    put "/discussion-bridge/v1/publication-work/#{surviving_restoration.work_id}/acknowledgement.json",
+        headers: headers(correlation: "same-target-surviving-restored"),
+        params: acknowledgement(
+          surviving_claim,
+          record,
+          correlation: "same-target-surviving-restored",
+          publication_revision: "wordpress:archive:same-target:PB",
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(withdrawal.reload.state).to eq("retry_wait")
+
+    moved_policy_a = policy_a.deep_dup
+    moved_policy_a["container_mapping"]["destination"] = "site:news"
+    @connection.update!(
+      destination_policies: [moved_policy_a, policy_b],
+      policy_revision: "policy:same-id-new-target",
+    )
+    DiscussionBridge::SourceRevisionMaterializer.call(
+      record: record,
+      connection: @connection,
+      force_revision: true,
+    )
+    moved_target_work = @connection.publication_works.where(
+      destination_policy_id: policy_a.fetch("destination_policy_id"),
+      resolved_container: { "id" => "site:news", "kind" => "post_type" },
+    ).where.not(state: %w[acknowledged superseded]).where.not(id: withdrawal.id).sole
+    claim(correlation: "same-id-new-target-issued")
+    moved_target_claim = response.parsed_body.fetch("publication_work").sole
+    expect(moved_target_claim).to include(
+      "work_id" => moved_target_work.work_id,
+      "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+      "resolved_container" => include("id" => "site:news"),
+    )
+    put "/discussion-bridge/v1/publication-work/#{moved_target_work.work_id}/acknowledgement.json",
+        headers: headers(correlation: "same-id-new-target-complete"),
+        params: acknowledgement(
+          moved_target_claim,
+          record,
+          correlation: "same-id-new-target-complete",
+          publication_revision: "wordpress:news:moved:PA-new-target",
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    travel_to(withdrawal.reload.next_retry_at + 1.second) do
+      claim(correlation: "same-id-old-target-cleanup-retry")
+      old_target_claim = response.parsed_body.fetch("publication_work").sole
+      expect(old_target_claim).to include(
+        "work_id" => withdrawal.work_id,
+        "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+        "resolved_container" => include("id" => "site:articles"),
+      )
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+          headers: headers(correlation: "same-id-old-target-cleanup-failure"),
+          params: {
+            lease_token: old_target_claim.fetch("lease_token"),
+            error_code: "destination_unavailable",
+            error_detail: "The old Articles target still requires cleanup.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: "same-id-old-target-cleanup-failure",
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+    expect(withdrawal.reload.state).to eq("retry_wait")
+
+    @connection.update!(
+      destination_policies: [policy_a, policy_b],
+      policy_revision: "policy:same-target:restored",
+    )
+    DiscussionBridge::SourceRevisionMaterializer.call(
+      record: record,
+      connection: @connection,
+      force_revision: true,
+    )
+    same_target_restoration = @connection.publication_works.where(
+      destination_policy_id: policy_a.fetch("destination_policy_id"),
+      action: %w[create update restore],
+    ).where.not(state: %w[acknowledged superseded]).where.not(id: withdrawal.id).sole
+    expect(same_target_restoration).to have_attributes(
+      state: "available",
+      may_have_materialized: false,
+    )
+
+    travel_to(withdrawal.reload.next_retry_at + 1.second) do
+      claim(correlation: "same-target-queued-restoration-does-not-cancel")
+      queued_restoration_cleanup = response.parsed_body.fetch("publication_work").sole
+      expect(queued_restoration_cleanup.fetch("work_id")).to eq(withdrawal.work_id)
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/failure.json",
+          headers: headers(correlation: "same-target-queued-restoration-cleanup-failure"),
+          params: {
+            lease_token: queued_restoration_cleanup.fetch("lease_token"),
+            error_code: "destination_unavailable",
+            error_detail: "Queued restoration has not yet made cleanup obsolete.",
+            failed_at: Time.zone.now.iso8601(6),
+            correlation_id: "same-target-queued-restoration-cleanup-failure",
+          },
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+    end
+    expect(withdrawal.reload.state).to eq("retry_wait")
+
+    claim(correlation: "same-target-restoration-issued")
+    restored_claim = response.parsed_body.fetch("publication_work").sole
+    expect(restored_claim).to include(
+      "work_id" => same_target_restoration.work_id,
+      "destination_policy_id" => policy_a.fetch("destination_policy_id"),
+      "resolved_container" => include("id" => "site:articles"),
+    )
+    expect(same_target_restoration.reload.may_have_materialized).to be(true)
+    put "/discussion-bridge/v1/publication-work/#{same_target_restoration.work_id}/acknowledgement.json",
+        headers: headers(correlation: "same-target-restoration-complete"),
+        params: acknowledgement(
+          restored_claim,
+          record,
+          correlation: "same-target-restoration-complete",
+          publication_revision: "wordpress:articles:restored:PA2",
+        ),
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    travel_to(withdrawal.reload.next_retry_at + 1.second) do
+      claim(correlation: "same-target-stale-cleanup-check")
+      expect(response).to have_http_status(:ok), response.body
+      claimed_ids = response.parsed_body.fetch("publication_work").map { |item| item.fetch("work_id") }
+      expect(claimed_ids).not_to include(withdrawal.work_id)
+      expect(withdrawal.reload).to have_attributes(
+        state: "superseded",
+        may_have_materialized: true,
+      )
+    end
+    expect(@connection.publication_works.where(action: "unpublish")).to contain_exactly(withdrawal)
   end
 
   it "retries persisted withdrawal work after From Discourse direction removal" do
@@ -726,13 +1573,14 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
 
   it "retains durable cleanup evidence after an issued lease expires and resets" do
     install_catalog
-    _, _, record = create_source
+    _, source_post, record = create_source
     materialize_source
     claim(correlation: "issued-before-expiry", lease_seconds: 1)
     issued = DiscussionBridgePublicationWork.find_by!(
       work_id: response.parsed_body.fetch("publication_work").sole.fetch("work_id"),
     )
     expect(issued.may_have_materialized).to be(true)
+    issued_destination = issued.resolved_container.deep_dup
 
     travel_to(2.seconds.from_now) do
       DiscussionBridge::PublicationWorkRegistry.new(connection: @connection).send(
@@ -740,6 +1588,24 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         Time.zone.now,
       )
       expect(issued.reload).to have_attributes(state: "available", leased_at: nil, may_have_materialized: true)
+
+      source_post.update_columns(
+        cooked: "<p>Newer queued revision</p>",
+        updated_at: 1.minute.from_now,
+      )
+      DiscussionBridge::SourceRevisionMaterializer.call(
+        record: record,
+        connection: @connection,
+        force_revision: true,
+      )
+      queued = @connection.publication_works.order(:id).last
+      queued_destination = { "id" => "site:never-issued", "kind" => "post_type" }
+      queued.update_columns(resolved_container: queued_destination)
+      expect(queued.reload).to have_attributes(
+        state: "available",
+        may_have_materialized: false,
+        resolved_container: queued_destination,
+      )
 
       sign_in(admin)
       put "/discussion-bridge/admin/content-connections/#{@connection.id}.json",
@@ -754,7 +1620,36 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       bridge_record_id: record.id,
       destination_policy_id: issued.destination_policy_id,
       state: "available",
+      resolved_container: issued_destination,
     )
+    expect(withdrawal.resolved_container).not_to eq({ "id" => "site:never-issued", "kind" => "post_type" })
+
+    travel_to(3.seconds.from_now) do
+      claim(correlation: "retained-evidence-withdrawal")
+      claimed_withdrawal = response.parsed_body.fetch("publication_work").sole
+      expect(claimed_withdrawal).to include(
+        "work_id" => withdrawal.work_id,
+        "action" => "unpublish",
+        "destination_policy_id" => issued.destination_policy_id,
+        "resolved_container" => issued_destination,
+      )
+      put "/discussion-bridge/v1/publication-work/#{withdrawal.work_id}/acknowledgement.json",
+          headers: headers(correlation: "retained-evidence-withdrawn"),
+          params: acknowledgement(
+            claimed_withdrawal,
+            record,
+            correlation: "retained-evidence-withdrawn",
+          ),
+          as: :json
+      expect(response).to have_http_status(:ok), response.body
+      expect(withdrawal.reload.state).to eq("acknowledged")
+
+      DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+        record: record,
+        connection: @connection.reload,
+      )
+      expect(@connection.publication_works.where(action: "unpublish").count).to eq(1)
+    end
   end
 
   it "resumes retryable static work from its last acknowledged stage" do
@@ -1257,7 +2152,10 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         canonical_url: "https://publisher.example/articles/pending-publication/",
         lane: "articles",
       )
-    end.to raise_error(ArgumentError, /does not permit From Discourse/)
+    end.to raise_error(ArgumentError, /temporarily unavailable/)
+    expect(DiscussionBridge::ConnectionCapability.publication_readiness(@connection.reload)).to eq(
+      :temporarily_unavailable,
+    )
     expect(@connection.bridge_records).to be_empty
     expect(@connection.publication_works).to be_empty
 
@@ -1313,6 +2211,105 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     materialize_source
     claim(correlation: "catalog-adopt-claim")
     expect(response.parsed_body.fetch("publication_work").length).to eq(1)
+  end
+
+  it "returns temporary unavailability while an active native mapping is pending and resumes after approval" do
+    catalog_revision = install_catalog
+    topic, post, record = create_source
+    materialize_source
+    initial_revision = record.source_revisions.order(:source_revision_sequence).last
+    expect(record.publication_works.sole.action).to eq("publish")
+
+    approved_policy = @connection.destination_policies.sole.deep_stringify_keys
+    pending_policy = approved_policy.deep_dup
+    pending_policy["destination_policy_id"] = "destination:wordpress:pending"
+    pending_policy["container_mapping"]["destination"] =
+      DiscussionBridge::ConnectionCapability::PENDING_CATALOG_DESTINATION
+    @connection.update!(
+      destination_policies: [pending_policy],
+      policy_revision: "policy:wordpress:pending",
+    )
+    expect(DiscussionBridge::ConnectionCapability.publication_readiness(@connection)).to eq(
+      :temporarily_unavailable,
+    )
+    @connection.enabled = false
+    expect(DiscussionBridge::ConnectionCapability.publication_readiness(@connection)).to eq(:direction_denied)
+    @connection.reload.allowed_directions = ["to_discourse"]
+    expect(DiscussionBridge::ConnectionCapability.publication_readiness(@connection)).to eq(:direction_denied)
+    @connection.reload
+
+    post.update!(raw: "Publication body after pending reset", cooked: "<p>Publication body after pending reset</p>")
+    work_ids = @connection.publication_works.order(:id).pluck(:id)
+    revision_ids = record.source_revisions.order(:id).pluck(:id)
+    correlation = "pending-native-mapping"
+    get "/discussion-bridge/v1/source-topics.json", headers: headers(correlation: correlation)
+    expect(@connection.publication_works.order(:id).pluck(:id)).to eq(work_ids)
+    expect(record.source_revisions.order(:id).pluck(:id)).to eq(revision_ids)
+    expect(response).to have_http_status(:service_unavailable)
+    expect(response.headers.fetch("X-DiscussionBridge-Correlation")).to eq(correlation)
+    expect(response.parsed_body).to include(
+      "error_code" => "temporarily_unavailable",
+      "correlation_id" => correlation,
+    )
+
+    get "/discussion-bridge/v1/source-topics/#{topic.id}.json",
+        headers: headers(correlation: "pending-retained-detail"),
+        params: { source_revision: initial_revision.source_revision }
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("source_revision")).to eq(initial_revision.source_revision)
+
+    get "/discussion-bridge/v1/source-revocations.json",
+        headers: headers(correlation: "pending-retained-revocations")
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("items")).to be_empty
+
+    expect do
+      DiscussionBridge::PublicationWorkRegistry.ensure_revision!(
+        record: record,
+        connection: @connection,
+        revision: initial_revision,
+      )
+    end.to raise_error(DiscussionBridge::AdapterRequestBoundary::Error) { |error|
+      expect(error.error_code).to eq("temporarily_unavailable")
+    }
+    expect(@connection.publication_works.order(:id).pluck(:id)).to eq(work_ids)
+
+    pending_topic = Fabricate(:topic, user: admin, category: category, visible: true)
+    Fabricate(:post, topic: pending_topic, user: admin, post_number: 1, raw: "Pending local creation")
+    expect do
+      DiscussionBridge::FromDiscourseRecordCreator.call(
+        user: admin,
+        connection_id: @connection.id,
+        topic_id: pending_topic.id,
+        external_id: "pending-local-creation",
+        canonical_url: "https://publisher.example/articles/pending-local-creation/",
+        lane: "articles",
+      )
+    end.to raise_error(ArgumentError, /temporarily unavailable/)
+    expect(@connection.bridge_records.where(topic_id: pending_topic.id)).to be_empty
+
+    approved_policy["catalog_revision"] = catalog_revision
+    @connection.update!(
+      destination_policies: [approved_policy],
+      policy_revision: "policy:wordpress:approved",
+    )
+    expect(DiscussionBridge::ConnectionCapability.publication_readiness(@connection)).to eq(:active)
+
+    correlation = "approved-native-mapping"
+    get "/discussion-bridge/v1/source-topics.json", headers: headers(correlation: correlation)
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.headers.fetch("X-DiscussionBridge-Correlation")).to eq(correlation)
+    expect(response.parsed_body.fetch("correlation_id")).to eq(correlation)
+    expect(record.reload.source_revisions.order(:id).pluck(:id)).not_to eq(revision_ids)
+    resumed = record.publication_works.where(
+      action: %w[publish update restore],
+      policy_revision: "policy:wordpress:approved",
+      source_revision: record.source_revisions.order(:source_revision_sequence).last.source_revision,
+    ).sole
+    expect(resumed.state).to eq("available")
+    claim(correlation: "approved-native-mapping-claim")
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.parsed_body.fetch("publication_work").sole.fetch("work_id")).to eq(resumed.work_id)
   end
 
   it "accepts descriptive Statamic Flat catalog bootstrap without activating publication" do

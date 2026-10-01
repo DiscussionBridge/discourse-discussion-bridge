@@ -148,9 +148,13 @@ describe "DiscussionBridge native product administration" do
       click_button("Manage")
     end
     expect(page).to have_content("Manage connection")
-    fill_in("Connection name", with: "Editorial Ghost Updated")
-    check("Generate topic table of contents")
-    click_button("Save connection")
+    within("form.discussion-bridge-add-connection") do
+      expect(page).to have_css(".discussion-bridge-platform", text: "Ghost")
+      expect(page).to have_no_select("Platform")
+      fill_in("Connection name", with: "Editorial Ghost Updated")
+      check("Generate topic table of contents")
+      click_button("Save connection")
+    end
     expect(page).to have_content("Editorial Ghost Updated", wait: 30)
     expect(created.reload.name).to eq("Editorial Ghost Updated")
     expect(created.generate_topic_toc).to eq(true)
@@ -383,6 +387,90 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_unchecked_field("Enable Operator Service")
   end
 
+  %i[active expired revoked].each do |prior_state|
+    it "replaces a #{prior_state} Operator entitlement through the native form without replacing enrollment identity" do
+      recovery = prepare_operator_recovery(prior_state: prior_state)
+      enrollment = recovery.fetch(:enrollment)
+      original_identity = enrollment.attributes.slice(
+        "id",
+        "forum_id",
+        "provider_id",
+        "operator_user_id",
+      )
+      prior_audit_ids = DiscussionBridgeOperatorAuditRecord.order(:id).pluck(:id)
+
+      sign_in(admin)
+      visit("/")
+      page.execute_script(
+        "window.location.assign('/admin/plugins/discourse-discussion-bridge/operator-service')",
+      )
+
+      expect(page).to have_css(".discussion-bridge-operator-service", wait: 30)
+      expect(page).to have_content(recovery.fetch(:current).entitlement_id)
+      expect(page).to have_field("Entitlement JSON")
+      fill_in("Entitlement JSON", with: JSON.generate(recovery.fetch(:replacement_payload)))
+      click_button("Verify and enroll entitlement")
+
+      expect(page).to have_content("Signed entitlement verified and enrolled.", wait: 30)
+      expect(page).to have_content(recovery.fetch(:replacement_payload).fetch("entitlement_id"))
+      expect(enrollment.reload.attributes.slice(*original_identity.keys)).to eq(original_identity)
+      expect(enrollment.current_entitlement_id).to eq(
+        recovery.fetch(:replacement_payload).fetch("entitlement_id"),
+      )
+      expected_prior_state = prior_state == :revoked ? "revoked" : "replaced"
+      expect(recovery.fetch(:current).reload.state).to eq(expected_prior_state)
+      expect(DiscussionBridgeOperatorAuditRecord.where(id: prior_audit_ids).count).to eq(prior_audit_ids.length)
+    end
+  end
+
+  it "does not let the native replacement form auto-enable a disabled Operator Service" do
+    recovery = prepare_operator_recovery(prior_state: :active)
+    enrollment = recovery.fetch(:enrollment)
+    current_id = enrollment.current_entitlement_id
+    enrollment.disable!
+
+    sign_in(admin)
+    visit("/")
+    page.execute_script(
+      "window.location.assign('/admin/plugins/discourse-discussion-bridge/operator-service')",
+    )
+    expect(page).to have_field("Entitlement JSON", wait: 30)
+    fill_in("Entitlement JSON", with: JSON.generate(recovery.fetch(:replacement_payload)))
+    click_button("Verify and enroll entitlement")
+
+    expect(page).to have_content("operator service is disabled", wait: 30)
+    expect(page).to have_no_content("Signed entitlement verified and enrolled.")
+    expect(enrollment.reload).to have_attributes(enabled: false, current_entitlement_id: current_id)
+    expect(DiscussionBridgeOperatorEntitlement).not_to exist(
+      entitlement_id: recovery.fetch(:replacement_payload).fetch("entitlement_id"),
+    )
+  end
+
+  it "keeps native Operator state unchanged when a replacement signature is invalid" do
+    recovery = prepare_operator_recovery(prior_state: :active)
+    enrollment = recovery.fetch(:enrollment)
+    current_id = enrollment.current_entitlement_id
+    replacement = recovery.fetch(:replacement_payload).merge("signature" => "A" * 86)
+    audit_ids = DiscussionBridgeOperatorAuditRecord.order(:id).pluck(:id)
+
+    sign_in(admin)
+    visit("/")
+    page.execute_script(
+      "window.location.assign('/admin/plugins/discourse-discussion-bridge/operator-service')",
+    )
+    expect(page).to have_field("Entitlement JSON", wait: 30)
+    fill_in("Entitlement JSON", with: JSON.generate(replacement))
+    click_button("Verify and enroll entitlement")
+
+    expect(page).to have_content("entitlement invalid signature", wait: 30)
+    expect(page).to have_no_content("Signed entitlement verified and enrolled.")
+    expect(enrollment.reload.current_entitlement_id).to eq(current_id)
+    expect(DiscussionBridgeOperatorEntitlement).not_to exist(
+      entitlement_id: replacement.fetch("entitlement_id"),
+    )
+    expect(DiscussionBridgeOperatorAuditRecord.where(id: audit_ids).count).to eq(audit_ids.length)
+  end
+
   it "renders the default-off Discourse network and enables its protected identity explicitly" do
     sign_in(admin)
     visit("/")
@@ -401,5 +489,183 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content(identity.forum_id)
     expect(page).to have_content("Synchronize authorized first posts", exact: false)
     expect(identity).to be_ready
+  end
+
+  it "rotates, disables, and reauthorizes the same peer through native controls" do
+    DiscussionBridgeForumIdentity.enable!(actor: admin)
+    remote_forum_id = "dbf_#{"9" * 32}"
+    relationship = "hub_to_spoke"
+    network_connection, = DiscussionBridgeContentConnection.issue!(
+      name: "Native peer recovery",
+      platform: "discourse",
+      allowed_origins: ["https://peer-recovery.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+      default_category_id: category.id,
+      destination_policies: [
+        DiscussionBridge::DiscourseNetworkProtocol.destination_policy(
+          peer_forum_id: remote_forum_id,
+          relationship: relationship,
+        ),
+      ],
+      policy_revision: DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
+        peer_forum_id: remote_forum_id,
+        relationship: relationship,
+      ),
+      network_enabled: true,
+      network_peer_forum_id: remote_forum_id,
+      network_relationship: relationship,
+    )
+    peer = DiscussionBridgeNetworkPeer.create!(
+      content_connection: network_connection,
+      name: "Recovery Peer",
+      remote_forum_id: remote_forum_id,
+      remote_forum_name: "Recovery Peer Forum",
+      remote_origin: "https://peer-recovery.example",
+      remote_connection_id: "dbc_#{"9" * 24}",
+      remote_secret: "r" * 32,
+      relationship: relationship,
+      enabled: true,
+      authorized_by: admin,
+      authorized_at: Time.zone.now,
+    )
+    replay = DiscussionBridgeNetworkReplay.create!(
+      network_peer: peer,
+      origin_forum_id: remote_forum_id,
+      operation_id: "dbo_#{"7" * 32}",
+      immutable_operation: { "action" => "publish" },
+      immutable_sha256: Digest::SHA256.hexdigest("native peer recovery replay"),
+      retained_result: { "outcome" => "created" },
+      correlation_id: "native-peer-recovery-replay",
+      expires_at: 1.day.from_now,
+    )
+    original_identity = peer.attributes.slice(
+      "id",
+      "content_connection_id",
+      "remote_forum_id",
+      "remote_connection_id",
+      "relationship",
+    )
+
+    sign_in(admin)
+    visit("/")
+    page.execute_script(
+      "window.location.assign('/admin/plugins/discourse-discussion-bridge/network')",
+    )
+    expect(page).to have_css(".discussion-bridge-network", wait: 30)
+    expect(page.html).not_to include("r" * 32)
+
+    fill_in("New peer secret", with: "too-short")
+    page.execute_script(
+      "document.querySelector('input[name=\"remote_secret\"]').form.requestSubmit()",
+    )
+    expect(page).to have_content("invalid network peer secret", wait: 30)
+    expect(page).to have_no_content("Peer secret rotated.")
+    expect(peer.reload.remote_secret).to eq("r" * 32)
+    click_button("OK")
+
+    fill_in("New peer secret", with: "s" * 32)
+    click_button("Rotate peer secret")
+    expect(page).to have_content("Peer secret rotated.", wait: 30)
+    expect(page).to have_field("New peer secret", with: "")
+    expect(peer.reload.remote_secret).to eq("s" * 32)
+
+    click_button("Disable")
+    expect(page).to have_content("Peer disabled.", wait: 30)
+    expect(peer.reload.enabled).to eq(false)
+
+    fill_in("New peer secret", with: "t" * 32)
+    click_button("Rotate peer secret")
+    expect(page).to have_content("Peer secret rotated.", wait: 30)
+    expect(page).to have_field("New peer secret", with: "")
+    expect(peer.reload).to have_attributes(enabled: false, remote_secret: "t" * 32)
+
+    click_button("Reauthorize peer")
+    expect(page).to have_content("Peer reauthorized.", wait: 30)
+
+    expect(peer.reload.attributes.slice(*original_identity.keys)).to eq(original_identity)
+    expect(peer).to have_attributes(enabled: true, disabled_at: nil)
+    expect(peer.remote_secret).to eq("t" * 32)
+    expect(DiscussionBridgeNetworkPeer.where(content_connection_id: network_connection.id).count).to eq(1)
+    expect(replay.reload.network_peer_id).to eq(peer.id)
+    expect(page.html).not_to include("t" * 32)
+  end
+
+  def prepare_operator_recovery(prior_state:)
+    enrollment = DiscussionBridgeOperatorEnrollment.instance
+    enrollment.update!(enabled: true)
+    enrollment.bind_operator_user!(admin)
+    current_signing_key = OpenSSL::PKey.generate_key("ED25519")
+    current_key = create_operator_key(current_signing_key, suffix: "1")
+    current_payload = operator_payload(
+      signing_key: current_signing_key,
+      enrollment: enrollment,
+      key: current_key,
+      entitlement_id: "dbe_#{"1" * 32}",
+    )
+    current = DiscussionBridge::OperatorEntitlementVerifier.call(
+      payload: current_payload,
+      enrollment: enrollment,
+      actor: admin,
+    )
+    enrollment.activate!(entitlement: current, actor: admin)
+
+    replacement_signing_key = current_signing_key
+    replacement_key = current_key
+    case prior_state
+    when :expired
+      current.update_columns(expires_at: 2.hours.ago, grace_until: 1.hour.ago)
+    when :revoked
+      enrollment.revoke_trusted_key!(trusted_key_id: current_key.id, actor: admin)
+      replacement_signing_key = OpenSSL::PKey.generate_key("ED25519")
+      replacement_key = create_operator_key(replacement_signing_key, suffix: "2")
+    end
+    replacement_payload = operator_payload(
+      signing_key: replacement_signing_key,
+      enrollment: enrollment,
+      key: replacement_key,
+      entitlement_id: "dbe_#{"2" * 32}",
+    )
+    {
+      enrollment: enrollment,
+      current: current,
+      replacement_payload: replacement_payload,
+    }
+  end
+
+  def create_operator_key(signing_key, suffix:)
+    raw = OpenSSL::ASN1.decode(signing_key.public_to_der).value.last.value
+    DiscussionBridgeOperatorTrustedKey.create!(
+      issuer_id: "dbi_#{suffix * 32}",
+      key_id: "native-recovery-#{suffix}",
+      public_key_base64url: Base64.urlsafe_encode64(raw, padding: false),
+      may_issue: true,
+      enrolled_by: admin,
+      enrolled_at: Time.zone.now,
+    )
+  end
+
+  def operator_payload(signing_key:, enrollment:, key:, entitlement_id:)
+    now = Time.zone.now.change(usec: 0)
+    claims = {
+      "entitlement_version" => 1,
+      "entitlement_id" => entitlement_id,
+      "provider_id" => enrollment.provider_id,
+      "provider_name" => enrollment.provider_name,
+      "forum_id" => enrollment.forum_id,
+      "issuer_id" => key.issuer_id,
+      "issued_at" => (now - 1.minute).iso8601,
+      "not_before" => (now - 1.minute).iso8601,
+      "expires_at" => (now + 1.hour).iso8601,
+      "grace_until" => (now + 2.hours).iso8601,
+      "scopes" => ["observe_health"],
+      "key_id" => key.key_id,
+    }
+    canonical = DiscussionBridge::OperatorCanonicalJson.generate(claims)
+    signature = signing_key.sign(
+      nil,
+      DiscussionBridge::OperatorEntitlementVerifier::SIGNING_DOMAIN + canonical,
+    )
+    claims.merge("signature" => Base64.urlsafe_encode64(signature, padding: false))
   end
 end

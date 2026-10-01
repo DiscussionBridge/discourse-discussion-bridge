@@ -76,33 +76,15 @@ module DiscussionBridge
     end
 
     def revoke_key
-      DiscussionBridgeOperatorTrustedKey.transaction do
-        key = DiscussionBridgeOperatorTrustedKey.lock.find(params[:id])
-        key.update!(may_issue: false, revoked_at: Time.zone.now)
-        entitlement = enrollment.current_entitlement
-        if entitlement&.issuer_id == key.issuer_id && entitlement.key_id == key.key_id
-          enrollment.revoke_current!(actor: current_user)
-        end
-        DiscussionBridge::OperatorAudit.record!(
-          enrollment: enrollment,
-          entitlement: entitlement,
-          actor: DiscussionBridge::OperatorAudit.actor(current_user),
-          scope: "provider_enrollment",
-          action: "revoke_trusted_key",
-          target_type: "operator_trusted_key",
-          target_id: "#{key.issuer_id}:#{key.key_id}",
-          operation_sha256: digest({ issuer_id: key.issuer_id, key_id: key.key_id }),
-          customer_approval_id: "trusted-key-revocation:#{key.id}",
-          outcome: "revoked",
-        )
-      end
+      enrollment.revoke_trusted_key!(trusted_key_id: params[:id], actor: current_user)
       render json: payload
     rescue ActiveRecord::RecordNotFound, ActiveRecord::RecordInvalid, ArgumentError => error
       render_error(error)
     end
 
     def enroll_entitlement
-      envelope = DiscussionBridge::OperatorCanonicalJson.parse(request.raw_post)
+      raw_body = request.raw_post.dup.force_encoding(Encoding::UTF_8)
+      envelope = DiscussionBridge::OperatorCanonicalJson.parse(raw_body)
       raise ActionController::ParameterMissing, :entitlement unless
         envelope.is_a?(Hash) && envelope.keys == ["entitlement"] && envelope["entitlement"].is_a?(Hash)
 
@@ -117,7 +99,8 @@ module DiscussionBridge
       render json: payload
     rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid,
            DiscussionBridge::OperatorCanonicalJson::InvalidValue,
-           DiscussionBridge::OperatorEntitlementVerifier::VerificationError => error
+           DiscussionBridge::OperatorEntitlementVerifier::VerificationError,
+           ArgumentError => error
       render_error(error)
     end
 
@@ -131,13 +114,15 @@ module DiscussionBridge
     def create_approval
       input = params.require(:approval)
       reject_unknown_keys!(input, %w[approval_id scope operation_sha256 expires_at])
-      entitlement = enrollment.current_entitlement
-      raise ArgumentError, "operator entitlement is unavailable" unless entitlement
-      scope = input.fetch(:scope)
-      raise ArgumentError, "operator approval scope is not granted by the current entitlement" unless
-        entitlement.scope_allowed?(scope)
+      enrollment.with_lock do
+        entitlement = enrollment.current_entitlement
+        raise ArgumentError, "operator entitlement is unavailable" unless entitlement
 
-      DiscussionBridgeOperatorApproval.transaction do
+        entitlement.lock!
+        scope = input.fetch(:scope)
+        raise ArgumentError, "operator approval scope is not granted by the current entitlement" unless
+          entitlement.scope_allowed?(scope)
+
         approval = DiscussionBridgeOperatorApproval.create!(
           approval_id: input.fetch(:approval_id),
           forum_id: enrollment.forum_id,

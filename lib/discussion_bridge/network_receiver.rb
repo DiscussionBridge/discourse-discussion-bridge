@@ -34,7 +34,7 @@ module DiscussionBridge
       )
       raise AdapterRequestBoundary::Error, "integrity_failed" unless
         provenance.fetch("origin_topic_url") == detail.fetch("topic_url")
-      require_current_authority!(detail, provenance)
+      require_current_authority!(detail, provenance, identity)
       immutable = DiscourseNetworkProtocol.immutable_operation(
         source_detail: detail,
         provenance: provenance,
@@ -86,8 +86,6 @@ module DiscussionBridge
     def restore_replayed_source!(detail, provenance)
       record = existing_record(detail)
       raise AdapterRequestBoundary::Error, "reconciliation_required" unless record
-      raise AdapterRequestBoundary::Error, "policy_denied" unless
-        @policy_revision == @peer.content_connection.policy_revision
 
       topic = record.topic
       stored = record.network_provenance || {}
@@ -131,10 +129,13 @@ module DiscussionBridge
         detail.fetch("source_revision_sequence") > stored["local_passive_source_revision_sequence"]
     end
 
-    def require_current_authority!(detail, provenance)
+    def require_current_authority!(detail, provenance, identity)
       connection = @peer.content_connection
       raise AdapterRequestBoundary::Error, "policy_denied" unless
-        @policy_revision == connection.policy_revision
+        @policy_revision == DiscourseNetworkProtocol.expected_source_policy_revision(
+          local_forum_id: identity.forum_id,
+          relationship: @peer.relationship,
+        )
       request = {
         connection_id: connection.public_id,
         source_url: provenance.fetch("origin_topic_url"),
@@ -249,6 +250,7 @@ module DiscussionBridge
         visibility: "unlisted",
         source_authors: [],
         network_restore: @action == "restore",
+        network_source_policy_revision: @policy_revision,
       }.compact
     end
 

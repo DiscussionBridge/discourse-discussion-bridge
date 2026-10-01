@@ -24,20 +24,20 @@ describe DiscussionBridge::NetworkReceiver do
       allowed_lanes: [],
       default_category_id: category.id,
       destination_policies: [destination_policy],
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: receiver_policy_revision,
       network_enabled: true,
-      network_peer_forum_id: "dbf_11111111111111111111111111111111",
-      network_relationship: "hub_to_spoke",
+      network_peer_forum_id: remote_forum_id,
+      network_relationship: network_relationship,
     )
     @peer = DiscussionBridgeNetworkPeer.create!(
       content_connection: @connection,
       name: "National Organization",
-      remote_forum_id: "dbf_11111111111111111111111111111111",
+      remote_forum_id: remote_forum_id,
       remote_forum_name: "National Organization",
       remote_origin: "https://national.example",
       remote_connection_id: "dbc_#{"1" * 24}",
       remote_secret: "s" * 32,
-      relationship: "hub_to_spoke",
+      relationship: network_relationship,
       enabled: true,
       authorized_by: admin,
       authorized_at: Time.zone.now,
@@ -47,22 +47,25 @@ describe DiscussionBridge::NetworkReceiver do
   after { ENV["DISCUSSIONBRIDGE_FORUM_NAME"] = @original_forum_name }
 
   def destination_policy
-    {
-      "destination_policy_id" => "destination:discourse:network:1",
-      "profile" => "discourse_as_publisher",
-      "presentation_mode" => "interactive",
-      "container_mapping" => {
-        "source" => "discourse:category:national",
-        "destination" => "discourse:category:network",
-      },
-      "taxonomy_mapping" => { "mode" => "mapped_only" },
-      "author_mapping" => { "mode" => "source_attribution" },
-      "native_limit_policy" => {
-        "maximum_bytes" => 49_152,
-        "overflow_behavior" => "excerpt_with_read_more",
-      },
-      "catalog_revision" => "catalog:discourse:2026-09-27:1",
-    }
+    DiscussionBridge::DiscourseNetworkProtocol.destination_policy(
+      peer_forum_id: remote_forum_id,
+      relationship: network_relationship,
+    )
+  end
+
+  def receiver_policy_revision
+    DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
+      peer_forum_id: remote_forum_id,
+      relationship: network_relationship,
+    )
+  end
+
+  def remote_forum_id
+    "dbf_11111111111111111111111111111111"
+  end
+
+  def network_relationship
+    "hub_to_spoke"
   end
 
   def source_detail
@@ -73,11 +76,19 @@ describe DiscussionBridge::NetworkReceiver do
     )
   end
 
+  def source_policy_revision
+    DiscussionBridge::DiscourseNetworkProtocol.expected_source_policy_revision(
+      local_forum_id: @identity.forum_id,
+      relationship: @peer.relationship,
+    )
+  end
+
   it "creates one stable local topic, renders its boundary, and replays without mutation" do
+    expect(source_policy_revision).not_to eq(receiver_policy_revision)
     result = described_class.call(
       peer: @peer,
       source_detail: source_detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: result.fetch("resource_id"))
     first_post = record.topic.first_post
@@ -93,18 +104,99 @@ describe DiscussionBridge::NetworkReceiver do
     replay = described_class.call(
       peer: @peer,
       source_detail: source_detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     expect(replay.fetch("mutated")).to eq(false)
     expect(record.topic.first_post.reload.version).to eq(original_version)
     expect(DiscussionBridgeNetworkReplay.count).to eq(1)
   end
 
+  it "rejects source work whose policy names another receiver before mutation" do
+    wrong_target_policy = DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
+      peer_forum_id: "dbf_#{"9" * 32}",
+      relationship: network_relationship,
+    )
+
+    expect do
+      described_class.call(
+        peer: @peer,
+        source_detail: source_detail,
+        policy_revision: wrong_target_policy,
+      )
+    end.to raise_error(DiscussionBridge::AdapterRequestBoundary::Error) do |error|
+      expect(error.error_code).to eq("policy_denied")
+    end
+    expect(DiscussionBridgeBridgeRecord.where(direction: "to_discourse")).to be_empty
+    expect(DiscussionBridgeNetworkReplay.count).to eq(0)
+  end
+
+  it "composes the opposite authorized relationship without equating receiver policy" do
+    opposite_remote_id = "dbf_#{"2" * 32}"
+    opposite_relationship = "spoke_to_hub"
+    opposite_policy = DiscussionBridge::DiscourseNetworkProtocol.destination_policy(
+      peer_forum_id: opposite_remote_id,
+      relationship: opposite_relationship,
+    )
+    opposite_connection, = DiscussionBridgeContentConnection.issue!(
+      name: "Regional network source",
+      platform: "discourse",
+      allowed_origins: ["https://national.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+      default_category_id: category.id,
+      destination_policies: [opposite_policy],
+      policy_revision: DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
+        peer_forum_id: opposite_remote_id,
+        relationship: opposite_relationship,
+      ),
+      network_enabled: true,
+      network_peer_forum_id: opposite_remote_id,
+      network_relationship: opposite_relationship,
+    )
+    opposite_peer = DiscussionBridgeNetworkPeer.create!(
+      content_connection: opposite_connection,
+      name: "Regional Organization",
+      remote_forum_id: opposite_remote_id,
+      remote_forum_name: "National Organization",
+      remote_origin: "https://national.example",
+      remote_connection_id: "dbc_#{"2" * 24}",
+      remote_secret: "t" * 32,
+      relationship: opposite_relationship,
+      enabled: true,
+      authorized_by: admin,
+      authorized_at: Time.zone.now,
+    )
+    detail = source_detail
+    detail["resource_id"] = SecureRandom.uuid
+    detail["topic_url"] = "https://national.example/t/regional-program-update/102"
+    detail["network_provenance"].merge!(
+      "origin_forum_id" => opposite_remote_id,
+      "origin_topic_url" => detail.fetch("topic_url"),
+      "content_authority_forum_id" => opposite_remote_id,
+      "relationship" => opposite_relationship,
+      "operation_id" => "dbo_#{"2" * 32}",
+      "route_forum_ids" => [opposite_remote_id],
+    )
+    incoming_revision = DiscussionBridge::DiscourseNetworkProtocol.expected_source_policy_revision(
+      local_forum_id: @identity.forum_id,
+      relationship: opposite_relationship,
+    )
+
+    expect(incoming_revision).not_to eq(opposite_connection.policy_revision)
+    expect(
+      described_class.call(
+        peer: opposite_peer,
+        source_detail: detail,
+        policy_revision: incoming_revision,
+      ),
+    ).to include("outcome" => "created")
+  end
+
   it "rejects a changed operation replay without changing the local first post" do
     described_class.call(
       peer: @peer,
       source_detail: source_detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     record = DiscussionBridgeBridgeRecord.last
     original = record.topic.first_post.cooked
@@ -115,7 +207,7 @@ describe DiscussionBridge::NetworkReceiver do
       described_class.call(
         peer: @peer,
         source_detail: changed,
-        policy_revision: "policy:2026-09-27:1",
+        policy_revision: source_policy_revision,
       )
     end.to raise_error(DiscussionBridge::AdapterRequestBoundary::Error) do |error|
       expect(error.error_code).to eq("operation_replay_mismatch")
@@ -127,7 +219,7 @@ describe DiscussionBridge::NetworkReceiver do
     created = described_class.call(
       peer: @peer,
       source_detail: source_detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: created.fetch("resource_id"))
     topic = record.topic
@@ -148,7 +240,7 @@ describe DiscussionBridge::NetworkReceiver do
     result = described_class.call(
       peer: @peer,
       source_detail: revised,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
 
     expect(result).to include("outcome" => "resolved", "mutated" => true, "topic_id" => original_topic_id)
@@ -167,7 +259,7 @@ describe DiscussionBridge::NetworkReceiver do
     result = described_class.call(
       peer: @peer,
       source_detail: oversized,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: result.fetch("resource_id"))
     first_post = record.topic.first_post
@@ -193,7 +285,7 @@ describe DiscussionBridge::NetworkReceiver do
     receiver = described_class.new(
       peer: @peer,
       source_detail: detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
       content_html: nil,
     )
     output = receiver.send(
@@ -218,7 +310,7 @@ describe DiscussionBridge::NetworkReceiver do
     receiver = described_class.new(
       peer: @peer,
       source_detail: detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
       content_html: nil,
     )
     provenance = parsed.fetch("network_provenance")
@@ -257,7 +349,7 @@ describe DiscussionBridge::NetworkReceiver do
     receiver = described_class.new(
       peer: @peer,
       source_detail: detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
       content_html: nil,
     )
     provenance = parsed.fetch("network_provenance")
@@ -311,7 +403,7 @@ describe DiscussionBridge::NetworkReceiver do
     result = described_class.call(
       peer: @peer,
       source_detail: detail,
-      policy_revision: "policy:2026-09-27:1",
+      policy_revision: source_policy_revision,
     )
     record = DiscussionBridgeBridgeRecord.find_by!(resource_id: result.fetch("resource_id"))
     expect(record.source_created_at_wire).to eq(timestamp)

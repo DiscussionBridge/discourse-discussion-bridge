@@ -137,6 +137,7 @@ module DiscussionBridge
           { native_limit_policy: %i[maximum_bytes overflow_behavior] },
         ],
       ).to_h.symbolize_keys
+      ensure_platform_immutable!(raw, existing)
       publication_policy = raw.delete(:publication_policy)
       preserve_existing_policy_fields =
         ActiveModel::Type::Boolean.new.cast(raw.delete(:preserve_existing_policy_fields))
@@ -175,10 +176,15 @@ module DiscussionBridge
     def publication_authority_changed?(raw, existing)
       return true unless existing
       return true if raw.key?(:network_enabled) && existing.network_enabled
-      return true if raw.key?(:platform) && raw[:platform] != existing.platform
 
       raw.key?(:allowed_directions) &&
         Array(raw[:allowed_directions]).map(&:to_s).sort != Array(existing.allowed_directions).map(&:to_s).sort
+    end
+
+    def ensure_platform_immutable!(raw, existing)
+      return unless existing && raw.key?(:platform) && raw[:platform] != existing.platform
+
+      raise ArgumentError, "connection platform cannot be changed after creation"
     end
 
     def configure_publication_policy!(raw, existing:)

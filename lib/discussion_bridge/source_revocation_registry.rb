@@ -31,6 +31,7 @@ module DiscussionBridge
 
     def reconcile_record!(record)
       return unless source_records.where(id: record.id).exists?
+      return if ConnectionCapability.publication_readiness(@connection) == :temporarily_unavailable
 
       reason = SourceRevisionMaterializer.unavailability_reason(
         record: record,

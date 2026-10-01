@@ -17,7 +17,7 @@
     "lint:prettier:fix": "corepack pnpm prettier 'assets/stylesheets/**/*.scss' '{assets,admin/assets,test}/javascripts/**/*.{js,gjs,ts,gts,mts,cts}' -w --no-error-on-unmatched-pattern"
   },
   "engines": {
-    "node": ">= 22",
+    "node": "^22.18.0 || >=24.11.0",
     "npm": "please-use-pnpm",
     "yarn": "please-use-pnpm",
     "pnpm": "^10"

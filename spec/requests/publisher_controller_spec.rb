@@ -4,6 +4,7 @@ require "rails_helper"
 
 describe DiscussionBridge::PublisherController do
   fab!(:admin)
+  fab!(:moderator)
   fab!(:user)
   fab!(:topic) { Fabricate(:topic, user: admin) }
   fab!(:first_post) { Fabricate(:post, topic: topic, user: admin, post_number: 1) }
@@ -334,5 +335,347 @@ describe DiscussionBridge::PublisherController do
     expect(response.parsed_body.dig("connections", 0, "public_id")).to eq(@connection.public_id)
     expect(response.parsed_body.dig("connections", 0, "allowed_lanes")).to eq([])
     expect(response.body).not_to include("X-DiscussionBridge-Secret")
+  end
+
+  it "filters retained restricted and private-message publications by current Guardian visibility" do
+    restricted_group = Fabricate(:group)
+    restricted_category = Fabricate(:private_category, group: restricted_group)
+    restricted_topic = topic_with_first_post(category: restricted_category)
+    private_topic = Fabricate(:private_message_post, user: admin, recipient: user).topic
+    public_a = publish_for_overview!(topic, suffix: "public-a")
+    public_b = publish_for_overview!(topic, suffix: "public-b")
+    restricted = publish_for_overview!(restricted_topic, suffix: "restricted")
+    private_record = publish_for_overview!(private_topic, suffix: "private-message")
+    [public_a, public_b].each do |record|
+      record.publication_works.update_all(
+        state: "available",
+        failure_code: nil,
+        failure_detail: nil,
+        resolution_error: nil,
+      )
+    end
+    mark_attention!(restricted.publication_works.sole, detail: "restricted failure detail")
+    mark_attention!(private_record.publication_works.sole, detail: "private failure detail")
+
+    sign_in(moderator)
+    get "/discussion-bridge/admin/publishing.json"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("metrics")).to include(
+      "published_topics" => 1,
+      "presentations" => 2,
+    )
+    expect(response.parsed_body.dig("metrics", "publication_work", "operator_attention")).to eq(0)
+    expect(response.parsed_body.dig("product", "blockers")).not_to include(
+      "publication_work_attention",
+    )
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to contain_exactly(
+      public_a.resource_id,
+      public_b.resource_id,
+    )
+    expect(response.parsed_body.fetch("publication_work").pluck("resource_id")).to contain_exactly(
+      public_a.resource_id,
+      public_b.resource_id,
+    )
+    expect(response.parsed_body.fetch("publication_work_pagination")).to include(
+      "total" => 2,
+      "pages" => 1,
+    )
+    expect(response.body).not_to include(
+      restricted.resource_id,
+      restricted.title,
+      restricted.active_binding("presentation").canonical_url,
+      "restricted failure detail",
+      private_record.resource_id,
+      private_record.title,
+      private_record.active_binding("presentation").canonical_url,
+      "private failure detail",
+    )
+
+    restricted_group.add(moderator)
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to include(
+      restricted.resource_id,
+    )
+    expect(response.parsed_body.dig("metrics", "publication_work", "operator_attention")).to eq(1)
+
+    restricted_group.remove(moderator)
+    private_topic.allowed_users << moderator
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to include(
+      private_record.resource_id,
+    )
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).not_to include(
+      restricted.resource_id,
+    )
+
+    private_topic.topic_allowed_users.find_by!(user_id: moderator.id).destroy!
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.body).not_to include(private_record.resource_id, restricted.resource_id)
+
+    sign_in(admin)
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.parsed_body.fetch("metrics")).to include(
+      "published_topics" => 3,
+      "presentations" => 4,
+    )
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to contain_exactly(
+      public_a.resource_id,
+      public_b.resource_id,
+      restricted.resource_id,
+      private_record.resource_id,
+    )
+
+    SiteSetting.suppress_secured_categories_from_admin = true
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to contain_exactly(
+      public_a.resource_id,
+      public_b.resource_id,
+      private_record.resource_id,
+    )
+    expect(response.body).not_to include(restricted.resource_id, restricted.title)
+  end
+
+  it "keeps unlisted publications visible to staff and omits records whose topic is missing or deleted" do
+    unlisted = publish_for_overview!(topic, suffix: "unlisted")
+    deleted_topic = topic_with_first_post
+    deleted = publish_for_overview!(deleted_topic, suffix: "deleted")
+    topic.update!(visible: false)
+    deleted_topic.update_column(:deleted_at, Time.zone.now)
+    missing = unlisted.dup
+    missing.resource_id = SecureRandom.uuid
+    missing.topic = nil
+    missing.title = "missing topic secret"
+    missing.save!
+
+    sign_in(moderator)
+    get "/discussion-bridge/admin/publishing.json"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to eq(
+      [unlisted.resource_id],
+    )
+    expect(response.body).not_to include(
+      missing.resource_id,
+      missing.title,
+      deleted.resource_id,
+      deleted.title,
+    )
+
+    sign_in(admin)
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to eq(
+      [unlisted.resource_id],
+    )
+    expect(response.body).not_to include(
+      missing.resource_id,
+      missing.title,
+      deleted.resource_id,
+      deleted.title,
+    )
+  end
+
+  it "denies the publishing overview to ordinary and anonymous users" do
+    sign_in(user)
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response).to have_http_status(:forbidden)
+
+    sign_out
+    get "/discussion-bridge/admin/publishing.json"
+    expect(response).to have_http_status(:forbidden)
+  end
+
+  it "filters hidden work before counts, ordering, pagination, and attention selection" do
+    restricted_group = Fabricate(:group)
+    restricted_category = Fabricate(:private_category, group: restricted_group)
+    restricted_topic = topic_with_first_post(category: restricted_category)
+    visible_record = publish_for_overview!(topic, suffix: "page-visible")
+    hidden_record = publish_for_overview!(restricted_topic, suffix: "page-hidden")
+    visible_source = visible_record.publication_works.sole
+    hidden_source = hidden_record.publication_works.sole
+    mark_attention!(visible_source, detail: "visible attention 0")
+    mark_attention!(hidden_source, detail: "hidden attention 0")
+    visible_works = [visible_source]
+    hidden_works = [hidden_source]
+    50.times do |index|
+      visible_works << duplicate_work!(
+        visible_source,
+        label: "visible-#{index + 1}",
+        detail: "visible attention #{index + 1}",
+      )
+    end
+    visible_available = visible_works.last
+    visible_available.update!(state: "available", failure_code: nil, failure_detail: nil)
+    visible_attention = visible_works.excluding(visible_available)
+    49.times do |index|
+      hidden_works << duplicate_work!(
+        hidden_source,
+        label: "hidden-#{index + 1}",
+        detail: "hidden attention #{index + 1}",
+      )
+    end
+    visible_works.each_with_index do |work, index|
+      work.update_column(:updated_at, 2.hours.ago + index.seconds)
+    end
+    hidden_works.each_with_index do |work, index|
+      work.update_column(:updated_at, 2.hours.from_now + index.seconds)
+    end
+
+    sign_in(moderator)
+    get "/discussion-bridge/admin/publishing.json", params: { publication_page: 1 }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("publication_work_pagination")).to include(
+      "total" => 51,
+      "pages" => 2,
+      "page" => 1,
+      "per_page" => 50,
+    )
+    expect(response.parsed_body.fetch("publication_work").length).to eq(50)
+    expect(response.parsed_body.fetch("publication_work").pluck("work_id")).to eq(
+      visible_works.sort_by { |work| [-work.updated_at.to_f, -work.id] }.first(50).map(&:work_id),
+    )
+    expect(response.parsed_body.dig("metrics", "publication_work", "available")).to eq(1)
+    expect(response.parsed_body.dig("metrics", "publication_work", "operator_attention")).to eq(50)
+    expect(response.body).not_to include("hidden attention")
+
+    get "/discussion-bridge/admin/publishing.json", params: { publication_page: 2 }
+    expect(response.parsed_body.fetch("publication_work").pluck("work_id")).to eq(
+      [visible_works.min_by { |work| [work.updated_at, work.id] }.work_id],
+    )
+
+    get "/discussion-bridge/admin/publishing.json",
+        params: { publication_filter: "attention", publication_page: 1 }
+    expect(response.parsed_body.fetch("publication_work_pagination")).to include(
+      "total" => 50,
+      "pages" => 1,
+    )
+    expect(response.parsed_body.fetch("publication_work").pluck("work_id")).to eq(
+      visible_attention.sort_by { |work| [-work.updated_at.to_f, -work.id] }.map(&:work_id),
+    )
+    expect(response.parsed_body.fetch("publication_work").pluck("work_id")).not_to include(
+      visible_available.work_id,
+    )
+    expect(response.body).not_to include("hidden attention")
+  end
+
+  it "filters hidden records before the recent-record cutoff" do
+    restricted_group = Fabricate(:group)
+    restricted_category = Fabricate(:private_category, group: restricted_group)
+    restricted_topic = topic_with_first_post(category: restricted_category)
+    visible = publish_for_overview!(topic, suffix: "recent-visible")
+    hidden = publish_for_overview!(restricted_topic, suffix: "recent-hidden")
+    visible.update_column(:updated_at, 1.day.ago)
+    hidden_records = [hidden]
+    19.times do |index|
+      hidden_records << hidden.dup.tap do |record|
+        record.resource_id = SecureRandom.uuid
+        record.title = "hidden recent secret #{index}"
+        record.save!
+      end
+    end
+    hidden_records.each_with_index do |record, index|
+      record.update_column(:updated_at, 1.hour.from_now + index.seconds)
+    end
+
+    sign_in(moderator)
+    get "/discussion-bridge/admin/publishing.json"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("recent_records").pluck("resource_id")).to eq(
+      [visible.resource_id],
+    )
+    hidden_records.each do |record|
+      expect(response.body).not_to include(record.resource_id, record.title)
+    end
+  end
+
+  it "rejects hidden-topic correction, migration, and retry before side effects" do
+    restricted_group = Fabricate(:group)
+    restricted_category = Fabricate(:private_category, group: restricted_group)
+    restricted_topic = topic_with_first_post(category: restricted_category)
+    hidden = publish_for_overview!(restricted_topic, suffix: "hidden-actions")
+    hidden_work = hidden.publication_works.sole
+    mark_attention!(hidden_work, detail: "hidden actionable detail", code: "internal_error")
+    allow(DiscussionBridge::PresentationBindingCorrector).to receive(:call)
+    allow(DiscussionBridge::VerifiedUrlMigrator).to receive(:call)
+
+    sign_in(moderator)
+    put "/discussion-bridge/v1/publisher/publications/#{hidden.resource_id}/presentation.json",
+        params: { publication: { canonical_url: "https://astro.example.com/overview/hidden-corrected/" } },
+        as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+
+    put "/discussion-bridge/v1/publisher/publications/#{hidden.resource_id}/migrate-url.json",
+        params: {
+          migration: {
+            old_url: hidden.active_binding("presentation").canonical_url,
+            new_url: "https://astro.example.com/overview/hidden-migrated/",
+            external_id: hidden.active_binding("presentation").external_id,
+            native_identity_confirmed: true,
+          },
+        },
+        as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(DiscussionBridge::PresentationBindingCorrector).not_to have_received(:call)
+    expect(DiscussionBridge::VerifiedUrlMigrator).not_to have_received(:call)
+
+    post "/discussion-bridge/admin/publishing/work/#{hidden_work.id}/retry.json",
+         params: { retry: { condition_corrected: true } },
+         as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(hidden_work.reload).to have_attributes(
+      state: "operator_attention",
+      manual_retry_authorized_at: nil,
+      manual_retry_authorized_by_id: nil,
+      failure_detail: "hidden actionable detail",
+    )
+
+    sign_in(admin)
+    post "/discussion-bridge/admin/publishing/work/#{hidden_work.id}/retry.json",
+         params: { retry: { condition_corrected: true } },
+         as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(hidden_work.reload.state).to eq("available")
+  end
+
+  def topic_with_first_post(category: nil)
+    Fabricate(:topic, user: admin, category: category).tap do |created_topic|
+      Fabricate(:post, topic: created_topic, user: admin, post_number: 1)
+    end
+  end
+
+  def publish_for_overview!(source_topic, suffix:)
+    sign_in(admin)
+    post "/discussion-bridge/v1/publisher/topics/#{source_topic.id}/publish.json",
+         params: publication(
+           external_id: "overview-#{suffix}",
+           canonical_url: "https://astro.example.com/overview/#{suffix}/",
+         ),
+         as: :json
+    expect(response).to have_http_status(:created), response.body
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: response.parsed_body.fetch("resource_id"))
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(source_topic.id)
+    record
+  end
+
+  def mark_attention!(work, detail:, code: "operator_action_required")
+    work.update!(
+      state: "operator_attention",
+      failure_code: code,
+      failure_detail: detail,
+    )
+  end
+
+  def duplicate_work!(source, label:, detail:)
+    source.dup.tap do |work|
+      work.work_id = nil
+      work.source_revision = "visibility:#{label}"
+      work.source_revision_sequence = source.source_revision_sequence + label.hash.abs + 1
+      work.state = "operator_attention"
+      work.failure_code = "operator_action_required"
+      work.failure_detail = detail
+      work.save!
+    end
   end
 end

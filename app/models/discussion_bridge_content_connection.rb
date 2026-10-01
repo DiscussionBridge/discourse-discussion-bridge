@@ -57,6 +57,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validate :default_category_is_available
   validate :alpha21_capability_state_is_valid
   validate :discourse_network_state_is_valid
+  validate :platform_is_immutable, on: :update
 
   def effective_author
     default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
@@ -112,6 +113,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   end
 
   private
+
+  def platform_is_immutable
+    errors.add(:platform, "cannot be changed after creation") if will_save_change_to_platform?
+  end
 
   def alpha21_capability_state_is_valid
     unless policy_revision.nil? || DiscussionBridge::ConnectionCapability.valid_policy_revision?(policy_revision)

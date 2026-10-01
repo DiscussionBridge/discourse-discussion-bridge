@@ -4,6 +4,7 @@ require "rails_helper"
 
 describe "DiscussionBridge Discourse network administration" do
   fab!(:admin)
+  fab!(:user)
   fab!(:category)
 
   before do
@@ -90,6 +91,53 @@ describe "DiscussionBridge Discourse network administration" do
     )
   end
 
+  it "rotates, disables, and reauthorizes one peer identity without exposing its secret" do
+    post "/discussion-bridge/admin/network/enable.json"
+    peer = DiscussionBridgeNetworkPeer.create!(
+      content_connection: @connection,
+      name: "National Organization",
+      remote_forum_id: "dbf_11111111111111111111111111111111",
+      remote_forum_name: "National Organization",
+      remote_origin: "https://national.example",
+      remote_connection_id: "dbc_#{"1" * 24}",
+      remote_secret: "s" * 32,
+      relationship: "hub_to_spoke",
+      enabled: true,
+      authorized_by: admin,
+      authorized_at: 1.hour.ago,
+    )
+
+    put "/discussion-bridge/admin/network/peers/#{peer.id}.json",
+        params: { network_peer: { remote_secret: "t" * 32 } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.body).not_to include("t" * 32)
+    expect(peer.reload).to have_attributes(id: peer.id, enabled: true)
+    expect(peer.remote_secret).to eq("t" * 32)
+    rotated_at = peer.authorized_at
+
+    post "/discussion-bridge/admin/network/peers/#{peer.id}/disable.json"
+    expect(response).to have_http_status(:ok), response.body
+    expect(peer.reload).to have_attributes(enabled: false, disabled_at: be_present)
+
+    put "/discussion-bridge/admin/network/peers/#{peer.id}.json",
+        params: { network_peer: { enabled: true } },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    expect(response.body).not_to include("t" * 32)
+    expect(peer.reload).to have_attributes(id: peer.id, enabled: true, disabled_at: nil)
+    expect(peer.remote_secret).to eq("t" * 32)
+    expect(peer.authorized_at).to be > rotated_at
+    expect(DiscussionBridgeNetworkPeer.where(id: peer.id).count).to eq(1)
+
+    sign_in(user)
+    put "/discussion-bridge/admin/network/peers/#{peer.id}.json",
+        params: { network_peer: { remote_secret: "v" * 32 } },
+        as: :json
+    expect(response).not_to have_http_status(:ok)
+    expect(peer.reload.remote_secret).to eq("t" * 32)
+  end
+
   it "creates and removes the exact Discourse network policy through explicit administration" do
     post "/discussion-bridge/admin/network/enable.json"
     post "/discussion-bridge/admin/content-connections.json",
@@ -119,6 +167,18 @@ describe "DiscussionBridge Discourse network administration" do
     expect(connection.policy_revision).to eq(
       DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
         peer_forum_id: "dbf_22222222222222222222222222222222",
+        relationship: "spoke_to_hub",
+      ),
+    )
+    expect(
+      DiscussionBridge::DiscourseNetworkProtocol.expected_source_policy_revision(
+        local_forum_id: "dbf_22222222222222222222222222222222",
+        relationship: "spoke_to_hub",
+      ),
+    ).to eq(connection.policy_revision)
+    expect(connection.policy_revision).not_to eq(
+      DiscussionBridge::DiscourseNetworkProtocol.policy_revision(
+        peer_forum_id: DiscussionBridgeForumIdentity.current.forum_id,
         relationship: "spoke_to_hub",
       ),
     )
@@ -172,5 +232,11 @@ describe "DiscussionBridge Discourse network administration" do
     expect(response.parsed_body.dig("network_identity", "retired_forum_ids")).to include(old_id)
     expect(peer.reload.enabled).to eq(false)
     expect(@connection.reload.network_enabled).to eq(false)
+
+    put "/discussion-bridge/admin/network/peers/#{peer.id}.json",
+        params: { network_peer: { enabled: true } },
+        as: :json
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(peer.reload.enabled).to eq(false)
   end
 end

@@ -23,6 +23,9 @@ module DiscussionBridge
     def call(force_revision: false)
       result = nil
       @connection.with_lock do
+        readiness = ConnectionCapability.publication_readiness(@connection)
+        raise AdapterRequestBoundary::Error, readiness.to_s unless readiness == :active
+
         reason = unavailability_reason
         if reason
           result = Result.new(revision: nil, reason: reason)

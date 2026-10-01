@@ -5,6 +5,7 @@ require "cgi"
 require "digest"
 require "json"
 require "net/http"
+require "timeout"
 require "uri"
 
 module DiscussionBridge
@@ -23,10 +24,36 @@ module DiscussionBridge
     CONTENT_CHUNK_MAXIMUM_BYTES = 65_536
     CONNECT_TIMEOUT_SECONDS = 5
     RESPONSE_TIMEOUT_SECONDS = 15
+    HTTP_EXCHANGE_TIMEOUT_SECONDS = 30
+    WORK_CYCLE_TIMEOUT_SECONDS = 240
+    FAILURE_REPORT_TIMEOUT_SECONDS = 30
 
-    def initialize(peer)
+    class TransportDeadlineExceeded < StandardError
+    end
+    private_constant :TransportDeadlineExceeded
+
+    def initialize(peer, monotonic_clock: nil)
       @peer = peer
       @origin = URI.parse(peer.remote_origin)
+      @monotonic_clock = monotonic_clock || -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }
+      @work_cycle_deadline = nil
+    end
+
+    def start_work_cycle!
+      raise Error, "validation_failed" if @work_cycle_deadline
+
+      @work_cycle_deadline = new_deadline(WORK_CYCLE_TIMEOUT_SECONDS)
+    end
+
+    def ensure_work_cycle_active!
+      ensure_deadline!(@work_cycle_deadline) if @work_cycle_deadline
+      true
+    rescue TransportDeadlineExceeded
+      raise Error, "transport_timeout"
+    end
+
+    def finish_work_cycle!
+      @work_cycle_deadline = nil
     end
 
     def claim(correlation_id:)
@@ -50,11 +77,13 @@ module DiscussionBridge
     end
 
     def source_detail(topic_id:, source_revision:, correlation_id:)
+      operation_deadline = @work_cycle_deadline || new_deadline(WORK_CYCLE_TIMEOUT_SECONDS)
       query = URI.encode_www_form(source_revision: source_revision)
       payload = get(
         "/discussion-bridge/v1/source-topics/#{topic_id}.json?#{query}",
         correlation_id: correlation_id,
         maximum_bytes: SOURCE_DETAIL_MAXIMUM_BYTES,
+        operation_deadline: operation_deadline,
       )
       validate_source_descriptor!(
         payload,
@@ -70,6 +99,7 @@ module DiscussionBridge
           "/discussion-bridge/v1/source-topics/#{topic_id}/content.json?#{content_query}",
           correlation_id: correlation_id,
           maximum_bytes: CONTENT_CHUNK_MAXIMUM_BYTES,
+          operation_deadline: operation_deadline,
         )
         validate_chunk!(
           response,
@@ -82,8 +112,11 @@ module DiscussionBridge
       content.force_encoding(Encoding::UTF_8)
       raise Error, "integrity_failed" unless content.bytesize == transport.fetch("byte_length") &&
         Digest::SHA256.hexdigest(content) == transport.fetch("sha256") && content.valid_encoding?
+      ensure_deadline!(operation_deadline)
 
       [payload, content]
+    rescue TransportDeadlineExceeded
+      raise Error, "transport_timeout"
     end
 
     def acknowledge(work:, destination_binding:, correlation_id:)
@@ -130,24 +163,51 @@ module DiscussionBridge
           correlation_id: correlation_id,
         },
         correlation_id: correlation_id,
+        operation_deadline: new_deadline(FAILURE_REPORT_TIMEOUT_SECONDS),
       )
     end
 
     private
 
-    def get(path, correlation_id:, maximum_bytes: JSON_MAXIMUM_BYTES)
-      request(Net::HTTP::Get, path, nil, correlation_id: correlation_id, maximum_bytes: maximum_bytes)
+    def get(path, correlation_id:, maximum_bytes: JSON_MAXIMUM_BYTES, operation_deadline: @work_cycle_deadline)
+      request(
+        Net::HTTP::Get,
+        path,
+        nil,
+        correlation_id: correlation_id,
+        maximum_bytes: maximum_bytes,
+        operation_deadline: operation_deadline,
+      )
     end
 
-    def post(path, body, correlation_id:)
-      request(Net::HTTP::Post, path, body, correlation_id: correlation_id)
+    def post(path, body, correlation_id:, operation_deadline: @work_cycle_deadline)
+      request(
+        Net::HTTP::Post,
+        path,
+        body,
+        correlation_id: correlation_id,
+        operation_deadline: operation_deadline,
+      )
     end
 
-    def put(path, body, correlation_id:)
-      request(Net::HTTP::Put, path, body, correlation_id: correlation_id)
+    def put(path, body, correlation_id:, operation_deadline: @work_cycle_deadline)
+      request(
+        Net::HTTP::Put,
+        path,
+        body,
+        correlation_id: correlation_id,
+        operation_deadline: operation_deadline,
+      )
     end
 
-    def request(request_class, path, body, correlation_id:, maximum_bytes: JSON_MAXIMUM_BYTES)
+    def request(
+      request_class,
+      path,
+      body,
+      correlation_id:,
+      maximum_bytes: JSON_MAXIMUM_BYTES,
+      operation_deadline: nil
+    )
       uri = URI.join("#{@peer.remote_origin}/", path.delete_prefix("/"))
       raise Error, "scope_denied" unless uri.scheme == "https" && same_origin?(uri)
 
@@ -163,25 +223,44 @@ module DiscussionBridge
 
       response_code = nil
       response_type = nil
+      response_correlation = nil
       response_body = +""
-      FinalDestination::HTTP.start(
-        uri.host,
-        uri.port,
-        use_ssl: true,
-        open_timeout: CONNECT_TIMEOUT_SECONDS,
-      ) do |http|
-        http.read_timeout = RESPONSE_TIMEOUT_SECONDS
-        http.write_timeout = RESPONSE_TIMEOUT_SECONDS if http.respond_to?(:write_timeout=)
-        http.request(request) do |response|
-          response_code = response.code.to_i
-          response_type = response["content-type"].to_s
-          response.read_body do |chunk|
-            response_body << chunk
-            raise Error, "request_too_large" if response_body.bytesize > maximum_bytes
+      request_deadline = exchange_deadline(operation_deadline)
+      Timeout.timeout(remaining_seconds!(request_deadline), TransportDeadlineExceeded) do
+        FinalDestination::HTTP.start(
+          uri.host,
+          uri.port,
+          use_ssl: true,
+          open_timeout: bounded_timeout(CONNECT_TIMEOUT_SECONDS, request_deadline),
+        ) do |http|
+          apply_session_timeouts!(http, request_deadline)
+          http.request(request) do |response|
+            response_code = response.code.to_i
+            response_maximum_bytes = if response_code.between?(200, 299)
+              maximum_bytes
+            else
+              AdapterRequestBoundary::MAX_ERROR_JSON_BYTES
+            end
+            response_type = response["content-type"].to_s
+            response_correlation = response[AdapterRequestBoundary::CORRELATION_HEADER]
+            response.read_body do |chunk|
+              if response_body.bytesize + chunk.bytesize > response_maximum_bytes
+                raise Error, "request_too_large"
+              end
+
+              response_body << chunk
+
+              apply_session_timeouts!(http, request_deadline)
+            end
           end
         end
       end
+      ensure_deadline!(request_deadline)
       raise Error, "destination_unavailable" unless response_type.start_with?("application/json")
+
+      valid_response_correlation = AdapterRequestBoundary.valid_correlation?(response_correlation) &&
+        response_correlation == correlation_id
+      raise Error, "validation_failed" unless valid_response_correlation
 
       payload = JSON.parse(response_body)
       raise Error, "validation_failed" unless payload["correlation_id"] == correlation_id
@@ -190,12 +269,48 @@ module DiscussionBridge
         raise Error, AdapterRequestBoundary::ERROR_STATUSES.key?(code) ? code : "destination_unavailable"
       end
       payload
+    rescue TransportDeadlineExceeded, Net::OpenTimeout, Net::ReadTimeout, Net::WriteTimeout, Timeout::Error
+      raise Error, "transport_timeout"
     rescue Error
       raise
     rescue JSON::ParserError, KeyError, URI::InvalidURIError
       raise Error, "validation_failed"
     rescue StandardError
       raise Error, "destination_unavailable"
+    end
+
+    def exchange_deadline(operation_deadline)
+      request_deadline = new_deadline(HTTP_EXCHANGE_TIMEOUT_SECONDS)
+      operation_deadline ? [operation_deadline, request_deadline].min : request_deadline
+    end
+
+    def new_deadline(seconds)
+      monotonic_now + seconds
+    end
+
+    def ensure_deadline!(deadline)
+      remaining_seconds!(deadline)
+    end
+
+    def remaining_seconds!(deadline)
+      remaining = deadline - monotonic_now
+      raise TransportDeadlineExceeded, "network transport deadline exceeded" unless remaining.positive?
+
+      remaining
+    end
+
+    def bounded_timeout(maximum, deadline)
+      [maximum, remaining_seconds!(deadline)].min
+    end
+
+    def apply_session_timeouts!(http, deadline)
+      timeout = bounded_timeout(RESPONSE_TIMEOUT_SECONDS, deadline)
+      http.read_timeout = timeout
+      http.write_timeout = timeout if http.respond_to?(:write_timeout=)
+    end
+
+    def monotonic_now
+      @monotonic_clock.call
     end
 
     def validate_source_descriptor!(payload, topic_id:, source_revision:)

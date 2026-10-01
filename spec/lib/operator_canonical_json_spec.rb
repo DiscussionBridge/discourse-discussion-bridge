@@ -34,4 +34,15 @@ describe DiscussionBridge::OperatorCanonicalJson do
       described_class.parse('{"scope":1,"scope":2}')
     end.to raise_error(DiscussionBridge::OperatorCanonicalJson::InvalidValue)
   end
+
+  it "rejects byte-preserved malformed UTF-8 input" do
+    malformed = "{\"value\":\"\xFF\"}".b.force_encoding(Encoding::UTF_8)
+
+    expect do
+      described_class.parse(malformed)
+    end.to raise_error(
+      DiscussionBridge::OperatorCanonicalJson::InvalidValue,
+      "canonical JSON input must be UTF-8",
+    )
+  end
 end

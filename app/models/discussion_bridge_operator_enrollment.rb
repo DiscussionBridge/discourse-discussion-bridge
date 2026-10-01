@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "digest"
+
 class DiscussionBridgeOperatorEnrollment < ActiveRecord::Base
   self.table_name = "discussion_bridge_operator_enrollments"
 
@@ -56,18 +58,43 @@ class DiscussionBridgeOperatorEnrollment < ActiveRecord::Base
     update!(operator_user: user)
   end
 
-  def activate!(entitlement:, actor:)
+  def activate!(entitlement:, actor:, at: nil)
     with_lock do
       raise ArgumentError, "operator service is disabled" unless enabled?
-      raise ArgumentError, "entitlement provider does not match enrollment" unless entitlement.provider_id == provider_id
+      raise ArgumentError, "entitlement provider does not match enrollment" unless
+        entitlement.provider_id == provider_id
       raise ArgumentError, "entitlement forum does not match enrollment" unless entitlement.forum_id == forum_id
+
+      trusted_key = DiscussionBridgeOperatorTrustedKey.lock.find_by(
+        issuer_id: entitlement.issuer_id,
+        key_id: entitlement.key_id,
+      )
+      entitlement.lock!
+      effective_at = at || Time.zone.now
+      key_matches = trusted_key && entitlement.issuer_id == trusted_key.issuer_id &&
+        entitlement.key_id == trusted_key.key_id
+      raise DiscussionBridge::OperatorEntitlementVerifier::VerificationError,
+            "entitlement_invalid_signature" unless
+              key_matches && trusted_key.available_for_issuance?(at: effective_at)
+      raise ArgumentError, "entitlement provider does not match enrollment" unless
+        entitlement.provider_id == provider_id
+      raise ArgumentError, "entitlement forum does not match enrollment" unless entitlement.forum_id == forum_id
+
+      effective_state = entitlement.effective_state(at: effective_at)
+      raise DiscussionBridge::OperatorEntitlementVerifier::VerificationError,
+            "entitlement_revoked" if effective_state == "revoked"
+      raise DiscussionBridge::OperatorEntitlementVerifier::VerificationError,
+            "entitlement_replaced" if effective_state == "replaced"
+      raise DiscussionBridge::OperatorEntitlementVerifier::VerificationError,
+            "entitlement_expired" if effective_state == "expired"
 
       previous = current_entitlement
       if previous && previous.id != entitlement.id && !%w[revoked replaced].include?(previous.state)
+        previous.lock!
         previous.update!(state: "replaced", replaced_by_entitlement_id: entitlement.entitlement_id)
       end
-      entitlement.update!(state: entitlement.effective_state)
-      update!(current_entitlement_id: entitlement.entitlement_id, state: entitlement.effective_state)
+      entitlement.update!(state: effective_state)
+      update!(current_entitlement_id: entitlement.entitlement_id, state: effective_state)
 
       DiscussionBridge::OperatorAudit.record!(
         enrollment: self,
@@ -89,6 +116,7 @@ class DiscussionBridgeOperatorEnrollment < ActiveRecord::Base
       entitlement = current_entitlement
       raise ArgumentError, "operator entitlement is unavailable" unless entitlement
 
+      entitlement.lock!
       entitlement.update!(state: "revoked", revoked_at: Time.zone.now)
       update!(state: "revoked")
       DiscussionBridge::OperatorAudit.record!(
@@ -103,6 +131,58 @@ class DiscussionBridgeOperatorEnrollment < ActiveRecord::Base
         customer_approval_id: "revocation:#{entitlement.entitlement_id}",
         outcome: "revoked",
       )
+    end
+  end
+
+  def revoke_trusted_key!(trusted_key_id:, actor:, at: nil)
+    with_lock do
+      key = DiscussionBridgeOperatorTrustedKey.lock.find(trusted_key_id)
+      effective_at = at || Time.zone.now
+      key.update!(may_issue: false, revoked_at: effective_at)
+
+      affected_entitlements = DiscussionBridgeOperatorEntitlement
+        .where(issuer_id: key.issuer_id, key_id: key.key_id, state: %w[active grace_read_only])
+        .where("grace_until >= ?", effective_at)
+        .order(:id)
+        .lock
+        .to_a
+      affected_entitlements.each do |entitlement|
+        entitlement.update!(state: "revoked", revoked_at: effective_at)
+        DiscussionBridge::OperatorAudit.record!(
+          enrollment: self,
+          entitlement: entitlement,
+          actor: DiscussionBridge::OperatorAudit.actor(actor),
+          scope: "provider_enrollment",
+          action: "revoke_entitlement",
+          target_type: "operator_entitlement",
+          target_id: entitlement.entitlement_id,
+          operation_sha256: entitlement.payload_sha256,
+          customer_approval_id: "revocation:#{entitlement.entitlement_id}",
+          outcome: "revoked",
+        )
+      end
+      current_revoked = affected_entitlements.any? do |entitlement|
+        entitlement.entitlement_id == current_entitlement_id
+      end
+      update!(state: "revoked") if current_revoked
+
+      DiscussionBridge::OperatorAudit.record!(
+        enrollment: self,
+        actor: DiscussionBridge::OperatorAudit.actor(actor),
+        scope: "provider_enrollment",
+        action: "revoke_trusted_key",
+        target_type: "operator_trusted_key",
+        target_id: "#{key.issuer_id}:#{key.key_id}",
+        operation_sha256: Digest::SHA256.hexdigest(
+          DiscussionBridge::OperatorCanonicalJson.generate(
+            { issuer_id: key.issuer_id, key_id: key.key_id }.stringify_keys,
+          ),
+        ),
+        customer_approval_id: "trusted-key-revocation:#{key.id}",
+        outcome: "revoked",
+      )
+
+      key
     end
   end
 

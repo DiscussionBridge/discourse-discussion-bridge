@@ -17,16 +17,21 @@ module DiscussionBridge
     def call
       return { outcome: "disabled" } unless @peer.operational?
 
+      @client.start_work_cycle!
       claim_correlation = correlation_id("claim")
       work = @client.claim(correlation_id: claim_correlation).first
       return { outcome: "idle" } unless work
 
+      validate_remote_work_scope!(work)
+      validate_active_lease!(work)
       remote_record = @client.bridge_record(
         work.fetch("resource_id"),
         correlation_id: correlation_id("record"),
       )
       validate_remote_record!(work, remote_record)
+      ensure_work_authority!(work)
       result = process(work, remote_record)
+      ensure_work_authority!(work)
       record = local_record(work.fetch("resource_id"))
       @client.acknowledge(
         work: work,
@@ -43,6 +48,8 @@ module DiscussionBridge
     rescue StandardError
       report_failure(work, "internal_error") if work
       { outcome: "failed", error_code: "internal_error" }
+    ensure
+      @client.finish_work_cycle!
     end
 
     private
@@ -67,6 +74,7 @@ module DiscussionBridge
           detail["source_revision_sequence"] == work.fetch("source_revision_sequence")
         raise AdapterRequestBoundary::Error, "revision_conflict"
       end
+      ensure_work_authority!(work)
       NetworkReceiver.call(
         peer: @peer,
         source_detail: detail,
@@ -84,6 +92,7 @@ module DiscussionBridge
         topic = record.topic
         raise AdapterRequestBoundary::Error, "reconciliation_required" unless topic&.first_post
 
+        ensure_work_authority!(work)
         topic.update!(closed: true, visible: false)
         record.update!(
           state: "attention",
@@ -151,6 +160,35 @@ module DiscussionBridge
           record["source_revision_sequence"] == work.fetch("source_revision_sequence")
         raise AdapterRequestBoundary::Error, "revision_conflict"
       end
+    end
+
+    def validate_remote_work_scope!(work)
+      identity = DiscussionBridgeForumIdentity.current
+      raise AdapterRequestBoundary::Error, "scope_denied" unless identity&.ready?
+
+      policy = DiscourseNetworkProtocol.destination_policy(
+        peer_forum_id: identity.forum_id,
+        relationship: @peer.relationship,
+      )
+      expected_revision = DiscourseNetworkProtocol.expected_source_policy_revision(
+        local_forum_id: identity.forum_id,
+        relationship: @peer.relationship,
+      )
+      unless work["connection_id"] == @peer.remote_connection_id &&
+          work["policy_revision"] == expected_revision &&
+          work["destination_policy_id"] == policy.fetch("destination_policy_id")
+        raise AdapterRequestBoundary::Error, "scope_denied"
+      end
+    end
+
+    def validate_active_lease!(work)
+      lease_expires_at = PublicationWorkProtocol.parse_time!(work["lease_expires_at"])
+      raise AdapterRequestBoundary::Error, "work_expired" if lease_expires_at <= Time.zone.now
+    end
+
+    def ensure_work_authority!(work)
+      @client.ensure_work_cycle_active!
+      validate_active_lease!(work)
     end
 
     def report_failure(work, error_code)

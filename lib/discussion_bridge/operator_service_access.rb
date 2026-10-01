@@ -7,32 +7,35 @@ module DiscussionBridge
       apply_customer_approved_upgrade
     ].freeze
 
-    def self.authorize!(user:, scope:, operation_sha256:, customer_approval_id: nil, at: Time.zone.now)
+    def self.authorize!(user:, scope:, operation_sha256:, customer_approval_id: nil, at: nil)
       denied!("scope_denied") unless operation_sha256.to_s.match?(/\A[a-f0-9]{64}\z/)
       enrollment = DiscussionBridgeOperatorEnrollment.instance
-      entitlement = enrollment.current_entitlement
-      denied!("scope_denied") unless enrollment.enabled? && entitlement
-      denied!("scope_denied") unless DiscussionBridgeOperatorEnrollment.eligible_operator_user?(user)
-      denied!("scope_denied") unless enrollment.operator_user_id == user&.id
+      enrollment.with_lock do
+        entitlement = enrollment.current_entitlement
+        denied!("scope_denied") unless enrollment.enabled? && entitlement
+        denied!("scope_denied") unless DiscussionBridgeOperatorEnrollment.eligible_operator_user?(user)
+        denied!("scope_denied") unless enrollment.operator_user_id == user&.id
 
-      state = entitlement.effective_state(at: at)
-      denied!("entitlement_revoked") if state == "revoked"
-      denied!("entitlement_replaced") if state == "replaced"
-      denied!("entitlement_expired") if state == "expired"
-      denied!("scope_denied") unless entitlement.scope_allowed?(scope, at: at)
+        entitlement.lock!
+        approval = if APPLY_SCOPES.include?(scope)
+          DiscussionBridgeOperatorApproval.lock.find_by(approval_id: customer_approval_id)
+        end
+        effective_at = at || Time.zone.now
+        state = entitlement.effective_state(at: effective_at)
+        denied!("entitlement_revoked") if state == "revoked"
+        denied!("entitlement_replaced") if state == "replaced"
+        denied!("entitlement_expired") if state == "expired"
+        denied!("scope_denied") unless entitlement.scope_allowed?(scope, at: effective_at)
 
-      DiscussionBridgeOperatorAuditRecord.transaction do
-        approval = nil
         if APPLY_SCOPES.include?(scope)
-          approval = DiscussionBridgeOperatorApproval.lock.find_by(approval_id: customer_approval_id)
           denied!("scope_denied") unless approval&.usable_for?(
             enrollment: enrollment,
             entitlement: entitlement,
             requested_scope: scope,
             requested_operation_sha256: operation_sha256,
-            at: at,
+            at: effective_at,
           )
-          approval.update!(consumed_at: at)
+          approval.update!(consumed_at: effective_at)
         end
 
         DiscussionBridge::OperatorAudit.record!(

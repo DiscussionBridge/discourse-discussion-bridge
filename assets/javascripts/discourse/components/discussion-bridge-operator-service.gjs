@@ -243,16 +243,16 @@ export default class DiscussionBridgeOperatorService extends Component {
             @action={{this.revokeEntitlement}}
             @label="discussion_bridge.admin.operator_revoke_entitlement"
             @disabled={{this.working}}
-          />{{else}}<form {{on "submit" this.enrollEntitlement}}><label>{{i18n
-                "discussion_bridge.admin.operator_entitlement_json"
-              }}<textarea
-                value={{this.entitlementJson}}
-                {{on "input" this.updateEntitlementJson}}
-              ></textarea></label><DButton
-              @type="submit"
-              @label="discussion_bridge.admin.operator_enroll_entitlement"
-              @disabled={{this.working}}
-            /></form>{{/if}}
+          />{{/if}}<form {{on "submit" this.enrollEntitlement}}><label>{{i18n
+              "discussion_bridge.admin.operator_entitlement_json"
+            }}<textarea
+              value={{this.entitlementJson}}
+              {{on "input" this.updateEntitlementJson}}
+            ></textarea></label><DButton
+            @type="submit"
+            @label="discussion_bridge.admin.operator_enroll_entitlement"
+            @disabled={{this.working}}
+          /></form>
       </section>
 
       <section class="discussion-bridge-operator-service__panel"><h3>{{i18n

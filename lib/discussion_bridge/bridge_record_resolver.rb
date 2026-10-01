@@ -42,17 +42,18 @@ module DiscussionBridge
 
       DiscussionBridgeBridgeRecord.transaction do
         @connection.lock!
-        unless @connection.enabled && @connection.allows_direction?(@request[:direction]) &&
-            @connection.allows_lane?(@request[:lane]) && @connection.allows_origin?(@request[:canonical_url])
+        unless connection_scope_current?
           return result("rejected", "connection_scope_denied")
         end
-        matches = DiscussionBridgeContentBinding.lock.where(
-          "identity_digest = :identity OR canonical_url_digest = :url",
-          identity: identity_digest,
-          url: url_digest,
-        ).to_a
+        matches, locked_records = locked_matches(identity_digest, url_digest)
         if matches.any?
-          return resolve_existing(matches, canonical, identity_digest, url_digest)
+          return resolve_existing(
+            matches,
+            canonical,
+            identity_digest,
+            url_digest,
+            locked_records: locked_records,
+          )
         end
         UrlReservation.ensure_available!(
           connection: @connection,
@@ -154,17 +155,43 @@ module DiscussionBridge
       canonical = CanonicalSource.call(connection_id: @connection.public_id, source_url: @request.fetch(:canonical_url))
       identity_digest = Digest::SHA256.hexdigest("#{@connection.public_id}\n#{@request.fetch(:external_id)}")
       url_digest = Digest::SHA256.hexdigest("#{@connection.public_id}\n#{canonical.source_url}")
-      matches = DiscussionBridgeContentBinding.where(
+      DiscussionBridgeBridgeRecord.transaction do
+        @connection.lock!
+        return result("rejected", "connection_scope_denied") unless connection_scope_current?
+
+        matches, locked_records = locked_matches(identity_digest, url_digest)
+        resolve_existing(
+          matches,
+          canonical,
+          identity_digest,
+          url_digest,
+          locked_records: locked_records,
+        )
+      end
+    end
+
+    def connection_scope_current?
+      @connection.enabled && @connection.allows_direction?(@request[:direction]) &&
+        @connection.allows_lane?(@request[:lane]) &&
+        @connection.allows_origin?(@request[:canonical_url])
+    end
+
+    def locked_matches(identity_digest, url_digest)
+      scope = DiscussionBridgeContentBinding.where(
         "identity_digest = :identity OR canonical_url_digest = :url",
         identity: identity_digest,
         url: url_digest,
-      ).to_a
-      resolve_existing(matches, canonical, identity_digest, url_digest)
+      )
+      record_ids = scope.distinct.order(:bridge_record_id).pluck(:bridge_record_id)
+      locked_records = DiscussionBridgeBridgeRecord.lock.where(id: record_ids).order(:id).index_by(&:id)
+      matches = scope.lock.order(:id).to_a
+      [matches, locked_records]
     end
 
-    def resolve_existing(matches, canonical, identity_digest, url_digest)
+    def resolve_existing(matches, canonical, identity_digest, url_digest, locked_records:)
       binding = matches.one? ? matches.first : nil
-      valid = binding && binding.content_connection_id == @connection.id &&
+      record = binding && locked_records[binding.bridge_record_id]
+      valid = binding && record && binding.content_connection_id == @connection.id &&
         binding.identity_digest == identity_digest && binding.canonical_url_digest == url_digest &&
         binding.external_id == @request.fetch(:external_id) && binding.canonical_url == canonical.source_url &&
         binding.role == "source" && binding.state == "active"
@@ -175,7 +202,6 @@ module DiscussionBridge
         %w[external_id canonical_url],
       ) unless valid
 
-      record = binding.bridge_record
       if @request[:existing_topic_id].present? && @request[:existing_topic_id] != record.topic_id
         return result("reconciliation_required", "binding_identity_conflict", record, ["existing_topic_id"])
       end
@@ -198,7 +224,7 @@ module DiscussionBridge
       @request[:network_restore] == true && record.state == "attention" &&
         topic&.closed && !topic&.visible &&
         %w[hold unpublish].include?(stored["local_passive_action"]) &&
-        stored["local_passive_policy_revision"] == @connection.policy_revision &&
+        stored["local_passive_policy_revision"] == @request[:network_source_policy_revision] &&
         stored["local_passive_predecessor_revision"] == record.source_revision &&
         stored["local_passive_predecessor_revision_sequence"] == record.source_revision_sequence &&
         stored["local_passive_source_revision_sequence"].is_a?(Integer) &&

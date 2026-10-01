@@ -134,6 +134,42 @@ export default class DiscussionBridgeNetwork extends Component {
     this.notice = i18n("discussion_bridge.admin.network_peer_disabled_notice");
   }
 
+  @action
+  async rotatePeerSecret(peer, event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const remoteSecret = form.elements.remote_secret.value;
+    await this.mutate(
+      "/discussion-bridge/admin/network/peers/" + peer.id + ".json",
+      {
+        type: "PUT",
+        data: {
+          network_peer: {
+            remote_secret: remoteSecret,
+          },
+        },
+      }
+    );
+    form.reset();
+    this.notice = i18n(
+      "discussion_bridge.admin.network_peer_secret_rotated_notice"
+    );
+  }
+
+  @action
+  async reauthorizePeer(peer) {
+    await this.mutate(
+      "/discussion-bridge/admin/network/peers/" + peer.id + ".json",
+      {
+        type: "PUT",
+        data: { network_peer: { enabled: true } },
+      }
+    );
+    this.notice = i18n(
+      "discussion_bridge.admin.network_peer_reauthorized_notice"
+    );
+  }
+
   async reload() {
     this.working = true;
     try {
@@ -250,7 +286,24 @@ export default class DiscussionBridgeNetwork extends Component {
                     @label="discussion_bridge.admin.disable"
                     @action={{fn this.disablePeer peer}}
                     @disabled={{this.working}}
-                  />{{/if}}</li>{{else}}<li>{{i18n
+                  />{{else}}<DButton
+                    @label="discussion_bridge.admin.network_reauthorize_peer"
+                    @action={{fn this.reauthorizePeer peer}}
+                    @disabled={{this.working}}
+                  />{{/if}}<form
+                  {{on "submit" (fn this.rotatePeerSecret peer)}}
+                ><label>{{i18n
+                      "discussion_bridge.admin.network_peer_new_secret"
+                    }}<input
+                      required
+                      autocomplete="new-password"
+                      name="remote_secret"
+                      type="password"
+                    /></label><DButton
+                    @type="submit"
+                    @label="discussion_bridge.admin.network_rotate_peer_secret"
+                    @disabled={{this.working}}
+                  /></form></li>{{else}}<li>{{i18n
                   "discussion_bridge.admin.network_no_peers"
                 }}</li>{{/each}}</ul>
         </section>

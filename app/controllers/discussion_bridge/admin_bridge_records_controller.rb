@@ -72,8 +72,8 @@ module DiscussionBridge
       binding = nil
       record = nil
       DiscussionBridgeBridgeRecord.transaction do
-        record = DiscussionBridgeBridgeRecord.lock.find(params[:id])
         connection = DiscussionBridgeContentConnection.lock.find(connection_id)
+        record = DiscussionBridgeBridgeRecord.lock.find(params[:id])
         raise ArgumentError, "target connection is unavailable" unless connection.enabled &&
           connection.allows_direction?(record.direction)
         raise ArgumentError, "lane is outside target connection scope" unless connection.allows_lane?(record.lane)
@@ -125,14 +125,23 @@ module DiscussionBridge
     end
 
     def apply_migration
-      record = DiscussionBridgeBridgeRecord.find(params[:id])
+      record_id = params[:id]
+      binding_id = params[:binding_id]
+      connection_id = DiscussionBridgeContentBinding.where(id: binding_id).pick(:content_connection_id)
+      raise ActiveRecord::RecordNotFound unless connection_id
+
+      record = nil
       DiscussionBridgeBridgeRecord.transaction do
-        record.lock!
-        prepared = record.content_bindings.lock.find_by!(id: params[:binding_id], state: "prepared")
+        connection = DiscussionBridgeContentConnection.lock.find(connection_id)
+        record = DiscussionBridgeBridgeRecord.lock.find(record_id)
+        prepared = record.content_bindings.lock.find_by!(
+          id: binding_id,
+          state: "prepared",
+          content_connection_id: connection.id,
+        )
         expected_role = record.direction == "to_discourse" ? "source" : "presentation"
         raise ArgumentError, "prepared binding role does not match record direction" unless prepared.role == expected_role
 
-        connection = DiscussionBridgeContentConnection.lock.find(prepared.content_connection_id)
         raise ArgumentError, "target connection is unavailable" unless connection.enabled &&
           connection.allows_direction?(record.direction)
         raise ArgumentError, "lane is outside target connection scope" unless connection.allows_lane?(record.lane)
