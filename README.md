@@ -18,16 +18,25 @@ Only `simple`, `full`, and `interactive` are accepted presentation values. The
 canonical setting is `discussion_bridge_comments_only_interactive`; there is
 no old-name fallback or automatic saved-setting transfer.
 
-The inventory/fixed-cut/catalog/destination-policy/work/lease/acknowledgement
-graph, URL-migration proof and Operator action/audit groups remain pending.
-Exact-revision source detail and byte-chunk routes are being added as a bounded
-source-side part of that graph, not an operational delivery worker. New captures
+The catalog/destination-policy/work/lease/acknowledgement and revocation graph,
+URL-migration proof and Operator action/audit groups remain pending.
+Exact-revision source detail, byte-chunk and pinned inventory routes implement
+source-side parts of that graph, not an operational delivery worker. New captures
 retain author/category/tag descriptions and the source URL at capture time.
 Older captures without those fields remain untouched and require reconciliation;
 reads never invent or backfill that context. Source reads do not acknowledge
 publication. Responses are private/no-store, scoped to an exact current
 connection and public topic, and retain full source bytes without an aggregate
 content ceiling. Destination limits remain separate.
+Explicit publication also records append-only inventory observations atomically.
+An initial snapshot fixes its observation cut under the connection lock; later
+revisions cannot replace that cut. Each page scans at most its requested limit
+(default25, maximum100), skips superseded/private observations with real cursor
+progress, and rechecks current scope and native identity. A successful page
+extends snapshot retention for30days; expiry does not delete publication history.
+Inventory reads never manufacture earlier observations or acknowledge delivery.
+Durable state and signed cursors are not, by themselves, process-restart, scale
+or installation qualification; those gates remain open.
 Explicit staff/admin From-Discourse publication now retains immutable whole
 cooked native-source captures with actual first-post clocks and stable binding
 identity. Reads use retained context and recheck current public visibility;

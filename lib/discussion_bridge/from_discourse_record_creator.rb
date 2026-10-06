@@ -90,7 +90,8 @@ module DiscussionBridge
           raise ArgumentError, "binding identity conflict" unless valid
 
           binding.bridge_record.lock!
-          NativeSourceRevisionCapture.call(record: binding.bridge_record, topic: topic)
+          capture = NativeSourceRevisionCapture.call(record: binding.bridge_record, topic: topic)
+          SourceInventoryObservation.call(connection: connection, record: binding.bridge_record, binding: binding, capture: capture)
           result = Result.new(record: binding.bridge_record, outcome: "resolved")
           next
         end
@@ -106,8 +107,8 @@ module DiscussionBridge
           requested_visibility: topic.visible ? "listed" : "unlisted",
           effective_visibility: topic.visible ? "listed" : "unlisted",
         )
-        NativeSourceRevisionCapture.call(record: record, topic: topic)
-        DiscussionBridgeContentBinding.create!(
+        capture = NativeSourceRevisionCapture.call(record: record, topic: topic)
+        binding = DiscussionBridgeContentBinding.create!(
           bridge_record: record,
           content_connection: connection,
           role: "presentation",
@@ -122,6 +123,7 @@ module DiscussionBridge
           content_disposition: "complete",
           activated_at: Time.zone.now,
         )
+        SourceInventoryObservation.call(connection: connection, record: record, binding: binding, capture: capture)
         result = Result.new(record: record, outcome: "created")
       end
       result

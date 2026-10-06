@@ -24,16 +24,21 @@ module DiscussionBridge
       verify_context!
     end
 
-    def detail(correlation_id:)
-      value = {
+    def inventory_item
+      {
         resource_id: @record.resource_id, topic_id: @record.topic_id,
         topic_url: @metadata.fetch("topic_url"), title: @metadata.fetch("title"),
         source_revision: @capture.revision, source_revision_sequence: @capture.sequence,
         source_created_at: @metadata.fetch("source_created_at"), source_updated_at: @metadata.fetch("source_updated_at"),
+      }
+    end
+
+    def detail(correlation_id:)
+      value = inventory_item.merge(
         source_authors: @metadata.fetch("source_authors"), categories: @metadata.fetch("categories"),
         tags: @metadata.fetch("tags"), presentation_mode: @binding.presentation_mode,
         content_disposition: "complete", network_provenance: nil, correlation_id: correlation_id,
-      }
+      )
       descriptor = { mode: "chunked", media_type: "text/html; charset=utf-8",
                      byte_length: @bytes, sha256: @sha256,
                      chunk_count: chunk_count, decoded_chunk_maximum_bytes: CHUNK_BYTES }
@@ -64,7 +69,7 @@ module DiscussionBridge
       fail_with("reconciliation_required") unless @record.known_source_context? &&
         @metadata.is_a?(Hash) && (METADATA_FIELDS - @metadata.keys).empty? &&
         NativeSourceRevisionCapture.fingerprint(@metadata) == @capture.fingerprint &&
-        @metadata["post_id"] == @record.topic.first_post.id &&
+        @metadata["post_id"] == Post.unscoped.where(topic_id: @record.topic_id, post_number: 1, deleted_at: nil).pick(:id) &&
         @capture.sequence.between?(1, @record.source_revision_sequence) &&
         %w[simple full interactive].include?(@binding.presentation_mode)
       @bytes = @metadata["source_content_bytes"]

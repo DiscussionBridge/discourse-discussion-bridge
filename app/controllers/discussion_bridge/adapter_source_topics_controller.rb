@@ -5,6 +5,20 @@ module DiscussionBridge
     requires_plugin PLUGIN_NAME
     prepend_before_action :prevent_source_caching
 
+    def index
+      @content_connection.with_lock do
+        unless SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_endpoint_enabled &&
+            @content_connection.enabled && @content_connection.authenticate_secret?(request.headers["X-DiscussionBridge-Secret"])
+          raise AdapterRequestBoundary::Error.new("authentication_failed")
+        end
+        unless @content_connection.allows_direction?("from_discourse")
+          raise AdapterRequestBoundary::Error.new("direction_denied")
+        end
+        render json: SourceInventory.new(connection: @content_connection, query: request.query_parameters,
+          correlation_id: @correlation_id).page
+      end
+    end
+
     def show
       render_source { |transport| transport.detail(correlation_id: @correlation_id) }
     end
@@ -23,6 +37,7 @@ module DiscussionBridge
     end
 
     def permitted_query_fields
+      return %w[cursor limit snapshot] if action_name == "index"
       action_name == "content" ? %w[source_revision chunk] : %w[source_revision]
     end
 
@@ -47,7 +62,7 @@ module DiscussionBridge
         end
         topic = Topic.lock.find(topic_id)
         unless topic.deleted_at.nil? && !topic.private_message? && Guardian.new.can_see?(topic) &&
-            topic.first_post && topic.first_post.deleted_at.nil?
+            Post.unscoped.where(topic_id: topic.id, post_number: 1, deleted_at: nil).exists?
           raise AdapterRequestBoundary::Error.new("policy_denied")
         end
         records = DiscussionBridgeBridgeRecord.joins(:content_bindings).where(
