@@ -18,8 +18,16 @@ Only `simple`, `full`, and `interactive` are accepted presentation values. The
 canonical setting is `discussion_bridge_comments_only_interactive`; there is
 no old-name fallback or automatic saved-setting transfer.
 
-The source-feed/fixed-cut/catalog/destination-policy/work/lease/acknowledgement
+The inventory/fixed-cut/catalog/destination-policy/work/lease/acknowledgement
 graph, URL-migration proof and Operator action/audit groups remain pending.
+Exact-revision source detail and byte-chunk routes are being added as a bounded
+source-side part of that graph, not an operational delivery worker. New captures
+retain author/category/tag descriptions and the source URL at capture time.
+Older captures without those fields remain untouched and require reconciliation;
+reads never invent or backfill that context. Source reads do not acknowledge
+publication. Responses are private/no-store, scoped to an exact current
+connection and public topic, and retain full source bytes without an aggregate
+content ceiling. Destination limits remain separate.
 Explicit staff/admin From-Discourse publication now retains immutable whole
 cooked native-source captures with actual first-post clocks and stable binding
 identity. Reads use retained context and recheck current public visibility;

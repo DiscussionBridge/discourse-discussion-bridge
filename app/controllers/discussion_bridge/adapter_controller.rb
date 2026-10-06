@@ -34,7 +34,7 @@ module DiscussionBridge
         raise AdapterRequestBoundary::Error.new("scope_denied")
       end
       raise AdapterRequestBoundary::Error.new("request_too_large") if request.query_string.bytesize > 8192
-      permitted_query = action_name == "index" ? %w[page] : []
+      permitted_query = permitted_query_fields
       unless (request.query_parameters.keys - permitted_query).empty?
         raise AdapterRequestBoundary::Error.new("unknown_field")
       end
@@ -63,6 +63,10 @@ module DiscussionBridge
       end
       @content_connection = ContentConnectionAuthenticator.call(request)
       raise AdapterRequestBoundary::Error.new("authentication_failed") unless @content_connection
+    end
+
+    def permitted_query_fields
+      action_name == "index" ? %w[page] : []
     end
 
     def render_protocol_error(error)

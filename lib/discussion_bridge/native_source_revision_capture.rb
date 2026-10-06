@@ -21,11 +21,25 @@ module DiscussionBridge
         "source_content_bytes" => html.bytesize, "source_content_sha256" => Digest::SHA256.hexdigest(html),
         "author_user_id" => post.user_id, "category_id" => topic.category_id,
         "tag_ids" => topic.tags.order(:id).pluck(:id),
+        "topic_url" => topic.url,
+        "source_authors" => post.user ? [{
+          "source_author_id" => "discourse:user:#{post.user_id}",
+          "source_author_name" => post.user.username,
+          "source_author_url" => "#{Discourse.base_url}/u/#{post.user.username}",
+        }] : [],
+        "categories" => topic.category ? [{
+          "source_category_id" => "discourse:category:#{topic.category_id}",
+          "source_category_name" => topic.category.name,
+          "source_parent_category_id" => topic.category.parent_category_id ? "discourse:category:#{topic.category.parent_category_id}" : nil,
+        }] : [],
+        "tags" => topic.tags.order(:id).map { |tag| {
+          "source_tag_id" => "discourse:tag:#{tag.id}", "source_tag_name" => tag.name,
+        } },
       }
       created = BridgeRecordRequest.timestamp!(metadata.fetch("source_created_at"))
       updated = BridgeRecordRequest.timestamp!(metadata.fetch("source_updated_at"))
       raise ArgumentError, "native source clocks are invalid" if updated < created
-      fingerprint = Digest::SHA256.hexdigest(JSON.generate(metadata.sort.to_h))
+      fingerprint = self.fingerprint(metadata)
       latest = record.native_source_revisions.order(sequence: :desc).first
       if latest
         unless record.known_source_context? && retained?(record) && record.source_revision == latest.revision &&
@@ -62,7 +76,24 @@ module DiscussionBridge
       expected == actual && record.content_disposition == "complete" &&
         capture.content_html.bytesize == record.source_content_bytes &&
         Digest::SHA256.hexdigest(capture.content_html) == record.source_content_sha256 &&
-        Digest::SHA256.hexdigest(JSON.generate(capture.metadata.sort.to_h)) == capture.fingerprint
+        fingerprint(capture.metadata) == capture.fingerprint
     end
+
+    def self.fingerprint(metadata)
+      Digest::SHA256.hexdigest(JSON.generate(canonical_metadata(metadata)))
+    end
+
+    def self.canonical_metadata(value)
+      case value
+      when Hash
+        value.keys.sort.to_h { |key| [key, canonical_metadata(value.fetch(key))] }
+      when Array
+        value.map { |item| canonical_metadata(item) }
+      else
+        value
+      end
+    end
+
+    private_class_method :canonical_metadata
   end
 end
