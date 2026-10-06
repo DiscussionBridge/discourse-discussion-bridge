@@ -14,7 +14,7 @@ module ::DiscussionBridge
     def overview
       connections = available_connections
       blockers = readiness_blockers(connections)
-      work_counts = visible_publication_work.group(:state).count
+      summary = publication_visibility_summary
       work_page = publication_work_page
       render json: {
         product: {
@@ -25,11 +25,11 @@ module ::DiscussionBridge
         },
         connections: connections.map { |connection| connection_payload(connection) },
         metrics: {
-          published_topics: from_discourse_records.distinct.count(:topic_id),
-          presentations: from_discourse_records.count,
+          published_topics: summary.fetch(:published_topics),
+          presentations: summary.fetch(:presentations),
           connected_platforms: connections.map(&:platform).uniq.count,
           publication_work: PublicationWorkProtocol::STATES.index_with do |state|
-            work_counts.fetch(state, 0)
+            summary.fetch(:work_counts).fetch(state, 0)
           end,
         },
         recent_records: recent_records,
@@ -125,7 +125,8 @@ module ::DiscussionBridge
     end
 
     def retry_publication_work
-      work = visible_publication_work.find(params.require(:id))
+      work = DiscussionBridgePublicationWork.includes(bridge_record: :topic).find(params.require(:id))
+      ensure_visible_publication_record!(work.bridge_record)
       PublicationWorkRegistry.manual_retry!(
         work: work,
         authorized_by: current_user,
@@ -156,30 +157,14 @@ module ::DiscussionBridge
       DiscussionBridgeBridgeRecord.where(direction: "from_discourse")
     end
 
-    def visible_topic_ids
-      @visible_topic_ids ||= begin
-        ids = []
-        Topic.where(id: from_discourse_record_scope.select(:topic_id).distinct)
-          .includes(:category, :shared_draft)
-          .find_in_batches(batch_size: VISIBILITY_BATCH_SIZE) do |topics|
-            topics.each { |topic| ids << topic.id if guardian.can_see?(topic) }
-          end
-        ids
-      end
-    end
-
-    def from_discourse_records
-      @from_discourse_records ||= from_discourse_record_scope.where(topic_id: visible_topic_ids)
-    end
-
-    def visible_publication_work
-      @visible_publication_work ||= DiscussionBridgePublicationWork
-        .joins(:bridge_record)
-        .merge(from_discourse_records)
-    end
-
     def visible_publication_record!(resource_id)
-      from_discourse_records.find_by!(resource_id: resource_id)
+      record = from_discourse_record_scope.includes(:topic).find_by!(resource_id: resource_id)
+      ensure_visible_publication_record!(record)
+      record
+    end
+
+    def ensure_visible_publication_record!(record)
+      raise ActiveRecord::RecordNotFound unless record.topic && guardian.can_see?(record.topic)
     end
 
     def readiness_blockers(connections)
@@ -187,8 +172,7 @@ module ::DiscussionBridge
       blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
       blockers << "from_discourse_connection" if connections.empty?
-      blockers << "publication_work_attention" if
-        visible_publication_work.where(state: "operator_attention").exists?
+      blockers << "publication_work_attention" if publication_visibility_summary.fetch(:attention)
       blockers
     end
 
@@ -234,12 +218,7 @@ module ::DiscussionBridge
     end
 
     def recent_records
-      from_discourse_records.includes(
-        :publication_works,
-        :topic,
-        content_bindings: :content_connection,
-      )
-        .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
+      publication_visibility_summary.fetch(:recent_records).map { |record| publication_payload(record) }
     end
 
     def visible_topic
@@ -258,7 +237,7 @@ module ::DiscussionBridge
     end
 
     def topic_status_payload(topic)
-      records = from_discourse_records.where(topic_id: topic.id).includes(
+      records = from_discourse_record_scope.where(topic_id: topic.id).includes(
         :publication_works,
         content_bindings: :content_connection,
       ).order(:id)
@@ -318,21 +297,103 @@ module ::DiscussionBridge
       raise Discourse::InvalidParameters.new(:publication_page) unless
         page&.between?(1, MAX_PUBLICATION_WORK_PAGE)
 
-      scope = visible_publication_work.includes(
-        :content_connection,
-        bridge_record: :topic,
-      ).order(updated_at: :desc, id: :desc)
+      scope = DiscussionBridgePublicationWork.joins(bridge_record: :topic)
+        .merge(from_discourse_record_scope)
+        .where(topics: { deleted_at: nil })
+        .includes(:content_connection, bridge_record: :topic)
       scope = scope.where(state: "operator_attention") if filter == "attention"
-      total = scope.count
+      offset = (page - 1) * PUBLICATION_WORK_PAGE_SIZE
+      total = 0
+      items = []
+      each_work_batch(scope) do |batch|
+        visible = guardian.can_see_topic_ids(
+          topic_ids: batch.map { |work| work.bridge_record.topic_id }.uniq,
+        ).to_set
+        batch.each do |work|
+          next if visible.exclude?(work.bridge_record.topic_id)
+
+          items << publication_work_payload(work) if
+            total >= offset && items.length < PUBLICATION_WORK_PAGE_SIZE
+          total += 1
+        end
+      end
       {
-        items: scope.offset((page - 1) * PUBLICATION_WORK_PAGE_SIZE)
-          .limit(PUBLICATION_WORK_PAGE_SIZE).map { |work| publication_work_payload(work) },
+        items: items,
         page: page,
         per_page: PUBLICATION_WORK_PAGE_SIZE,
         total: total,
         pages: [(total.to_f / PUBLICATION_WORK_PAGE_SIZE).ceil, 1].max,
         filter: filter,
       }
+    end
+
+    def publication_visibility_summary
+      @publication_visibility_summary ||= begin
+        summary = {
+          published_topics: 0,
+          presentations: 0,
+          work_counts: Hash.new(0),
+          attention: false,
+          recent_records: [],
+        }
+        each_visible_record_scope do |scope, visible_topic_count|
+          summary[:published_topics] += visible_topic_count
+          summary[:presentations] += scope.count
+          DiscussionBridgePublicationWork.where(bridge_record_id: scope.select(:id))
+            .group(:state).count.each do |state, count|
+              summary[:work_counts][state] += count
+            end
+          summary[:attention] ||= DiscussionBridgePublicationWork
+            .where(bridge_record_id: scope.select(:id), state: "operator_attention").exists?
+          candidates = scope.includes(
+            :publication_works,
+            :topic,
+            content_bindings: :content_connection,
+          ).order(updated_at: :desc, id: :desc).limit(20).to_a
+          summary[:recent_records] = (summary[:recent_records] + candidates)
+            .sort_by { |record| [record.updated_at, record.id] }.reverse.first(20)
+        end
+        summary
+      end
+    end
+
+    def each_visible_record_scope
+      after_topic_id = 0
+      loop do
+        topic_ids = from_discourse_record_scope.joins(:topic)
+          .where(topics: { deleted_at: nil })
+          .where("topic_id > ?", after_topic_id).distinct.order(:topic_id)
+          .limit(VISIBILITY_BATCH_SIZE).pluck(:topic_id)
+        break if topic_ids.empty?
+
+        visible_ids = guardian.can_see_topic_ids(topic_ids: topic_ids)
+        yield from_discourse_record_scope.where(topic_id: visible_ids), visible_ids.length if
+          visible_ids.any?
+        after_topic_id = topic_ids.last
+      end
+    end
+
+    def each_work_batch(scope)
+      cursor_time = nil
+      cursor_id = nil
+      loop do
+        page = scope
+        if cursor_time
+          page = page.where(
+            "discussion_bridge_publication_works.updated_at < :time OR " \
+              "(discussion_bridge_publication_works.updated_at = :time AND " \
+              "discussion_bridge_publication_works.id < :id)",
+            time: cursor_time,
+            id: cursor_id,
+          )
+        end
+        batch = page.order(updated_at: :desc, id: :desc).limit(VISIBILITY_BATCH_SIZE).to_a
+        break if batch.empty?
+
+        yield batch
+        cursor_time = batch.last.updated_at
+        cursor_id = batch.last.id
+      end
     end
 
     def publication_work_payload(work)

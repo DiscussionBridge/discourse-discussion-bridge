@@ -162,6 +162,37 @@ describe DiscussionBridge::OperatorServiceController do
     )
   end
 
+  it "persists and revokes the maximum valid composed trusted-key audit identity" do
+    sign_in(admin)
+    put "/discussion-bridge/admin/operator-service.json",
+        params: { operator_service: { enabled: true } }
+    expect(response).to have_http_status(:ok), response.body
+
+    issuer_id = "dbi_#{"a" * 32}"
+    [163, 164, 200].each do |length|
+      signing_key = OpenSSL::PKey.generate_key("ED25519")
+      key_id = "k" * length
+      composed_target = "#{issuer_id}:#{key_id}"
+
+      post "/discussion-bridge/admin/operator-service/trusted-keys.json",
+           params: {
+             trusted_key: {
+               issuer_id: issuer_id,
+               key_id: key_id,
+               public_key_base64url: raw_public_key(signing_key),
+             },
+           }
+      expect(response).to have_http_status(:ok), response.body
+      trusted_key = DiscussionBridgeOperatorTrustedKey.find_by!(issuer_id: issuer_id, key_id: key_id)
+      expect(DiscussionBridgeOperatorAuditRecord.order(:id).last.target_id).to eq(composed_target)
+
+      delete "/discussion-bridge/admin/operator-service/trusted-keys/#{trusted_key.id}.json"
+      expect(response).to have_http_status(:ok), response.body
+      expect(trusted_key.reload).to have_attributes(may_issue: false, revoked_at: be_present)
+      expect(DiscussionBridgeOperatorAuditRecord.order(:id).last.target_id).to eq(composed_target)
+    end
+  end
+
   it "rejects invalid UTF-8 request bytes before creating an entitlement" do
     sign_in(admin)
     invalid_body = "{\"entitlement\":\"\xFF\"}".b

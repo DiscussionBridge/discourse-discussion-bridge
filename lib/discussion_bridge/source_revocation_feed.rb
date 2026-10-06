@@ -13,7 +13,6 @@ module DiscussionBridge
     end
 
     def page(high_water:, cursor:, limit:)
-      SourceRevocationRegistry.reconcile!(connection: @connection)
       high_water, maximum_id, after_id = resolve_position(high_water: high_water, cursor: cursor)
       rows = SourceRevocationRegistry.scope(connection: @connection)
         .where("id > ? AND id <= ?", after_id, maximum_id).limit(limit + 1).to_a

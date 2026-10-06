@@ -23,6 +23,15 @@ export default class DiscussionBridgeOperationsRoute extends Route {
       }),
       ajax("/discussion-bridge/admin/content-connections.json"),
     ]);
-    return { ...records, content_connections: connections.content_connections };
+    return {
+      ...records,
+      content_connections: connections.content_connections,
+      filters: {
+        direction: params.direction || "",
+        state: params.state || "",
+        connection_id: params.connection_id || "",
+        query: params.query || "",
+      },
+    };
   }
 }

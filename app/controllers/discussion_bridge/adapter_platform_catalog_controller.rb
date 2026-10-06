@@ -13,6 +13,8 @@ module DiscussionBridge
         catalog_revision: params[:catalog_revision],
         cursor: params[:cursor],
         limit: limit,
+        correlation_id: @correlation_id,
+        maximum_response_bytes: PlatformCatalogProtocol::MAXIMUM_JSON_BYTES,
       )
       response.set_header("Cache-Control", "private, must-revalidate")
       response.set_header("ETag", %Q("#{Digest::SHA256.hexdigest([page.catalog_revision, segment_type, params[:cursor], limit].join("\n"))}"))

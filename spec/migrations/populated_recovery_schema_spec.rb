@@ -3,11 +3,13 @@
 require "rails_helper"
 require "digest"
 require "json"
-require "open3"
 require "rbconfig"
 require "timeout"
+require_relative "../support/discussion_bridge_bounded_subprocess"
 
 RSpec.describe ActiveRecord::MigrationContext do
+  include DiscussionBridge::SpecSupport::BoundedSubprocess
+
   self.use_transactional_tests = false
 
   ALPHA_30_COMMIT = "9e64b4a83d5fd439ffa19e59edbc9682adb2c536"
@@ -362,21 +364,29 @@ RSpec.describe ActiveRecord::MigrationContext do
     expect(migrated_connection.publication_works.where(action: "unpublish").count).to eq(1)
   end
 
-  it "retains historical issue recovery and one acknowledged cleanup across three fresh process boots" do
-    restart_schema = "db_r3_f01_restart_#{SecureRandom.hex(6)}"
-    begin
-      {
-        "prepare" => /R3-F01 prepare complete/,
-        "resume" => /R3-F01 resume complete/,
-        "verify" => /R3-F01 verify complete/,
-      }.each do |phase, expected_output|
-        stdout, stderr, status = run_restart_phase(restart_schema, phase)
+  context "with historical issue recovery across fresh process boots", :fresh_process,
+          order: :defined do
+    # The ordered examples intentionally share only the external schema name;
+    # every phase itself runs in a separate Rails process.
+    # rubocop:disable RSpec/BeforeAfterAll
+    before(:context) { @restart_schema = "db_r3_f01_restart_#{SecureRandom.hex(6)}" }
+
+    after(:context) do
+      stdout, stderr, status = run_restart_phase(@restart_schema, "cleanup")
+      raise "cleanup failed\nstdout:\n#{stdout}\nstderr:\n#{stderr}" unless status.success?
+    end
+    # rubocop:enable RSpec/BeforeAfterAll
+
+    {
+      "prepare" => /R3-F01 prepare complete/,
+      "resume" => /R3-F01 resume complete/,
+      "verify" => /R3-F01 verify complete/,
+    }.each do |phase, expected_output|
+      it "completes the #{phase} fresh-process phase" do
+        stdout, stderr, status = run_restart_phase(@restart_schema, phase)
         expect(status).to be_success, "#{phase} failed\nstdout:\n#{stdout}\nstderr:\n#{stderr}"
         expect(stdout).to match(expected_output)
       end
-    ensure
-      stdout, stderr, status = run_restart_phase(restart_schema, "cleanup")
-      expect(status).to be_success, "cleanup failed\nstdout:\n#{stdout}\nstderr:\n#{stderr}"
     end
   end
 
@@ -562,16 +572,14 @@ RSpec.describe ActiveRecord::MigrationContext do
       "LOAD_PLUGINS" => "1",
       "RAILS_ENV" => "test",
     }
-    Timeout.timeout(180) do
-      Open3.capture3(
-        environment,
-        RbConfig.ruby,
-        Rails.root.join("bin/rails").to_s,
-        "runner",
-        runner,
-        chdir: Rails.root.to_s,
-      )
-    end
+    run_bounded_subprocess(
+      environment,
+      RbConfig.ruby,
+      Rails.root.join("bin/rails").to_s,
+      "runner",
+      runner,
+      chdir: Rails.root.to_s,
+    )
   end
 
   def migrate

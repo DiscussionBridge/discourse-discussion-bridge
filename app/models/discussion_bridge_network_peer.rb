@@ -5,6 +5,17 @@ class DiscussionBridgeNetworkPeer < ActiveRecord::Base
 
   belongs_to :content_connection, class_name: "DiscussionBridgeContentConnection"
   belongs_to :authorized_by, class_name: "User"
+
+  def self.disable_authority!(id:, actor:)
+    transaction do
+      DiscussionBridgeForumIdentity.lock.find_by(
+        singleton_key: DiscussionBridgeForumIdentity::SINGLETON_KEY,
+      )
+      peer = lock.find(id)
+      peer.update!(enabled: false, disabled_at: Time.zone.now, authorized_by: actor)
+      peer
+    end
+  end
   has_many :network_replays,
            class_name: "DiscussionBridgeNetworkReplay",
            foreign_key: :network_peer_id,

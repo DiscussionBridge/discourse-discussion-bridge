@@ -590,6 +590,30 @@ describe DiscussionBridge::PublisherController do
     end
   end
 
+  it "applies Guardian visibility in bounded batches for overview metrics and work pages" do
+    stub_const(DiscussionBridge::PublisherController, :VISIBILITY_BATCH_SIZE, 2) do
+      records = 5.times.map do |index|
+        publish_for_overview!(topic_with_first_post, suffix: "bounded-visibility-#{index}")
+      end
+      visibility_batches = []
+      allow_any_instance_of(Guardian).to receive(:can_see_topic_ids).and_wrap_original do |method, topic_ids:|
+        visibility_batches << topic_ids
+        method.call(topic_ids: topic_ids)
+      end
+
+      sign_in(moderator)
+      get "/discussion-bridge/admin/publishing.json"
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig("metrics", "published_topics")).to eq(5)
+      expect(response.parsed_body.fetch("publication_work").pluck("resource_id")).to contain_exactly(
+        *records.map(&:resource_id),
+      )
+      expect(visibility_batches).not_to be_empty
+      expect(visibility_batches.map(&:length).max).to be <= 2
+    end
+  end
+
   it "rejects hidden-topic correction, migration, and retry before side effects" do
     restricted_group = Fabricate(:group)
     restricted_category = Fabricate(:private_category, group: restricted_group)

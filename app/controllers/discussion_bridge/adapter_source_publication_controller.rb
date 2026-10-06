@@ -67,7 +67,6 @@ module DiscussionBridge
     end
 
     def revocation
-      SourceRevocationRegistry.reconcile!(connection: @content_connection)
       value = SourceRevocationRegistry.scope(connection: @content_connection)
         .joins(:bridge_record)
         .where(discussion_bridge_bridge_records: { resource_id: params[:resource_id] })

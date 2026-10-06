@@ -361,7 +361,36 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_button("View")
   end
 
+  it "restores Bridge Record filters from paginated and historical URLs" do
+    sign_in(admin)
+    visit("/")
+    filtered = "/admin/plugins/discourse-discussion-bridge/bridge-records?" \
+      "query=Community&direction=to_discourse&state=healthy&" \
+      "connection_id=#{@connection.id}&page=1"
+    page.execute_script("window.location.assign('#{filtered}')")
+
+    expect(page).to have_css(".discussion-bridge-operations", wait: 30)
+    expect(page).to have_field("Search", with: "Community")
+    expect(page).to have_select("Content direction", selected: "To Discourse")
+    expect(page).to have_select("Status", selected: "Healthy")
+    expect(page).to have_select("Connection", selected: "Main publication")
+
+    paginated = filtered.sub("page=1", "page=2")
+    page.execute_script("window.location.assign('#{paginated}')")
+    expect(page).to have_css(".discussion-bridge-operations", wait: 30)
+    expect(page).to have_field("Search", with: "Community")
+    expect(page).to have_select("Content direction", selected: "To Discourse")
+    expect(page).to have_select("Status", selected: "Healthy")
+    expect(page).to have_select("Connection", selected: "Main publication")
+
+    page.go_back
+    expect(page).to have_current_path(/#{Regexp.escape(filtered)}\z/, url: true, wait: 30)
+    expect(page).to have_field("Search", with: "Community")
+    expect(page).to have_select("Content direction", selected: "To Discourse")
+  end
+
   it "renders truthful reconciliation without hidden support controls" do
+    @connection.update!(enabled: false)
     sign_in(admin)
     visit("/")
     page.execute_script("window.location.assign('/admin/plugins/discourse-discussion-bridge/reconciliation')")
@@ -370,6 +399,31 @@ describe "DiscussionBridge native product administration" do
     expect(page).to have_content("Operational truth is visible here")
     expect(page).to have_link("Export report")
     expect(page).to have_no_content("Care diagnostics")
+    cells = all(".discussion-bridge-reconciliation tbody tr:first-child td")
+    expect(cells.length).to eq(6)
+    expect(cells.map { |cell| cell["data-label"] }).to contain_exactly(
+      "Severity",
+      "Issue",
+      "Bridge Record",
+      "Connection",
+      "Discussion",
+      "Recommended action",
+    )
+
+    page.current_window.resize_to(600, 900)
+    expect(
+      page.evaluate_script(<<~JS),
+        Array.from(
+          document.querySelectorAll(
+            ".discussion-bridge-reconciliation tbody tr:first-child td"
+          )
+        ).every((cell) => {
+          const label = cell.getAttribute("data-label");
+          const rendered = getComputedStyle(cell, "::before").content;
+          return label && rendered !== "none" && rendered !== '""';
+        })
+      JS
+    ).to eq(true)
   end
 
   it "renders Operator Service as a separate default-off customer-controlled boundary" do

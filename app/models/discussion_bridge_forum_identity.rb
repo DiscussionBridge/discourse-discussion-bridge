@@ -43,7 +43,9 @@ class DiscussionBridgeForumIdentity < ActiveRecord::Base
   end
 
   def disable!(actor:)
-    update!(enabled: false, disabled_at: Time.zone.now, changed_by: actor)
+    with_lock do
+      update!(enabled: false, disabled_at: Time.zone.now, changed_by: actor)
+    end
   end
 
   def rotate!(actor:)

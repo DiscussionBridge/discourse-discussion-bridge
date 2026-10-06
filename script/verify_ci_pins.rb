@@ -58,6 +58,12 @@ errors << "CI Playwright Chromium artifact is not exact and checksum-pinned" if
   browser_pins.any? { |pin| !pinned_workflow.include?(pin) }
 errors << "CI may download mutable pre-built Core assets" unless
   pinned_workflow.match?(/^\s*export DISCOURSE_DOWNLOAD_PRE_BUILT_ASSETS=0\s*$/)
+errors << "Backend CI must run serially to isolate database-mutating assurance" if
+  !pinned_workflow.include?('echo "PARALLEL_TEST_PROCESSORS=1" >> $GITHUB_ENV')
+errors << "Fresh-process assurance must run outside Core's per-example CI watchdog" unless
+  pinned_workflow.match?(/env -u CI bundle exec rspec[^\n]*--tag fresh_process/)
+errors << "Ordinary backend RSpec must exclude the dedicated fresh-process assurance" unless
+  pinned_workflow.match?(/bin\/turbo_rspec[^\n]*--tag ~fresh_process/)
 
 %w[Gemfile.lock pnpm-lock.yaml].each do |lockfile|
   errors << "#{lockfile} is required" unless File.file?(File.expand_path("../#{lockfile}", __dir__))

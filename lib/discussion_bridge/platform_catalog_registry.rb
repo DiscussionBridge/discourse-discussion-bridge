@@ -5,14 +5,18 @@ require "json"
 
 module DiscussionBridge
   class PlatformCatalogRegistry
+    RECONCILIATION_BATCH_SIZE = 100
     Page = Data.define(:catalog_revision, :items, :next_cursor, :complete)
 
-    def self.page(connection:, platform_profile:, segment_type:, catalog_revision:, cursor:, limit:)
+    def self.page(connection:, platform_profile:, segment_type:, catalog_revision:, cursor:, limit:,
+                  correlation_id: nil, maximum_response_bytes: nil)
       new(connection: connection, platform_profile: platform_profile).page(
         segment_type: segment_type,
         catalog_revision: catalog_revision,
         cursor: cursor,
         limit: limit,
+        correlation_id: correlation_id,
+        maximum_response_bytes: maximum_response_bytes,
       )
     end
 
@@ -30,13 +34,27 @@ module DiscussionBridge
       )
     end
 
+    def self.reconcile_removed_batch!(connection_id:, platform_profile:, catalog_revision:,
+                                      after_work_id:)
+      connection = DiscussionBridgeContentConnection.find_by(id: connection_id)
+      return unless connection
+
+      new(connection: connection, platform_profile: platform_profile).reconcile_removed_batch!(
+        catalog_revision: catalog_revision,
+        after_work_id: after_work_id,
+      )
+    rescue AdapterRequestBoundary::Error
+      nil
+    end
+
     def initialize(connection:, platform_profile:)
       @connection = connection
       @platform_profile = platform_profile
       @policies = PlatformCatalogProtocol.validate_profile!(connection, platform_profile)
     end
 
-    def page(segment_type:, catalog_revision:, cursor:, limit:)
+    def page(segment_type:, catalog_revision:, cursor:, limit:, correlation_id: nil,
+             maximum_response_bytes: nil)
       raise AdapterRequestBoundary::Error, "validation_failed" if
         PlatformCatalogProtocol::SEGMENT_TYPES.exclude?(segment_type)
 
@@ -46,21 +64,16 @@ module DiscussionBridge
         cursor: cursor,
       )
       items = segment_items(revision, segment_type).sort_by { |item| item.fetch("id") }
-      page_items = items.slice(offset, limit) || []
-      next_offset = offset + page_items.length
-      complete = next_offset >= items.length
-      next_cursor = unless complete
-        SourceCursor.issue(
-          kind: "catalog",
-          payload: {
-            "connection_id" => @connection.public_id,
-            "platform_profile" => @platform_profile,
-            "segment_type" => segment_type,
-            "catalog_revision" => revision,
-            "offset" => next_offset,
-          },
-        )
-      end
+      candidates = items.slice(offset, limit) || []
+      page_items, next_cursor, complete = bounded_page(
+        revision: revision,
+        segment_type: segment_type,
+        items: candidates,
+        offset: offset,
+        total: items.length,
+        correlation_id: correlation_id,
+        maximum_response_bytes: maximum_response_bytes,
+      )
       Page.new(
         catalog_revision: revision,
         items: page_items,
@@ -105,34 +118,114 @@ module DiscussionBridge
           end
           replacement.segments.create!(segment_type: segment_type, items: items)
         end
-        reconcile_removed_destinations!(replacement)
       end
+      Jobs.enqueue(
+        :discussion_bridge_reconcile_catalog_work,
+        connection_id: @connection.id,
+        platform_profile: @platform_profile,
+        catalog_revision: replacement.catalog_revision,
+        after_work_id: 0,
+      )
       replacement
     rescue ActiveRecord::RecordNotUnique
       raise AdapterRequestBoundary::Error, "catalog_revision_conflict"
     end
 
+    def reconcile_removed_batch!(catalog_revision:, after_work_id:)
+      next_work_id = nil
+      DiscussionBridgePlatformCatalog.transaction do
+        @connection.lock!
+        catalog = current_catalog
+        return unless catalog&.catalog_revision == catalog_revision
+
+        policy_ids = @policies.map { |policy| policy.fetch("destination_policy_id") }
+        works = @connection.publication_works.where(
+          destination_policy_id: policy_ids,
+          state: %w[available retry_wait],
+        ).where("id > ?", after_work_id).order(:id).limit(RECONCILIATION_BATCH_SIZE + 1).to_a
+        page = works.first(RECONCILIATION_BATCH_SIZE)
+        available = available_items(catalog)
+        now = Time.zone.now
+        page.each do |work|
+          next if resolved_work_available?(work, available)
+
+          work.update!(
+            state: "operator_attention",
+            resolution_error: "operator_action_required",
+            available_at: nil,
+            updated_at: now,
+          )
+        end
+        next_work_id = page.last.id if works.length > RECONCILIATION_BATCH_SIZE
+      end
+      return unless next_work_id
+
+      Jobs.enqueue(
+        :discussion_bridge_reconcile_catalog_work,
+        connection_id: @connection.id,
+        platform_profile: @platform_profile,
+        catalog_revision: catalog_revision,
+        after_work_id: next_work_id,
+      )
+    end
+
+    def resolved_work_available_in_current_catalog?(work)
+      catalog = current_catalog
+      return true unless catalog
+
+      resolved_work_available?(work, available_items(catalog))
+    end
+
     private
 
-    def reconcile_removed_destinations!(catalog)
-      available = PlatformCatalogProtocol::SEGMENT_TYPES.to_h do |segment_type|
+    def bounded_page(revision:, segment_type:, items:, offset:, total:, correlation_id:,
+                     maximum_response_bytes:)
+      return page_position(revision, segment_type, items, offset, total) unless maximum_response_bytes
+
+      accepted = []
+      items.each do |item|
+        proposed = accepted + [item]
+        next_cursor, complete = page_position(revision, segment_type, proposed, offset, total).drop(1)
+        payload = {
+          catalog_revision: revision,
+          platform_profile: @platform_profile,
+          segment_type: segment_type,
+          items: proposed,
+          next_cursor: next_cursor,
+          complete: complete,
+          correlation_id: correlation_id,
+        }
+        break if ActiveSupport::JSON.encode(payload).bytesize > maximum_response_bytes
+
+        accepted = proposed
+      end
+      raise AdapterRequestBoundary::Error, "content_unsupported" if accepted.empty? && offset < total
+
+      page_position(revision, segment_type, accepted, offset, total)
+    end
+
+    def page_position(revision, segment_type, items, offset, total)
+      next_offset = offset + items.length
+      complete = next_offset >= total
+      next_cursor = unless complete
+        SourceCursor.issue(
+          kind: "catalog",
+          payload: {
+            "connection_id" => @connection.public_id,
+            "platform_profile" => @platform_profile,
+            "segment_type" => segment_type,
+            "catalog_revision" => revision,
+            "offset" => next_offset,
+          },
+        )
+      end
+      [items, next_cursor, complete]
+    end
+
+    def available_items(catalog)
+      PlatformCatalogProtocol::SEGMENT_TYPES.to_h do |segment_type|
         items = catalog.segments.find_by(segment_type: segment_type)&.items || []
         [segment_type, items.select { |item| item["available"] }]
-      end
-      policy_ids = @policies.map { |policy| policy.fetch("destination_policy_id") }
-      now = Time.zone.now
-      @connection.publication_works.where(
-        destination_policy_id: policy_ids,
-        state: %w[available retry_wait],
-      ).find_each do |work|
-        next if resolved_work_available?(work, available)
-
-        work.update!(
-          state: "operator_attention",
-          resolution_error: "operator_action_required",
-          available_at: nil,
-          updated_at: now,
-        )
       end
     end
 

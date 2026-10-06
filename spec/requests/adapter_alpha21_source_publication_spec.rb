@@ -155,6 +155,11 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
 
     inventory(correlation: "source-inventory-3")
     expect(response.parsed_body.fetch("items").length).to eq(3)
+    replacement_snapshot = response.parsed_body.fetch("snapshot")
+
+    inventory(correlation: "source-inventory-3-repeat")
+    expect(response.parsed_body.fetch("snapshot")).to eq(replacement_snapshot)
+    expect(@connection.source_snapshots.count).to eq(2)
 
     inventory(
       params: {
@@ -165,6 +170,50 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     )
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body.fetch("error_code")).to eq("cursor_snapshot_mismatch")
+  end
+
+  it "reuses and incrementally builds one high-water snapshot with bounded cleanup" do
+    stub_const(DiscussionBridge::SourceSnapshotManager, :BUILD_BATCH_SIZE, 2) do
+      stub_const(DiscussionBridge::SourceSnapshotManager, :CLEANUP_BATCH_SIZE, 2) do
+        topics = 3.times.map { |index| create_source(title: "Bounded source #{index}").first }
+
+        inventory(params: { limit: 1 }, correlation: "bounded-snapshot-first")
+        first = response.parsed_body
+        snapshot_id = first.fetch("snapshot")
+        snapshot = DiscussionBridgeSourceSnapshot.find_by!(snapshot_id: snapshot_id)
+        expect(snapshot).to have_attributes(build_complete: false, scan_cursor_record_id: be_positive)
+        expect(snapshot.snapshot_items.count).to eq(2)
+
+        inventory(params: { limit: 1 }, correlation: "bounded-snapshot-repeat")
+        expect(response.parsed_body.fetch("snapshot")).to eq(snapshot_id)
+        expect(response.parsed_body.fetch("items")).to eq(first.fetch("items"))
+        expect(@connection.source_snapshots.count).to eq(1)
+
+        create_source(title: "After bounded high water")
+        received_topic_ids = first.fetch("items").pluck("topic_id")
+        cursor = first.fetch("next_cursor")
+        until cursor.nil?
+          inventory(
+            params: { limit: 1, snapshot: snapshot_id, cursor: cursor },
+            correlation: "bounded-snapshot-page-#{received_topic_ids.length}",
+          )
+          received_topic_ids.concat(response.parsed_body.fetch("items").pluck("topic_id"))
+          cursor = response.parsed_body["next_cursor"]
+        end
+        expect(received_topic_ids).to contain_exactly(*topics.map(&:id))
+        expect(snapshot.reload).to have_attributes(build_complete: true)
+
+        snapshot.update_columns(expires_at: 1.second.ago)
+        inventory(params: { limit: 1 }, correlation: "bounded-snapshot-replacement")
+        replacement_id = response.parsed_body.fetch("snapshot")
+        expect(replacement_id).not_to eq(snapshot_id)
+        expect(snapshot.reload.snapshot_items.count).to eq(1)
+
+        inventory(params: { limit: 1 }, correlation: "bounded-snapshot-cleanup-finish")
+        expect(response.parsed_body.fetch("snapshot")).to eq(replacement_id)
+        expect(DiscussionBridgeSourceSnapshot.exists?(snapshot.id)).to eq(false)
+      end
+    end
   end
 
   it "retains and returns exact revision-pinned first-post detail after a later source edit" do
@@ -393,11 +442,15 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     end.fetch("source_revision_sequence")
     topic.update_columns(visible: false)
     second_topic.update_columns(visible: false)
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(topic.id)
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(second_topic.id)
 
+    allow(DiscussionBridge::SourceRevocationRegistry).to receive(:reconcile!)
     get "/discussion-bridge/v1/source-revocations.json",
         headers: headers(correlation: "revocations-1"),
         params: { limit: 1 }
     expect(response).to have_http_status(:ok), response.body
+    expect(DiscussionBridge::SourceRevocationRegistry).not_to have_received(:reconcile!)
     index = response.parsed_body
     expect(index.keys).to contain_exactly(*DiscussionBridge::SourcePublicationProtocol::REVOCATION_INDEX_FIELDS)
     item = index.fetch("items").sole
@@ -424,8 +477,8 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 source publication" do
     )
 
     topic.update_columns(visible: true, updated_at: 1.minute.from_now)
-    inventory(correlation: "source-restored")
-    restored_sequence = response.parsed_body.fetch("items").sole.fetch("source_revision_sequence")
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_topic!(topic.id)
+    restored_sequence = DiscussionBridgeBridgeRecord.find_by!(topic_id: topic.id).source_revision_sequence
     expect(restored_sequence).to be > item.fetch("source_revision_sequence")
     expect(DiscussionBridgeSourceRevocation.find_by!(revocation_id: item.fetch("revocation_id")).restored_at).to be_present
   end

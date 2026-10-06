@@ -31,17 +31,33 @@ module DiscussionBridge
 
     def reconcile_record!(record)
       return unless source_records.where(id: record.id).exists?
-      return if ConnectionCapability.publication_readiness(@connection) == :temporarily_unavailable
+      result = nil
+      @connection.with_lock do
+        record.lock!
+        next if ConnectionCapability.publication_readiness(@connection) == :temporarily_unavailable
 
-      reason = SourceRevisionMaterializer.unavailability_reason(
-        record: record,
-        connection: @connection,
-      )
-      if reason
-        revoke!(record, reason)
-      elsif !restore!(record)
-        SourceRevisionMaterializer.call(record: record, connection: @connection)
+        reason = SourceRevisionMaterializer.unavailability_reason(
+          record: record,
+          connection: @connection,
+        )
+        if reason
+          revoke!(record, reason)
+          next
+        end
+
+        if active_revocations(record).exists?
+          result = restore!(record)
+          next
+        end
+
+        materialized = SourceRevisionMaterializer.call(record: record, connection: @connection)
+        if materialized.reason
+          revoke!(record, materialized.reason)
+        else
+          result = materialized
+        end
       end
+      result
     end
 
     def reconcile_policy_removal!(previous_authority)
@@ -181,19 +197,24 @@ module DiscussionBridge
 
     def restore!(record)
       active = active_revocations(record).to_a
-      return false if active.empty?
+      return if active.empty?
 
-      SourceRevisionMaterializer.call(
+      materialized = SourceRevisionMaterializer.call(
         record: record,
         connection: @connection,
         force_revision: true,
       )
+      if materialized.reason
+        revoke!(record, materialized.reason)
+        return
+      end
+
       now = Time.zone.now
       DiscussionBridgeSourceRevocation.where(id: active.map(&:id)).update_all(
         restored_at: now,
         updated_at: now,
       )
-      true
+      materialized
     end
 
     def active_revocations(record)

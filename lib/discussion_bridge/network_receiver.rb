@@ -23,25 +23,30 @@ module DiscussionBridge
     end
 
     def call
-      raise AdapterRequestBoundary::Error, "scope_denied" unless @peer.operational?
-
-      identity = DiscussionBridgeForumIdentity.current
       detail = NetworkSourceDetail.call(payload: @source_detail, content_html: @content_html)
-      provenance = DiscourseNetworkProtocol.validate_provenance!(
-        detail.fetch("network_provenance"),
-        peer: @peer,
-        local_identity: identity,
-      )
-      raise AdapterRequestBoundary::Error, "integrity_failed" unless
-        provenance.fetch("origin_topic_url") == detail.fetch("topic_url")
-      require_current_authority!(detail, provenance, identity)
-      immutable = DiscourseNetworkProtocol.immutable_operation(
-        source_detail: detail,
-        provenance: provenance,
-        policy_revision: @policy_revision,
-      )
       result = nil
       DiscussionBridgeNetworkReplay.transaction do
+        identity = DiscussionBridgeForumIdentity.lock.find_by(
+          singleton_key: DiscussionBridgeForumIdentity::SINGLETON_KEY,
+        )
+        @peer = DiscussionBridgeNetworkPeer.lock.find(@peer.id)
+        connection = DiscussionBridgeContentConnection.lock.find(@peer.content_connection_id)
+        @peer.association(:content_connection).target = connection
+        raise AdapterRequestBoundary::Error, "scope_denied" unless identity&.ready? && @peer.operational?
+
+        provenance = DiscourseNetworkProtocol.validate_provenance!(
+          detail.fetch("network_provenance"),
+          peer: @peer,
+          local_identity: identity,
+        )
+        raise AdapterRequestBoundary::Error, "integrity_failed" unless
+          provenance.fetch("origin_topic_url") == detail.fetch("topic_url")
+        require_current_authority!(detail, provenance, identity)
+        immutable = DiscourseNetworkProtocol.immutable_operation(
+          source_detail: detail,
+          provenance: provenance,
+          policy_revision: @policy_revision,
+        )
         replay = NetworkReplayRegistry.reserve!(
           peer: @peer,
           provenance: provenance,

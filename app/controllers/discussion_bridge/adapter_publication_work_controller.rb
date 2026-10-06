@@ -3,8 +3,7 @@
 module DiscussionBridge
   class AdapterPublicationWorkController < AdapterController
     def claim
-      claimed_at = Time.zone.now
-      work = PublicationWorkRegistry.claim(
+      batch = PublicationWorkRegistry.claim_batch(
         connection: @content_connection,
         worker_id: params.require(:worker_id),
         maximum_items: params[:maximum_items],
@@ -12,7 +11,9 @@ module DiscussionBridge
         correlation_id: @correlation_id,
       )
       response.set_header("Cache-Control", "private, no-store")
-      render_protocol_json({ publication_work: work, claimed_at: claimed_at.iso8601(6) })
+      render_protocol_json(
+        { publication_work: batch.items, claimed_at: batch.claimed_at.iso8601(6) },
+      )
     end
 
     def renew

@@ -127,16 +127,26 @@ export default class DiscussionBridgeReconciliation extends Component {
           <tbody>
             {{#each @model.items as |item|}}
               <tr>
-                <td><span
+                <td data-label={{i18n "discussion_bridge.admin.severity"}}><span
                     class="discussion-bridge-reconciliation__severity"
                     data-severity={{item.severity}}
                   >{{this.displayToken item.severity}}</span></td>
-                <td>{{this.displayToken item.code}}</td>
-                <td><code>{{item.resource_id}}</code></td>
-                <td>{{item.connection_name}}</td>
-                <td>{{#if item.topic_id}}<a href="/t/{{item.topic_id}}">Topic
+                <td
+                  data-label={{i18n "discussion_bridge.admin.issue"}}
+                >{{this.displayToken item.code}}</td>
+                <td
+                  data-label={{i18n "discussion_bridge.admin.bridge_record"}}
+                ><code>{{item.resource_id}}</code></td>
+                <td
+                  data-label={{i18n "discussion_bridge.admin.connection"}}
+                >{{item.connection_name}}</td>
+                <td
+                  data-label={{i18n "discussion_bridge.admin.discussion"}}
+                >{{#if item.topic_id}}<a href="/t/{{item.topic_id}}">Topic
                       {{item.topic_id}}</a>{{else}}—{{/if}}</td>
-                <td>{{item.recommendation}}</td>
+                <td
+                  data-label={{i18n "discussion_bridge.admin.recommendation"}}
+                >{{item.recommendation}}</td>
               </tr>
             {{else}}<tr><td colspan="6">{{i18n
                     "discussion_bridge.admin.no_issues"

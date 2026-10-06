@@ -113,6 +113,15 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     revision
   end
 
+  def reconcile_catalog_work(revision)
+    Jobs::DiscussionBridgeReconcileCatalogWork.new.execute(
+      connection_id: @connection.id,
+      platform_profile: "wordpress",
+      catalog_revision: revision,
+      after_work_id: 0,
+    )
+  end
+
   def make_destination_static!
     source_connection = @connection
     source_catalog = source_connection.platform_catalogs.where(current: true).sole
@@ -354,6 +363,92 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         }
     expect(response).to have_http_status(:conflict)
     expect(response.parsed_body.fetch("error_code")).to eq("cursor_snapshot_mismatch")
+  end
+
+  it "paginates a composed wide catalog beneath the exact response-byte ceiling" do
+    tags = 55.times.map { Fabricate(:tag) }
+    identifier = ->(batch, index) { "#{batch}:#{index}:".ljust(255, "i") }
+    mapped_policy = destination_policy.deep_merge(
+      "taxonomy_mapping" => {
+        "mode" => "mapped_only",
+        "items" => tags.each_with_index.map do |tag, index|
+          {
+            "source" => "discourse:tag:#{tag.id}",
+            "destination" => identifier.call(0, index),
+          }
+        end,
+      },
+    )
+    @connection.update!(destination_policies: [mapped_policy])
+    revision = mapped_policy.fetch("catalog_revision")
+    expected_ids = []
+
+    [55, 45].each_with_index do |count, batch|
+      items = count.times.map do |index|
+        {
+          id: identifier.call(batch, index),
+          taxonomy_id: "t" * 255,
+          name: "n" * 255,
+          parent_id: nil,
+          available: true,
+        }
+      end
+      expected_ids.concat(items.pluck(:id))
+      correlation = "catalog-wide-update-#{batch}"
+      payload = {
+        platform_profile: "wordpress",
+        base_catalog_revision: revision,
+        segments: [
+          {
+            segment_type: "taxonomies",
+            items: [
+              {
+                id: "t" * 255,
+                name: "Wide taxonomy",
+                hierarchical: false,
+                available: true,
+              },
+            ],
+          },
+          { segment_type: "terms", items: items },
+        ],
+        correlation_id: correlation,
+      }
+      body = JSON.generate(payload)
+      expect(body.bytesize).to be <= DiscussionBridge::PlatformCatalogProtocol::MAXIMUM_JSON_BYTES
+      put "/discussion-bridge/v1/platform-catalog.json",
+          headers: headers(correlation: correlation).merge("CONTENT_TYPE" => "application/json"),
+          params: body
+      expect(response).to have_http_status(:ok), response.body
+      revision = response.parsed_body.fetch("catalog_revision")
+    end
+
+    cursor = nil
+    received_ids = []
+    page = 0
+    loop do
+      correlation = "catalog-wide-page-#{page}"
+      get "/discussion-bridge/v1/platform-catalog.json",
+          headers: headers(correlation: correlation),
+          params: {
+            platform_profile: "wordpress",
+            segment_type: "terms",
+            catalog_revision: revision,
+            cursor: cursor,
+            limit: 100,
+          }.compact
+      expect(response).to have_http_status(:ok), response.body
+      expect(response.body.bytesize).to be <= DiscussionBridge::PlatformCatalogProtocol::MAXIMUM_JSON_BYTES
+      received_ids.concat(response.parsed_body.fetch("items").pluck("id"))
+      break if response.parsed_body.fetch("complete")
+
+      cursor = response.parsed_body.fetch("next_cursor")
+      page += 1
+    end
+
+    expect(page).to be >= 1
+    expect(received_ids).to contain_exactly(*expected_ids)
+    expect(received_ids.uniq.length).to eq(100)
   end
 
   it "claims exact resolved work, renews its bounded lease, and completes a dynamic destination" do
@@ -598,7 +693,6 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     )
     queued = @connection.publication_works.order(:id).last
     expect(queued).to have_attributes(action: "update", state: "available", leased_at: nil)
-    queued.update_columns(resolved_container: { "id" => "site:queued-only", "kind" => "post_type" })
     original = @connection.attributes.slice(
       "name",
       "platform",
@@ -630,7 +724,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(queued.reload).to have_attributes(
       action: "update",
       state: "available",
-      resolved_container: { "id" => "site:queued-only", "kind" => "post_type" },
+      resolved_container: { "id" => "site:articles", "kind" => "post_type" },
     )
 
     claim(correlation: "platform-change-rejected-claim")
@@ -1571,6 +1665,79 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(work).to have_attributes(state: "available", leased_at: nil, may_have_materialized: false)
   end
 
+  it "starts the requested lease only after the controlling locks are acquired" do
+    install_catalog
+    create_source
+    materialize_source
+    admitted_at = Time.zone.now
+    allow_any_instance_of(DiscussionBridgeContentConnection).to receive(:lock!).and_wrap_original do |original, *args|
+      result = original.call(*args)
+      travel_to(admitted_at + 2.seconds)
+      result
+    end
+
+    begin
+      claim(correlation: "post-lock-lease-clock", lease_seconds: 1)
+      claimed = response.parsed_body.fetch("publication_work").sole
+      claimed_at = Time.iso8601(response.parsed_body.fetch("claimed_at"))
+      work = DiscussionBridgePublicationWork.find_by!(work_id: claimed.fetch("work_id"))
+      expect(claimed_at).to eq(Time.zone.now)
+      expect(work.leased_at).to eq_time(claimed_at)
+      expect(Time.iso8601(claimed.fetch("lease_expires_at"))).to eq(1.second.since(claimed_at))
+    ensure
+      travel_back
+    end
+  end
+
+  it "preserves an active revocation when restoration loses current eligibility" do
+    install_catalog
+    topic, = create_source
+    materialize_source
+    topic.update_columns(visible: false)
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(
+      record: @connection.bridge_records.sole,
+      connection: @connection,
+    )
+    record = @connection.bridge_records.sole
+    revocation = record.source_revocations.where(restored_at: nil).sole
+    withdrawal = record.publication_works.find_by!(source_revocation_id: revocation.id)
+    topic.update_columns(visible: true)
+    revision_count = record.source_revisions.count
+    allow(DiscussionBridge::SourceRevisionMaterializer).to receive(:call).and_wrap_original do |original, **args|
+      topic.update_columns(visible: false)
+      original.call(**args)
+    end
+
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(record: record, connection: @connection)
+
+    expect(revocation.reload.restored_at).to be_nil
+    expect(record.source_revisions.count).to eq(revision_count)
+    expect(withdrawal.reload.state).to eq("available")
+    claim(correlation: "declined-active-restoration")
+    expect(response.parsed_body.fetch("publication_work").pluck("action")).to eq(["unpublish"])
+  end
+
+  it "creates cleanup when a source becomes ineligible during first reconciliation" do
+    install_catalog
+    topic, = create_source
+    materialize_source
+    record = @connection.bridge_records.sole
+    revision_count = record.source_revisions.count
+    allow(DiscussionBridge::SourceRevisionMaterializer).to receive(:call).and_wrap_original do |original, **args|
+      topic.update_columns(visible: false)
+      original.call(**args)
+    end
+
+    DiscussionBridge::SourceRevocationRegistry.reconcile_record!(record: record, connection: @connection)
+
+    revocation = record.source_revocations.where(restored_at: nil).sole
+    expect(revocation.reason).to eq("source_unpublished")
+    expect(record.source_revisions.count).to eq(revision_count)
+    expect(record.publication_works.where(action: %w[publish update], state: "available")).to be_empty
+    claim(correlation: "declined-first-reconciliation")
+    expect(response.parsed_body.fetch("publication_work").pluck("action")).to eq(["unpublish"])
+  end
+
   it "retains durable cleanup evidence after an issued lease expires and resets" do
     install_catalog
     _, source_post, record = create_source
@@ -1650,6 +1817,71 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       )
       expect(@connection.publication_works.where(action: "unpublish").count).to eq(1)
     end
+  end
+
+  it "reconciles retry and expired-lease backlogs in indexed bounded batches" do
+    install_catalog
+    create_source
+    materialize_source
+    source = @connection.publication_works.sole
+    batch_size = DiscussionBridge::PublicationWorkRegistry::MAINTENANCE_BATCH_SIZE
+    now = Time.zone.now
+    retry_works = (batch_size + 1).times.map do |index|
+      source.dup.tap do |work|
+        work.assign_attributes(
+          work_id: nil,
+          source_revision: "maintenance:retry:#{index}",
+          source_revision_sequence: source.source_revision_sequence + index + 1,
+          state: "retry_wait",
+          available_at: nil,
+          next_retry_at: 1.minute.ago(now),
+        )
+        work.save!
+      end
+    end
+    lease_works = (batch_size + 1).times.map do |index|
+      source.dup.tap do |work|
+        work.assign_attributes(
+          work_id: nil,
+          source_revision: "maintenance:lease:#{index}",
+          source_revision_sequence: source.source_revision_sequence + batch_size + index + 2,
+          state: "leased",
+          available_at: nil,
+          worker_id: "maintenance-worker-#{index}",
+          lease_token_digest: Digest::SHA256.hexdigest("maintenance-lease-#{index}"),
+          stage_token_digest: Digest::SHA256.hexdigest("maintenance-stage-#{index}"),
+          leased_at: now - 2.minutes,
+          lease_expires_at: 1.minute.ago(now),
+          total_lease_seconds: 60,
+          may_have_materialized: true,
+        )
+        work.save!
+      end
+    end
+    registry = DiscussionBridge::PublicationWorkRegistry.new(connection: @connection)
+
+    registry.send(:reconcile_expired!, now)
+
+    expect(DiscussionBridgePublicationWork.where(id: retry_works.map(&:id), state: "available").count).to eq(
+      batch_size,
+    )
+    expect(DiscussionBridgePublicationWork.where(id: lease_works.map(&:id)).where.not(state: "leased").count).to eq(
+      batch_size,
+    )
+    expect(DiscussionBridgePublicationWork.where(id: retry_works.map(&:id), state: "retry_wait").count).to eq(1)
+    expect(DiscussionBridgePublicationWork.where(id: lease_works.map(&:id), state: "leased").count).to eq(1)
+
+    registry.send(:reconcile_expired!, now)
+    expect(DiscussionBridgePublicationWork.where(id: retry_works.map(&:id), state: "available").count).to eq(
+      batch_size + 1,
+    )
+    expect(DiscussionBridgePublicationWork.where(id: lease_works.map(&:id)).where.not(state: "leased").count).to eq(
+      batch_size + 1,
+    )
+    expect(ActiveRecord::Base.connection.indexes(:discussion_bridge_publication_works).map(&:name)).to include(
+      "idx_db_publication_works_retry_due",
+      "idx_db_publication_works_lease_due",
+    )
   end
 
   it "resumes retryable static work from its last acknowledged stage" do
@@ -1983,6 +2215,40 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     unrelated = Fabricate(:topic, user: admin, category: category)
     Fabricate(:post, topic: unrelated, user: admin, post_number: 1)
     expect(DiscussionBridge::SourcePublicationLifecycle.enqueue_topic(unrelated.id)).to eq(false)
+  end
+
+  it "bounds and resumes connection-authority source reconciliation" do
+    install_catalog
+    _, _, first = create_source(title: "First bounded authority source")
+    _, _, second = create_source(title: "Second bounded authority source")
+    materialize_source
+    @connection.update!(allowed_lanes: ["news"])
+    continuation = nil
+
+    stub_const(DiscussionBridge::SourcePublicationLifecycle, :BATCH_SIZE, 1) do
+      allow(Jobs).to receive(:enqueue) do |_job, arguments|
+        continuation = arguments
+      end
+
+      expect(
+        DiscussionBridge::SourcePublicationLifecycle.reconcile_connection!(@connection.id),
+      ).to eq(true)
+      expect(@connection.source_revocations.count).to eq(1)
+      expect(Jobs).to have_received(:enqueue).with(
+        :discussion_bridge_reconcile_source_connection,
+        connection_id: @connection.id,
+        after_record_id: first.id,
+      ).once
+      expect(continuation).to be_present
+
+      Jobs::DiscussionBridgeReconcileSourceConnection.new.execute(continuation)
+    end
+
+    expect(@connection.source_revocations.pluck(:bridge_record_id)).to contain_exactly(
+      first.id,
+      second.id,
+    )
+    expect(@connection.publication_works.where(action: "unpublish").count).to eq(2)
   end
 
   it "keeps discussion status separate while staff exclude and restore one mapped publication" do
@@ -2416,6 +2682,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
     expect(response.parsed_body.fetch("resulting_state")).to eq("retry_wait")
 
     @connection.update!(allowed_lanes: ["news"])
+    DiscussionBridge::SourcePublicationLifecycle.reconcile_connection!(@connection.id)
     get "/discussion-bridge/v1/source-revocations.json", headers: headers(correlation: "scope-revoke")
     expect(response).to have_http_status(:ok)
     claim(correlation: "scope-withdrawal")
@@ -2526,9 +2793,95 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
       correlation_id: "catalog-remove",
     }, as: :json
     expect(response).to have_http_status(:ok)
+    reconcile_catalog_work(response.parsed_body.fetch("catalog_revision"))
     expect(work.reload).to have_attributes(state: "operator_attention", resolution_error: "operator_action_required")
     claim(correlation: "catalog-remove-claim")
     expect(response.parsed_body.fetch("publication_work")).to be_empty
+  end
+
+  it "rejects a removed destination at claim time before background reconciliation" do
+    revision = install_catalog
+    create_source
+    materialize_source
+    work = @connection.publication_works.sole
+    segments = catalog_segments
+    segments.find { |segment| segment["segment_type"] == "containers" }["items"] = []
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "catalog-claim-safety"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: revision,
+          segments: segments,
+          correlation_id: "catalog-claim-safety",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+
+    claim(correlation: "catalog-claim-safety-claim")
+
+    expect(response.parsed_body.fetch("publication_work")).to be_empty
+    expect(work.reload).to have_attributes(
+      state: "operator_attention",
+      resolution_error: "operator_action_required",
+    )
+  end
+
+  it "reconciles removed destinations in restartable bounded background batches" do
+    revision = install_catalog
+    create_source
+    materialize_source
+    source = @connection.publication_works.sole
+    works = [source]
+    2.times do |index|
+      works << source.dup.tap do |work|
+        work.assign_attributes(
+          work_id: nil,
+          source_revision: "catalog-background:#{index}",
+          source_revision_sequence: source.source_revision_sequence + index + 1,
+        )
+        work.save!
+      end
+    end
+    segments = catalog_segments
+    segments.find { |segment| segment["segment_type"] == "containers" }["items"] = []
+    allow(Jobs).to receive(:enqueue)
+    put "/discussion-bridge/v1/platform-catalog.json",
+        headers: headers(correlation: "catalog-background"),
+        params: {
+          platform_profile: "wordpress",
+          base_catalog_revision: revision,
+          segments: segments,
+          correlation_id: "catalog-background",
+        },
+        as: :json
+    expect(response).to have_http_status(:ok), response.body
+    next_revision = response.parsed_body.fetch("catalog_revision")
+
+    stub_const(DiscussionBridge::PlatformCatalogRegistry, :RECONCILIATION_BATCH_SIZE, 2) do
+      DiscussionBridge::PlatformCatalogRegistry.reconcile_removed_batch!(
+        connection_id: @connection.id,
+        platform_profile: "wordpress",
+        catalog_revision: next_revision,
+        after_work_id: 0,
+      )
+      expect(works.first(2).map { |work| work.reload.state }).to eq(%w[operator_attention operator_attention])
+      expect(works.last.reload.state).to eq("available")
+      expect(Jobs).to have_received(:enqueue).with(
+        :discussion_bridge_reconcile_catalog_work,
+        connection_id: @connection.id,
+        platform_profile: "wordpress",
+        catalog_revision: next_revision,
+        after_work_id: works.fetch(1).id,
+      )
+
+      DiscussionBridge::PlatformCatalogRegistry.reconcile_removed_batch!(
+        connection_id: @connection.id,
+        platform_profile: "wordpress",
+        catalog_revision: next_revision,
+        after_work_id: works.fetch(1).id,
+      )
+    end
+    expect(works.map { |work| work.reload.state }).to all(eq("operator_attention"))
   end
 
   it "keeps work unclaimable when its resolved author or term is unavailable" do
@@ -2715,6 +3068,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         as: :json
     expect(response).to have_http_status(:ok), response.body
     next_revision = response.parsed_body.fetch("catalog_revision")
+    reconcile_catalog_work(next_revision)
     expect(work.reload).to have_attributes(
       state: "operator_attention",
       resolution_error: "operator_action_required",
@@ -2744,6 +3098,7 @@ describe "DiscussionBridge Adapter Protocol Alpha.21 publication work" do
         },
         as: :json
     expect(response).to have_http_status(:ok), response.body
+    reconcile_catalog_work(response.parsed_body.fetch("catalog_revision"))
     expect(work.reload).to have_attributes(
       state: "operator_attention",
       resolution_error: "operator_action_required",

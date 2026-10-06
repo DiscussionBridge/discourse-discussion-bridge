@@ -239,7 +239,7 @@ jobs:
     name: ${{ matrix.build_type || '' }}_tests
     runs-on: ${{ inputs.runs_on }}
     container: ${{ inputs.container || format('discourse/discourse_test:slim{0}', (matrix.build_type == 'frontend' || matrix.build_type == 'system') && '-browsers' || '') }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     needs: check_for_tests
 
     env:
@@ -425,7 +425,7 @@ jobs:
           if [ "${{ matrix.build_type }}" = "system" ]; then
             echo "PARALLEL_TEST_PROCESSORS=$(($(nproc) / 2))" >> $GITHUB_ENV
           else
-            echo "PARALLEL_TEST_PROCESSORS=$(nproc)" >> $GITHUB_ENV
+            echo "PARALLEL_TEST_PROCESSORS=1" >> $GITHUB_ENV
           fi
 
       - name: Fetch app state cache
@@ -522,9 +522,19 @@ jobs:
         if: matrix.build_type == 'backend' && needs.check_for_tests.outputs.has_compatibility_file && !inputs.core_ref
         run: bin/rake "compatibility:validate[plugins/${{ env.PLUGIN_NAME }}/.discourse-compatibility]"
 
+      - name: Fresh-process recovery assurance
+        if: matrix.build_type == 'backend' && needs.check_for_tests.outputs.has_specs
+        timeout-minutes: 15
+        run: >-
+          env -u CI bundle exec rspec --format documentation --tag fresh_process
+          plugins/${{ env.PLUGIN_NAME }}/spec/integration/publication_policy_isolation_restart_spec.rb
+          plugins/${{ env.PLUGIN_NAME }}/spec/migrations/populated_recovery_schema_spec.rb
+
       - name: Plugin RSpec
         if: matrix.build_type == 'backend' && needs.check_for_tests.outputs.has_specs
-        run: bin/turbo_rspec --verbose --format documentation --exclude-pattern="*spec/system*" plugins/${{ env.PLUGIN_NAME }}/spec
+        run: >-
+          bin/turbo_rspec --verbose --format documentation --tag ~fresh_process
+          --exclude-pattern="*spec/system*" plugins/${{ env.PLUGIN_NAME }}/spec
 
       - name: Ember Build
         if: matrix.build_type == 'system' || matrix.build_type == 'frontend'

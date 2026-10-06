@@ -21,6 +21,33 @@ module DiscussionBridge
       end
     end
 
+    def self.reconcile_connection!(connection_id, after_record_id: 0)
+      connection = DiscussionBridgeContentConnection.find_by(id: connection_id)
+      return false unless connection
+
+      record_ids = DiscussionBridgeBridgeRecord.joins(:content_bindings).where(
+        direction: "from_discourse",
+        discussion_bridge_content_bindings: {
+          content_connection_id: connection.id,
+          role: "presentation",
+          state: "active",
+        },
+      ).where("discussion_bridge_bridge_records.id > ?", after_record_id)
+        .order(:id).distinct.limit(BATCH_SIZE + 1).pluck(:id)
+      record_ids.first(BATCH_SIZE).each do |record_id|
+        record = DiscussionBridgeBridgeRecord.find_by(id: record_id)
+        SourceRevocationRegistry.reconcile_record!(record: record, connection: connection) if record
+      end
+      if record_ids.length > BATCH_SIZE
+        Jobs.enqueue(
+          :discussion_bridge_reconcile_source_connection,
+          connection_id: connection.id,
+          after_record_id: record_ids.fetch(BATCH_SIZE - 1),
+        )
+      end
+      true
+    end
+
     def self.enqueue_category(category_id, after_topic_id: 0)
       topic_ids = authorized_records
         .joins(:topic)

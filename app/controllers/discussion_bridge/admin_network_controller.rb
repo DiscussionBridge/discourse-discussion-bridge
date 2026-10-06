@@ -43,19 +43,24 @@ module DiscussionBridge
     end
 
     def create_peer
-      identity = DiscussionBridgeForumIdentity.current
-      raise ArgumentError, "network identity is not enabled" unless identity&.ready?
-
       attributes = peer_params
       secret = attributes.delete(:remote_secret)
-      peer = DiscussionBridgeNetworkPeer.new(
-        attributes.merge(
-          authorized_by: current_user,
-          authorized_at: Time.zone.now,
-        ),
-      )
-      peer.remote_secret = secret
-      peer.save!
+      peer = nil
+      DiscussionBridgeNetworkPeer.transaction do
+        identity = DiscussionBridgeForumIdentity.lock.find_by(
+          singleton_key: DiscussionBridgeForumIdentity::SINGLETON_KEY,
+        )
+        raise ArgumentError, "network identity is not enabled" unless identity&.ready?
+
+        peer = DiscussionBridgeNetworkPeer.new(
+          attributes.merge(
+            authorized_by: current_user,
+            authorized_at: Time.zone.now,
+          ),
+        )
+        peer.remote_secret = secret
+        peer.save!
+      end
       audit!(peer.remote_forum_id, "created", "network_peer_authorized")
       render json: { network_peer: serialize_peer(peer) }, status: :created
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
@@ -63,15 +68,21 @@ module DiscussionBridge
     end
 
     def update_peer
-      peer = DiscussionBridgeNetworkPeer.find(params[:id])
       attributes = peer_params
       secret = attributes.delete(:remote_secret)
-      peer.assign_attributes(attributes)
-      peer.remote_secret = secret if secret.present?
-      peer.authorized_by = current_user
-      peer.authorized_at = Time.zone.now
-      peer.disabled_at = peer.enabled ? nil : Time.zone.now
-      peer.save!
+      peer = nil
+      DiscussionBridgeNetworkPeer.transaction do
+        DiscussionBridgeForumIdentity.lock.find_by(
+          singleton_key: DiscussionBridgeForumIdentity::SINGLETON_KEY,
+        )
+        peer = DiscussionBridgeNetworkPeer.lock.find(params[:id])
+        peer.assign_attributes(attributes)
+        peer.remote_secret = secret if secret.present?
+        peer.authorized_by = current_user
+        peer.authorized_at = Time.zone.now
+        peer.disabled_at = peer.enabled ? nil : Time.zone.now
+        peer.save!
+      end
       audit!(peer.remote_forum_id, "updated", "network_peer_updated")
       render json: { network_peer: serialize_peer(peer) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
@@ -79,8 +90,7 @@ module DiscussionBridge
     end
 
     def disable_peer
-      peer = DiscussionBridgeNetworkPeer.find(params[:id])
-      peer.update!(enabled: false, disabled_at: Time.zone.now, authorized_by: current_user)
+      peer = DiscussionBridgeNetworkPeer.disable_authority!(id: params[:id], actor: current_user)
       audit!(peer.remote_forum_id, "disabled", "network_peer_disabled")
       render json: { network_peer: serialize_peer(peer) }
     end

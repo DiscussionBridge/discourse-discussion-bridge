@@ -2,7 +2,9 @@
 
 module DiscussionBridge
   class PublicationWorkRegistry
+    MAINTENANCE_BATCH_SIZE = PublicationWorkProtocol::MAXIMUM_ITEMS
     Claim = Data.define(:work, :lease_token, :stage_token)
+    ClaimBatch = Data.define(:items, :claimed_at)
 
     def self.ensure_revision!(record:, connection:, revision:, action: nil)
       new(connection: connection).ensure_revision!(record: record, revision: revision, action: action)
@@ -30,7 +32,17 @@ module DiscussionBridge
     end
 
     def self.claim(connection:, worker_id:, maximum_items:, requested_lease_seconds:, correlation_id:)
-      new(connection: connection).claim(
+      claim_batch(
+        connection: connection,
+        worker_id: worker_id,
+        maximum_items: maximum_items,
+        requested_lease_seconds: requested_lease_seconds,
+        correlation_id: correlation_id,
+      ).items
+    end
+
+    def self.claim_batch(connection:, worker_id:, maximum_items:, requested_lease_seconds:, correlation_id:)
+      new(connection: connection).claim_batch(
         worker_id: worker_id,
         maximum_items: maximum_items,
         requested_lease_seconds: requested_lease_seconds,
@@ -227,6 +239,15 @@ module DiscussionBridge
     end
 
     def claim(worker_id:, maximum_items:, requested_lease_seconds:, correlation_id:)
+      claim_batch(
+        worker_id: worker_id,
+        maximum_items: maximum_items,
+        requested_lease_seconds: requested_lease_seconds,
+        correlation_id: correlation_id,
+      ).items
+    end
+
+    def claim_batch(worker_id:, maximum_items:, requested_lease_seconds:, correlation_id:)
       PublicationWorkProtocol.valid_label!(worker_id, PublicationWorkProtocol::WORKER_ID_MAXIMUM_BYTES)
       maximum = maximum_items || PublicationWorkProtocol::DEFAULT_MAXIMUM_ITEMS
       lease_seconds = requested_lease_seconds || PublicationWorkProtocol::DEFAULT_LEASE_SECONDS
@@ -235,22 +256,61 @@ module DiscussionBridge
       raise AdapterRequestBoundary::Error, "validation_failed" unless
         lease_seconds.is_a?(Integer) && lease_seconds.between?(1, PublicationWorkProtocol::MAXIMUM_REQUESTED_LEASE_SECONDS)
 
-      now = Time.zone.now
-      reconcile_expired!(now)
+      scan_time = Time.zone.now
+      reconcile_expired!(scan_time)
       claims = []
-      candidates = @connection.publication_works.where(state: "available", resolution_error: nil)
-        .where("available_at IS NULL OR available_at <= ?", now).order(:id).limit(maximum * 4)
-      candidates.each do |candidate|
-        break if claims.length >= maximum
+      claimed_at = nil
+      DiscussionBridgePublicationWork.transaction do
+        @connection.lock!
+        candidates = @connection.publication_works.where(state: "available", resolution_error: nil)
+          .where("available_at IS NULL OR available_at <= ?", scan_time).order(:id)
+          .limit(maximum * 4).lock.to_a
+        eligible = []
+        candidates.each do |candidate|
+          unless currently_authorized?(candidate, allow_withdrawal: true)
+            candidate.update!(state: "superseded", superseded_at: Time.zone.now)
+            next
+          end
+          unless resolved_destination_available?(candidate)
+            candidate.update!(
+              state: "operator_attention",
+              resolution_error: "operator_action_required",
+              available_at: nil,
+            )
+            next
+          end
+          blocker = @connection.publication_works.where(content_binding_id: candidate.content_binding_id)
+            .where(state: %w[leased awaiting_deployment awaiting_verification])
+            .where.not(id: candidate.id).exists?
+          next if blocker
 
-        unless currently_authorized?(candidate, allow_withdrawal: true)
-          candidate.update!(state: "superseded", superseded_at: now)
-          next
+          eligible << candidate
+          break if eligible.length >= maximum
         end
-        claim = claim_one(candidate, worker_id: worker_id, lease_seconds: lease_seconds, now: now)
-        claims << claim if claim
+        @connection.reload
+        eligible.select! do |candidate|
+          candidate.reload
+          next false unless currently_authorized?(candidate, allow_withdrawal: true)
+
+          unless resolved_destination_available?(candidate)
+            candidate.update!(
+              state: "operator_attention",
+              resolution_error: "operator_action_required",
+              available_at: nil,
+            )
+            next false
+          end
+          true
+        end
+        claimed_at = Time.zone.now
+        claims = eligible.map do |candidate|
+          issue_claim(candidate, worker_id: worker_id, lease_seconds: lease_seconds, now: claimed_at)
+        end
       end
-      claims.map { |claim| work_payload(claim, correlation_id: correlation_id) }
+      ClaimBatch.new(
+        items: claims.map { |claim| work_payload(claim, correlation_id: correlation_id) },
+        claimed_at: claimed_at,
+      )
     end
 
     def renew(work_id:, lease_token:, requested_lease_seconds:)
@@ -543,7 +603,8 @@ module DiscussionBridge
     end
 
     def reconcile_expired!(now)
-      @connection.publication_works.where(state: "retry_wait").where("next_retry_at <= ?", now).find_each do |work|
+      @connection.publication_works.where(state: "retry_wait").where("next_retry_at <= ?", now)
+        .order(:next_retry_at, :id).limit(MAINTENANCE_BATCH_SIZE).each do |work|
         work.with_lock do
           next unless work.state == "retry_wait" && work.next_retry_at&.<=(now)
 
@@ -563,7 +624,8 @@ module DiscussionBridge
         end
       end
       @connection.publication_works.where(state: %w[leased awaiting_deployment awaiting_verification])
-        .where("lease_expires_at <= ?", now).find_each do |work|
+        .where("lease_expires_at <= ?", now).order(:lease_expires_at, :id)
+        .limit(MAINTENANCE_BATCH_SIZE).each do |work|
         work.with_lock do
           next unless %w[leased awaiting_deployment awaiting_verification].include?(work.state) &&
             work.lease_expires_at&.<=(now)
@@ -584,32 +646,34 @@ module DiscussionBridge
       end
     end
 
-    def claim_one(candidate, worker_id:, lease_seconds:, now:)
-      claim = nil
-      DiscussionBridgePublicationWork.transaction do
-        @connection.lock!
-        candidate.lock!
-        next unless candidate.state == "available" && candidate.resolution_error.nil?
-        next unless currently_authorized?(candidate, allow_withdrawal: true)
-        blocker = @connection.publication_works.where(content_binding_id: candidate.content_binding_id)
-          .where(state: %w[leased awaiting_deployment awaiting_verification]).where.not(id: candidate.id).exists?
-        next if blocker
+    def issue_claim(candidate, worker_id:, lease_seconds:, now:)
+      lease_token = PublicationWorkProtocol.token
+      stage_token = PublicationWorkProtocol.token
+      candidate.update!(
+        state: resumed_claim_state(candidate),
+        worker_id: worker_id,
+        lease_token_digest: PublicationWorkProtocol.token_digest(lease_token),
+        stage_token_digest: PublicationWorkProtocol.token_digest(stage_token),
+        total_lease_seconds: lease_seconds,
+        leased_at: now,
+        lease_expires_at: lease_seconds.seconds.since(now),
+        may_have_materialized: true,
+      )
+      Claim.new(work: candidate, lease_token: lease_token, stage_token: stage_token)
+    end
 
-        lease_token = PublicationWorkProtocol.token
-        stage_token = PublicationWorkProtocol.token
-        candidate.update!(
-          state: resumed_claim_state(candidate),
-          worker_id: worker_id,
-          lease_token_digest: PublicationWorkProtocol.token_digest(lease_token),
-          stage_token_digest: PublicationWorkProtocol.token_digest(stage_token),
-          total_lease_seconds: lease_seconds,
-          leased_at: now,
-          lease_expires_at: now + lease_seconds.seconds,
-          may_have_materialized: true,
-        )
-        claim = Claim.new(work: candidate, lease_token: lease_token, stage_token: stage_token)
+    def resolved_destination_available?(work)
+      return true if %w[hold unpublish].include?(work.action)
+
+      policy = policies.find do |candidate|
+        candidate["destination_policy_id"] == work.destination_policy_id
       end
-      claim
+      return true unless policy
+
+      PlatformCatalogRegistry.new(
+        connection: @connection,
+        platform_profile: policy.fetch("profile"),
+      ).resolved_work_available_in_current_catalog?(work)
     end
 
     def currently_authorized?(work, allow_withdrawal: false, allow_policy_change: false)

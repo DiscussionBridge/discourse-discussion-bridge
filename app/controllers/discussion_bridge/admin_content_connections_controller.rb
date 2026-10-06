@@ -27,6 +27,7 @@ module DiscussionBridge
 
     def update
       connection = DiscussionBridgeContentConnection.find(params[:id])
+      reconcile_source_authority = false
       DiscussionBridgeContentConnection.transaction do
         connection.lock!
         attributes = connection_params(existing: connection)
@@ -35,13 +36,25 @@ module DiscussionBridge
           allowed_directions: Array(connection.allowed_directions),
           destination_policies: Array(connection.destination_policies).map(&:deep_dup),
           policy_revision: connection.policy_revision,
+          allowed_origins: Array(connection.allowed_origins),
+          allowed_lanes: Array(connection.allowed_lanes),
         }
         connection.update!(attributes)
         SourceRevocationRegistry.reconcile_policy_removal!(
           connection: connection,
           previous_authority: previous_authority,
         )
+        reconcile_source_authority = previous_authority != {
+          enabled: connection.enabled,
+          allowed_directions: Array(connection.allowed_directions),
+          destination_policies: Array(connection.destination_policies),
+          policy_revision: connection.policy_revision,
+          allowed_origins: Array(connection.allowed_origins),
+          allowed_lanes: Array(connection.allowed_lanes),
+        }
       end
+      Jobs.enqueue(:discussion_bridge_reconcile_source_connection, connection_id: connection.id) if
+        reconcile_source_authority
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -385,6 +398,7 @@ module DiscussionBridge
         ).distinct.count
       {
         id: connection.id,
+        id_string: connection.id.to_s,
         public_id: connection.public_id,
         name: connection.name,
         platform: connection.platform,

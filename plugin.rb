@@ -144,6 +144,8 @@ after_initialize do
   require_relative "app/models/discussion_bridge_network_replay"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_topic"
   require_relative "app/jobs/regular/discussion_bridge_reconcile_source_category"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_source_connection"
+  require_relative "app/jobs/regular/discussion_bridge_reconcile_catalog_work"
   require_relative "app/jobs/scheduled/discussion_bridge_network_poll"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
   require_relative "app/controllers/discussion_bridge/adapter_connection_controller"

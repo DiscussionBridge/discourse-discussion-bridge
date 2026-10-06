@@ -26,6 +26,15 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked migrationExternalId = "";
   @tracked migrationUrl = "";
 
+  constructor(owner, args) {
+    super(owner, args);
+    const filters = args.model.filters ?? {};
+    this.query = filters.query ?? "";
+    this.direction = filters.direction ?? "";
+    this.state = filters.state ?? "";
+    this.connectionId = filters.connection_id ?? "";
+  }
+
   @action
   updateQuery(event) {
     this.query = event.target.value;
@@ -228,35 +237,49 @@ export default class DiscussionBridgeOperations extends Component {
             {{on "input" this.updateQuery}}
           /></label>
         <label>{{i18n "discussion_bridge.admin.content_direction"}}
-          <select {{on "change" this.updateDirection}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
-            <option value="to_discourse">{{i18n
-                "discussion_bridge.admin.to_discourse"
+          <select value={{this.direction}} {{on "change" this.updateDirection}}>
+            <option value="" selected={{eq this.direction ""}}>{{i18n
+                "discussion_bridge.admin.all"
               }}</option>
-            <option value="from_discourse">{{i18n
-                "discussion_bridge.admin.from_discourse"
-              }}</option>
+            <option
+              value="to_discourse"
+              selected={{eq this.direction "to_discourse"}}
+            >{{i18n "discussion_bridge.admin.to_discourse"}}</option>
+            <option
+              value="from_discourse"
+              selected={{eq this.direction "from_discourse"}}
+            >{{i18n "discussion_bridge.admin.from_discourse"}}</option>
           </select>
         </label>
         <label>{{i18n "discussion_bridge.admin.status"}}
-          <select {{on "change" this.updateState}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
-            <option value="healthy">{{i18n
+          <select value={{this.state}} {{on "change" this.updateState}}>
+            <option value="" selected={{eq this.state ""}}>{{i18n
+                "discussion_bridge.admin.all"
+              }}</option>
+            <option value="healthy" selected={{eq this.state "healthy"}}>{{i18n
                 "discussion_bridge.admin.healthy"
               }}</option>
-            <option value="migration">{{i18n
-                "discussion_bridge.admin.migration"
-              }}</option>
-            <option value="attention">{{i18n
-                "discussion_bridge.admin.needs_attention"
-              }}</option>
+            <option
+              value="migration"
+              selected={{eq this.state "migration"}}
+            >{{i18n "discussion_bridge.admin.migration"}}</option>
+            <option
+              value="attention"
+              selected={{eq this.state "attention"}}
+            >{{i18n "discussion_bridge.admin.needs_attention"}}</option>
           </select>
         </label>
         <label>{{i18n "discussion_bridge.admin.connection"}}
-          <select {{on "change" this.updateConnection}}>
-            <option value="">{{i18n "discussion_bridge.admin.all"}}</option>
+          <select
+            value={{this.connectionId}}
+            {{on "change" this.updateConnection}}
+          >
+            <option value="" selected={{eq this.connectionId ""}}>{{i18n
+                "discussion_bridge.admin.all"
+              }}</option>
             {{#each @model.content_connections as |connection|}}<option
-                value={{connection.id}}
+                value={{connection.id_string}}
+                selected={{eq this.connectionId connection.id_string}}
               >{{connection.name}}</option>{{/each}}
           </select>
         </label>
