@@ -2,19 +2,21 @@
 
 module DiscussionBridge
   class AdapterController < ::ApplicationController
-    # The enabled guard below deliberately emits the contract error envelope,
-    # rather than the generic native PluginDisabled response.
+    # Validate protocol headers first so the native enabled guard also returns
+    # the contract error envelope rather than Core's generic disabled response.
     wrap_parameters false
     skip_before_action :check_xhr
     skip_before_action :verify_authenticity_token
     skip_before_action :redirect_to_login_if_required
     before_action :validate_protocol_request
+    requires_plugin PLUGIN_NAME
 
     rescue_from StandardError, with: :render_internal_error
     rescue_from AdapterRequestBoundary::Error, with: :render_protocol_error
     rescue_from ActiveRecord::RecordInvalid, ArgumentError, with: :render_validation_error
     rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
     rescue_from Discourse::InvalidAccess, with: :render_policy_denied
+    rescue_from ::ApplicationController::PluginDisabled, with: :render_temporarily_unavailable
 
     private
 
@@ -78,6 +80,10 @@ module DiscussionBridge
 
     def render_policy_denied(_error)
       render_protocol_error(AdapterRequestBoundary::Error.new("policy_denied"))
+    end
+
+    def render_temporarily_unavailable(_error)
+      render_protocol_error(AdapterRequestBoundary::Error.new("temporarily_unavailable"))
     end
 
     def render_internal_error(_error)

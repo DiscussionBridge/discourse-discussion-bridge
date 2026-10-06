@@ -2,6 +2,8 @@
 
 module DiscussionBridge
   class AdapterBridgeRecordsController < AdapterController
+    requires_plugin PLUGIN_NAME
+
     PER_PAGE = 100
     MAX_PAGE = 10_000
 

@@ -26,11 +26,21 @@ not replaced. This partial candidate is not a recovered whole plugin and has
 not been released, installed on a live forum or accepted for deployment.
 
 The recovery branch is a source checkpoint, not a release. Local native
-verification recorded 33 focused examples with zero failures and 164 broader
+verification initially recorded 33 focused examples with zero failures and 164 broader
 examples with four failures: three unfinished From-Discourse record reads and
 one migrated-binding read without current metadata. No failing expectation was
 skipped or weakened. GitHub Actions runs on every branch push; its exact-commit
 result must be checked separately and cannot be inferred from those local tests.
+
+The next correction checkpoint adds Core's native plugin-enabled guards while
+preserving the protocol's disabled response, updates migration-generated model
+annotations, and fixes the four reported Ruby lint offenses. Local focused
+regressions now run 34 examples with zero failures; Ruby lint inspects 74 files
+with no offenses. Core's annotation generator leaves the model files unchanged,
+but prints `constantize` warnings; its exit status alone is not annotation CI
+qualification. The four unfinished outbound/migration expectations and the
+previous CI-reported outside-example errors remain unresolved and are not
+skipped or weakened. No new release, deployment or contract change is implied.
 
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent

@@ -32,7 +32,7 @@ module DiscussionBridge
       fail_with("request_too_large") if JSON.generate(bridge_record: raw).bytesize > MAX_JSON_BYTES
       fail_with("direction_denied") unless raw["direction"] == "to_discourse"
       fail_with("validation_failed") unless raw["published"] == true
-      fail_with("validation_failed") unless %w[simple full interactive].include?(raw["presentation_mode"])
+        fail_with("validation_failed") if %w[simple full interactive].exclude?(raw["presentation_mode"])
       { "external_id" => 255, "canonical_url" => 2048, "title" => 1024,
         "source_revision" => 255, "correlation_id" => 200 }.each do |key, maximum|
         string!(raw[key], maximum)
@@ -61,7 +61,7 @@ module DiscussionBridge
           fail_with("integrity_failed")
         end
       when "excerpt"
-        fail_with("validation_failed") unless raw["source_content_bytes"] > html.bytesize
+          fail_with("validation_failed") if raw["source_content_bytes"] <= html.bytesize
         excerpt!(html, raw["canonical_url"], raw["read_more_url"])
       else
         fail_with("validation_failed")

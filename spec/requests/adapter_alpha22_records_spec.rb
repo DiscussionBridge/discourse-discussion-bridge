@@ -53,6 +53,20 @@ describe "DiscussionBridge reconciled To-Discourse publications" do
     File.binwrite(File.join(directory, name), response.body) if directory
   end
 
+  it "returns the protocol error when Core disables the plugin without changing connection presence or content" do
+    plugin = Discourse.plugins_by_name.fetch(DiscussionBridge::PLUGIN_NAME)
+    plugin.stubs(:enabled?).returns(false)
+    presence = @connection.attributes
+
+    expect { publish }.not_to change(DiscussionBridgeBridgeRecord, :count)
+    expect(response).to have_http_status(:service_unavailable), response.body
+    expect(response.headers["X-DiscussionBridge-Correlation"]).to eq("repair-1")
+    expect(response.parsed_body).to eq("error_code" => "temporarily_unavailable",
+                                     "message" => "DiscussionBridge request failed: temporarily_unavailable.",
+                                     "correlation_id" => "repair-1")
+    expect(@connection.reload.attributes).to eq(presence)
+  end
+
   it "creates once, stores exact source clocks and resolves an exact replay without a native edit" do
     publish
     expect(response).to have_http_status(:created), response.body

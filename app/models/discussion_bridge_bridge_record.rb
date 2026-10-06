@@ -60,23 +60,32 @@ end
 #
 # Table name: discussion_bridge_bridge_records
 #
-#  id                       :bigint           not null, primary key
-#  direction                :string(32)       not null
-#  effective_visibility     :string(32)       default("unlisted"), not null
-#  lane                     :string(64)
-#  requested_visibility     :string(32)       default("unlisted"), not null
-#  reservation_token        :string(64)
-#  retry_authorized_at      :datetime
-#  source_authors           :jsonb            not null
-#  state                    :string(32)       default("reserved"), not null
-#  title                    :string(1024)     not null
-#  created_at               :datetime         not null
-#  updated_at               :datetime         not null
-#  effective_actor_id       :bigint
-#  primary_source_author_id :string(255)
-#  resource_id              :string(64)       not null
-#  retry_authorized_by_id   :bigint
-#  topic_id                 :bigint
+#  id                         :bigint           not null, primary key
+#  content_disposition        :string(32)
+#  direction                  :string(32)       not null
+#  effective_visibility       :string(32)       default("unlisted"), not null
+#  lane                       :string(64)
+#  requested_visibility       :string(32)       default("unlisted"), not null
+#  reservation_token          :string(64)
+#  retry_authorized_at        :datetime
+#  source_authors             :jsonb            not null
+#  source_content_bytes       :bigint
+#  source_content_sha256      :string(64)
+#  source_context_state       :string(32)
+#  source_created_at_raw      :text
+#  source_request_fingerprint :string(64)
+#  source_revision            :string(255)
+#  source_revision_sequence   :bigint
+#  source_updated_at_raw      :text
+#  state                      :string(32)       default("reserved"), not null
+#  title                      :string(1024)     not null
+#  created_at                 :datetime         not null
+#  updated_at                 :datetime         not null
+#  effective_actor_id         :bigint
+#  primary_source_author_id   :string(255)
+#  resource_id                :string(64)       not null
+#  retry_authorized_by_id     :bigint
+#  topic_id                   :bigint
 #
 # Indexes
 #
