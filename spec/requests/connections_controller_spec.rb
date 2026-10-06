@@ -398,23 +398,22 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "direction")).to eq("from_discourse")
-    expect(response.parsed_body.dig("bridge_record", "content_html")).to be_present
-    expect(response.parsed_body.dig("bridge_record", "source")).to include(
-      "platform" => "discourse",
-      "origin" => Discourse.base_url,
-      "topic_id" => topic.id,
-      "topic_url" => topic.url,
-      "post_id" => topic.first_post.id,
-      "post_number" => 1,
-      "post_version" => topic.first_post.version,
-      "revision" => "post:#{topic.first_post.id}:version:#{topic.first_post.version}",
-      "updated_at" => topic.first_post.updated_at.iso8601(6),
-      "author" => {
-        "username" => service_actor.username,
-        "name" => service_actor.name.presence || service_actor.username,
-        "profile_url" => "#{Discourse.base_url}/u/#{service_actor.username_lower}",
-      },
-    )
+    value = response.parsed_body.fetch("bridge_record")
+    record = DiscussionBridgeBridgeRecord.find_by!(resource_id: resource_id)
+    expect(value).to include("source_revision" => record.source_revision, "source_revision_sequence" => 1,
+                            "source_created_at" => topic.first_post.created_at.iso8601(6),
+                            "source_updated_at" => topic.first_post.updated_at.iso8601(6))
+    expect(value.keys).to contain_exactly("resource_id", "direction", "state", "title", "topic_id", "topic_url",
+                                         "source_revision", "source_revision_sequence", "source_created_at",
+                                         "source_updated_at", "content_disposition", "bindings")
+    capture = record.native_source_revisions.sole
+    expect(capture.content_html).to eq(topic.first_post.cooked)
+    expect(capture.metadata).to include("post_id" => topic.first_post.id,
+                                       "post_version" => topic.first_post.version,
+                                       "author_user_id" => service_actor.id,
+                                       "source_content_sha256" => Digest::SHA256.hexdigest(topic.first_post.cooked))
+    expect(value.fetch("bindings").sole).to include("connection_id" => @connection.public_id,
+                                                   "binding_id" => record.active_binding("presentation").public_id)
     expect(@connection.reload.last_seen_at).to be_present
   end
 
@@ -659,6 +658,16 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
           "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
+    migrated = response.parsed_body.fetch("bridge_record")
+    binding = record.reload.active_binding("source")
+    expect(migrated).to include("resource_id" => record.resource_id, "topic_id" => record.topic_id,
+                               "source_revision" => record.source_revision)
+    expect(migrated.fetch("bindings").sole).to include("binding_id" => binding.public_id,
+                                                       "connection_id" => target.public_id,
+                                                       "presentation_mode" => "interactive")
+    expect(migrated.fetch("bindings").sole.keys).not_to include("applied_source_revision", "publication_revision", "synchronized_at")
+    directory = ENV["DISCUSSIONBRIDGE_CONTRACT_RECEIPTS"]
+    File.binwrite(File.join(directory, "migrated-record-show.json"), response.body) if directory
   end
 
   it "paginates a connection's record inventory and rejects invalid pages" do

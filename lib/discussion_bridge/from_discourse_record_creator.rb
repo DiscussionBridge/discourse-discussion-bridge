@@ -6,7 +6,7 @@ module DiscussionBridge
   class FromDiscourseRecordCreator
     Result = Data.define(:record, :outcome)
 
-    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane: nil, native_materialization: false)
+    def self.call(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane: nil, native_materialization: false, presentation_mode: "full")
       new(
         user: user,
         connection_id: connection_id,
@@ -15,10 +15,11 @@ module DiscussionBridge
         canonical_url: canonical_url,
         lane: lane,
         native_materialization: native_materialization,
+        presentation_mode: presentation_mode,
       ).call
     end
 
-    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane:, native_materialization:)
+    def initialize(user:, connection_id:, topic_id:, external_id:, canonical_url:, lane:, native_materialization:, presentation_mode:)
       @user = user
       @connection_id = connection_id
       @topic_id = topic_id
@@ -26,15 +27,29 @@ module DiscussionBridge
       @canonical_url = canonical_url
       @lane = lane
       @native_materialization = native_materialization
+      @presentation_mode = presentation_mode
     end
 
     def call
       raise ArgumentError, "invalid native_materialization" if [true, false].exclude?(@native_materialization)
       raise ArgumentError, "invalid external_id" unless
         DiscussionBridgeContentBinding.valid_external_id?(@external_id)
+      raise ArgumentError, "invalid presentation_mode" if %w[simple full interactive].exclude?(@presentation_mode)
+      attempts = 0
+      begin
+        perform_call
+      rescue ActiveRecord::RecordNotUnique
+        attempts += 1
+        retry if attempts == 1
+        raise ArgumentError, "binding identity conflict"
+      end
+    end
 
+    private
+
+    def perform_call
       result = nil
-      DiscussionBridgeBridgeRecord.transaction do
+      DiscussionBridgeBridgeRecord.transaction(requires_new: true) do
         connection = DiscussionBridgeContentConnection.lock.find(@connection_id)
         raise ArgumentError, "connection does not permit From Discourse" unless
           connection.enabled && connection.allows_direction?("from_discourse")
@@ -68,11 +83,14 @@ module DiscussionBridge
             binding.role == "presentation" && binding.state == "active" &&
             binding.external_id == @external_id && binding.canonical_url == canonical.source_url &&
             binding.native_materialization == @native_materialization &&
+            binding.public_id.present? && binding.presentation_mode == @presentation_mode &&
             binding.bridge_record.direction == "from_discourse" &&
             binding.bridge_record.lane.to_s == lane.to_s &&
             binding.bridge_record.topic_id == topic.id
           raise ArgumentError, "binding identity conflict" unless valid
 
+          binding.bridge_record.lock!
+          NativeSourceRevisionCapture.call(record: binding.bridge_record, topic: topic)
           result = Result.new(record: binding.bridge_record, outcome: "resolved")
           next
         end
@@ -88,6 +106,7 @@ module DiscussionBridge
           requested_visibility: topic.visible ? "listed" : "unlisted",
           effective_visibility: topic.visible ? "listed" : "unlisted",
         )
+        NativeSourceRevisionCapture.call(record: record, topic: topic)
         DiscussionBridgeContentBinding.create!(
           bridge_record: record,
           content_connection: connection,
@@ -98,16 +117,15 @@ module DiscussionBridge
           identity_digest: identity_digest,
           canonical_url_digest: canonical_url_digest,
           native_materialization: @native_materialization,
+          public_id: "dbb_#{SecureRandom.hex(16)}",
+          presentation_mode: @presentation_mode,
+          content_disposition: "complete",
           activated_at: Time.zone.now,
         )
         result = Result.new(record: record, outcome: "created")
       end
       result
-    rescue ActiveRecord::RecordNotUnique
-      retry
     end
-
-    private
 
     def resolved_lane(connection)
       requested = @lane.to_s.presence

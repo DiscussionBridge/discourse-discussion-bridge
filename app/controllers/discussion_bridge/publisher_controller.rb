@@ -35,6 +35,7 @@ module ::DiscussionBridge
         canonical_url: input.fetch(:canonical_url),
         lane: input[:lane],
         native_materialization: native_materialization(input[:native_materialization]),
+        presentation_mode: input.fetch(:presentation_mode, "full"),
       )
       render json: publication_payload(result.record).merge(outcome: result.outcome),
              status: result.outcome == "created" ? :created : :ok

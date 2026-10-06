@@ -3,12 +3,20 @@
 module DiscussionBridge
   module AdapterProtocolRecords
     def self.call(record, connection:)
-      unless record.direction == "to_discourse" && record.known_source_context?
+      unless record.known_source_context?
         raise AdapterRequestBoundary::Error.new("reconciliation_required")
       end
       topic = record.topic
       unless topic && topic.deleted_at.nil? && topic.first_post && topic.first_post.deleted_at.nil?
         raise AdapterRequestBoundary::Error.new("reconciliation_required")
+      end
+      if record.direction == "from_discourse"
+        unless Guardian.new.can_see?(topic) && !topic.private_message?
+          raise AdapterRequestBoundary::Error.new("policy_denied")
+        end
+        unless NativeSourceRevisionCapture.retained?(record)
+          raise AdapterRequestBoundary::Error.new("reconciliation_required")
+        end
       end
       bindings = record.content_bindings.where(content_connection_id: connection.id, state: "active").map do |binding|
         unless binding.public_id && binding.presentation_mode && binding.content_disposition

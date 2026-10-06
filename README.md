@@ -18,12 +18,20 @@ Only `simple`, `full`, and `interactive` are accepted presentation values. The
 canonical setting is `discussion_bridge_comments_only_interactive`; there is
 no old-name fallback or automatic saved-setting transfer.
 
-The later source-snapshot/catalog/work/lease/acknowledgement graph, URL-migration
-proof and Operator action/audit recovery groups remain pending. Current-protocol
-record reads refuse unknown historical or unfinished From-Discourse context
-instead of fabricating revisions. The retained staff publisher/admin paths are
-not replaced. This partial candidate is not a recovered whole plugin and has
-not been released, installed on a live forum or accepted for deployment.
+The source-feed/fixed-cut/catalog/destination-policy/work/lease/acknowledgement
+graph, URL-migration proof and Operator action/audit groups remain pending.
+Explicit staff/admin From-Discourse publication now retains immutable whole
+cooked native-source captures with actual first-post clocks and stable binding
+identity. Reads use retained context and recheck current public visibility;
+they do not capture or edit source posts. Explicit staff re-publication captures
+a changed native revision, including a wiki edit or revert, without reusing an
+older sequence. Automatic native-source hooks and bounded outbound delivery are
+not implemented by this correction. Unknown historical context still fails
+closed; no existing rows are backfilled or given invented synchronization dates.
+New migration bindings have identity and presentation metadata, but never
+inherit a destination publication receipt. The retained staff/admin paths are
+not replaced. This is not a recovered whole plugin or an installation/release
+candidate and has not been deployed.
 
 The recovery branch is a source checkpoint, not a release. Local native
 verification initially recorded 33 focused examples with zero failures and 164 broader
@@ -32,15 +40,19 @@ one migrated-binding read without current metadata. No failing expectation was
 skipped or weakened. GitHub Actions runs on every branch push; its exact-commit
 result must be checked separately and cannot be inferred from those local tests.
 
-The next correction checkpoint adds Core's native plugin-enabled guards while
+The previous correction checkpoint adds Core's native plugin-enabled guards while
 preserving the protocol's disabled response, updates migration-generated model
 annotations, and fixes the four reported Ruby lint offenses. Local focused
 regressions now run 34 examples with zero failures; Ruby lint inspects 74 files
 with no offenses. Core's annotation generator leaves the model files unchanged,
 but prints `constantize` warnings; its exit status alone is not annotation CI
-qualification. The four unfinished outbound/migration expectations and the
-previous CI-reported outside-example errors remain unresolved and are not
-skipped or weakened. No new release, deployment or contract change is implied.
+qualification. Its actual GitHub run passed lint, annotations and 36 system
+examples, but failed the four outbound/migration read expectations. The current
+source repairs those paths and checks exact Alpha.22 response fields rather than
+obsolete Alpha.20 fields. New regressions exercise retained source bytes/clocks,
+privacy, unknown/tampered context, rollback, and bounded retries. Its own local
+and exact-commit CI results must be checked separately; no prior result is
+transferred. No new release, deployment or contract change is implied.
 
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent

@@ -130,7 +130,15 @@ describe DiscussionBridge::PublisherController do
           "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
+    value = response.parsed_body.fetch("bridge_record")
+    expect(value).to include("direction" => "from_discourse", "source_revision" => record.reload.source_revision,
+                            "source_revision_sequence" => 1)
+    expect(value.fetch("bindings").sole).to include("binding_id" => record.active_binding("presentation").public_id,
+                                                  "connection_id" => @connection.public_id,
+                                                  "presentation_mode" => "full", "content_disposition" => "complete")
+    expect(value.fetch("bindings").sole.keys).not_to include("native_materialization", "applied_source_revision",
+                                                           "publication_revision", "synchronized_at")
+    expect(record.active_binding("presentation").native_materialization).to eq(true)
   end
 
   it "rejects malformed native materialization authority" do
@@ -202,7 +210,7 @@ describe DiscussionBridge::PublisherController do
     expect(response).to have_http_status(:ok)
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("bridge_records").map { |record| record.fetch("resource_id") }).to include(resource_id)
+    expect(response.parsed_body.fetch("records").map { |record| record.fetch("resource_id") }).to include(resource_id)
   end
 
   it "requires an explicit allowed lane when a publishing connection permits several" do

@@ -54,6 +54,7 @@ module DiscussionBridge
         external_id: input.fetch(:external_id),
         canonical_url: input.fetch(:canonical_url),
         lane: input[:lane],
+        presentation_mode: input.fetch(:presentation_mode, "full"),
       )
       render json: {
         bridge_record: serialize(result.record, detailed: true),
@@ -84,6 +85,11 @@ module DiscussionBridge
         raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(canonical.source_url)
         role = record.direction == "to_discourse" ? "source" : "presentation"
         raise ArgumentError, "migration already prepared" if record.content_bindings.exists?(role: role, state: "prepared")
+        current = record.content_bindings.lock.where(role: role, state: "active").sole
+        unless record.known_source_context? && current.public_id &&
+            current.presentation_mode && current.content_disposition
+          raise ArgumentError, "source revision context requires reconciliation"
+        end
         identity_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{external_id}")
         canonical_url_digest = Digest::SHA256.hexdigest("#{connection.public_id}\n#{canonical.source_url}")
         matches = DiscussionBridgeContentBinding.lock.where(
@@ -110,6 +116,9 @@ module DiscussionBridge
             canonical_url: canonical.source_url,
             identity_digest: identity_digest,
             canonical_url_digest: canonical_url_digest,
+            public_id: "dbb_#{SecureRandom.hex(16)}",
+            presentation_mode: current.presentation_mode,
+            content_disposition: current.content_disposition,
           )
         end
         record.update!(state: "migration")
@@ -133,6 +142,10 @@ module DiscussionBridge
           connection.allows_direction?(record.direction)
         raise ArgumentError, "lane is outside target connection scope" unless connection.allows_lane?(record.lane)
         raise ArgumentError, "origin is outside target connection scope" unless connection.allows_origin?(prepared.canonical_url)
+        unless record.known_source_context? && prepared.public_id &&
+            prepared.presentation_mode && prepared.content_disposition
+          raise ArgumentError, "source revision context requires reconciliation"
+        end
 
         active = record.content_bindings.lock.where(state: "active").to_a
         raise ArgumentError, "record has an invalid active binding set" unless
