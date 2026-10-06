@@ -1,228 +1,139 @@
 # frozen_string_literal: true
 
 module DiscussionBridge
-  class AdapterBridgeRecordsController < ::ApplicationController
-    requires_plugin DiscussionBridge::PLUGIN_NAME
-    skip_before_action :check_xhr
-    skip_before_action :verify_authenticity_token
-    skip_before_action :redirect_to_login_if_required
-    before_action :ensure_json_request
-    before_action :ensure_enabled
-    before_action :authenticate_connection
-
+  class AdapterBridgeRecordsController < AdapterController
     PER_PAGE = 100
     MAX_PAGE = 10_000
 
     def create
-      data = BridgeRecordRequest.call(params.require(:bridge_record))
-      unless @content_connection.allows_direction?(data[:direction]) &&
-          @content_connection.allows_lane?(data[:lane]) &&
-          @content_connection.allows_origin?(data[:canonical_url])
-        render json: rejection("connection_scope_denied"), status: :forbidden
-        return
-      end
-
+      data = @bridge_request
+      result = nil
       DiscussionBridgeContentConnection.transaction do
         @content_connection.lock!
-        SourceAuthorship.observe!(
-          connection: @content_connection,
-          source_authors: data[:source_authors],
+        check_connection_scope!(data)
+        SourceAuthorship.observe!(connection: @content_connection, source_authors: data[:source_authors])
+        actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
+        authorship = SourceAuthorship.resolve(connection: @content_connection, request: data)
+        unless authorship.allowed?
+          # Retain the baseline discovery workflow: a held, authenticated source
+          # author remains visible for the operator to map. This does not accept
+          # a publication, update connection presence or mutate a native topic.
+          @authorship_held = true
+          next
+        end
+        lane = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: data[:lane])
+        authority = ForumAuthority.call(
+          actor: actor,
+          category_id: lane.category_id || @content_connection.default_category_id || SiteSetting.discussion_bridge_effective_category_id,
+          tags: lane.tags || SiteSetting.discussion_bridge_effective_tags,
+        ) if actor
+        policy = PolicyEvaluator.call(
+          request: { connection_id: @content_connection.public_id, source_url: data.fetch(:canonical_url),
+                     visibility: data.fetch(:visibility, "unlisted"), lane: data[:lane] },
+          settings: PolicyEvaluator::Settings.new(
+            enabled: SiteSetting.discussion_bridge_enabled, endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
+            connection_id: @content_connection.public_id, trusted_origins: @content_connection.allowed_origins,
+            service_username: SiteSetting.discussion_bridge_service_username,
+          ),
+          actor: actor, author: authorship.author, authority: authority, lane_resolution: lane,
         )
+        result = BridgeRecordResolver.call(connection: @content_connection, request: data, policy: policy)
+        raise ActiveRecord::Rollback if result.outcome == "reconciliation_required"
       end
-      actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.downcase)
-      authorship = SourceAuthorship.resolve(connection: @content_connection, request: data)
-      unless authorship.allowed?
-        render json: rejection(authorship.reason), status: :unprocessable_entity
+      if @authorship_held
+        render_protocol_error(AdapterRequestBoundary::Error.new("policy_denied"))
         return
       end
-      author = authorship.author
-      lane_resolution = LanePolicies.resolve(value: SiteSetting.discussion_bridge_lane_policies, lane: data[:lane])
-      authority = ForumAuthority.call(
-        actor: actor,
-        category_id: lane_resolution.category_id || @content_connection.default_category_id ||
-          SiteSetting.discussion_bridge_effective_category_id,
-        tags: lane_resolution.tags || SiteSetting.discussion_bridge_effective_tags,
-      ) if actor
-      policy = PolicyEvaluator.call(
-        request: policy_request(data),
-        settings: PolicyEvaluator::Settings.new(
-          enabled: SiteSetting.discussion_bridge_enabled,
-          endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
-          connection_id: @content_connection.public_id,
-          trusted_origins: @content_connection.allowed_origins,
-          service_username: SiteSetting.discussion_bridge_service_username,
-        ),
-        actor: actor,
-        author: author,
-        authority: authority,
-        lane_resolution: lane_resolution,
-      )
-      result = BridgeRecordResolver.call(connection: @content_connection, request: data, policy: policy)
-      render json: result.to_h.merge(core_fallback: false), status: status_for(result.outcome)
-    rescue ActionController::ParameterMissing, ActiveRecord::RecordInvalid, ArgumentError
-      render json: rejection("invalid_request"), status: :unprocessable_entity
+      payload = result.to_h.merge(core_fallback: false, correlation_id: @correlation_id)
+      if result.outcome == "reconciliation_required"
+        payload.except!(:accepted_source_revision, :accepted_source_revision_sequence)
+        payload[:resource_id] = payload[:topic_id] = payload[:topic_url] = nil
+      else
+        payload.except!(:conflict_fields)
+      end
+      status = { "created" => :created, "resolved" => :ok, "reconciliation_required" => :conflict }.fetch(result.outcome)
+      render json: payload, status: status
     end
 
     def index
-      page = Integer(params[:page].presence || 1, exception: false)
-      raise Discourse::InvalidParameters.new(:page) unless page&.between?(1, MAX_PAGE)
-
-      records = scoped_records
-      snapshot = AdapterFeedSnapshot.capture(records)
-      token = params[:snapshot].presence
-      if page > 1 && token.blank?
-        raise Discourse::InvalidParameters.new(:snapshot)
+      value = request.query_parameters["page"] || "1"
+      page = value.is_a?(String) && /\A[1-9]\d*\z/.match?(value) ? Integer(value) : nil
+      raise AdapterRequestBoundary::Error.new("validation_failed") unless page&.between?(1, MAX_PAGE)
+      payload = accepted_read do
+        records = scoped_records
+        total_pages = [(records.distinct.count.to_f / PER_PAGE).ceil, 1].max
+        if page > total_pages || total_pages > MAX_PAGE
+          raise AdapterRequestBoundary::Error.new("validation_failed")
+        end
+        {
+          records: records.distinct.order(id: :asc).offset((page - 1) * PER_PAGE).limit(PER_PAGE).map do |record|
+            AdapterProtocolRecords.call(record, connection: @content_connection)
+          end,
+          page: page, total_pages: total_pages, correlation_id: @correlation_id,
+        }
       end
-      if token && !AdapterFeedSnapshot.valid?(token, connection: @content_connection, snapshot: snapshot)
-        raise Discourse::InvalidParameters.new(:snapshot)
-      end
-      token ||= AdapterFeedSnapshot.issue(connection: @content_connection, snapshot: snapshot)
-      page_records = records.distinct.offset((page - 1) * PER_PAGE).limit(PER_PAGE).to_a
-      unless AdapterFeedSnapshot.capture(scoped_records) == snapshot
-        raise Discourse::InvalidParameters.new(:snapshot)
-      end
-      payload = {
-        bridge_records: page_records.map { |record| adapter_record(record) },
-        pagination: {
-          page: page,
-          per_page: PER_PAGE,
-          total: snapshot.total,
-          pages: [(snapshot.total.to_f / PER_PAGE).ceil, 1].max,
-          snapshot: token,
-        },
-      }
       render json: payload
     end
 
     def show
-      record = DiscussionBridgeBridgeRecord
-        .joins(:content_bindings)
-        .where(
-          discussion_bridge_content_bindings: {
-            content_connection_id: @content_connection.id,
-            state: "active",
-          },
-        )
-        .find_by!(resource_id: params[:resource_id])
-      unless record_within_connection_scope?(record)
-        render json: rejection("connection_scope_denied"), status: :forbidden
-        return
+      payload = accepted_read do
+        record = connection_records.find_by!(resource_id: params[:resource_id])
+        unless scoped_records.where(id: record.id).exists?
+          raise AdapterRequestBoundary::Error.new("scope_denied")
+        end
+        { bridge_record: AdapterProtocolRecords.call(record, connection: @content_connection),
+          correlation_id: @correlation_id }
       end
-      render json: { bridge_record: adapter_record(record) }
+      render json: payload
     end
 
     private
 
+    def check_connection_scope!(data)
+      raise AdapterRequestBoundary::Error.new("direction_denied") unless @content_connection.allows_direction?(data[:direction])
+      unless @content_connection.enabled && @content_connection.allows_lane?(data[:lane]) &&
+          @content_connection.allows_origin?(data[:canonical_url])
+        raise AdapterRequestBoundary::Error.new("scope_denied")
+      end
+    end
+
+    def connection_records
+      DiscussionBridgeBridgeRecord.joins(:content_bindings).where(
+        discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" },
+      ).includes(topic: :first_post)
+    end
+
     def scoped_records
-      records = DiscussionBridgeBridgeRecord
-        .joins(:content_bindings)
-        .where(discussion_bridge_content_bindings: { content_connection_id: @content_connection.id, state: "active" })
-        .where(direction: @content_connection.allowed_directions)
-        .includes(topic: :first_post)
-        .order(id: :asc)
+      records = connection_records.where(direction: @content_connection.allowed_directions)
       records = if Array(@content_connection.allowed_lanes).empty?
         records.where(lane: [nil, ""])
       else
         records.where(lane: @content_connection.allowed_lanes)
       end
-      origin_patterns = Array(@content_connection.allowed_origins).map do |origin|
-        "#{ActiveRecord::Base.sanitize_sql_like(origin)}/%"
+      origins = Array(@content_connection.allowed_origins).map { |origin| "#{ActiveRecord::Base.sanitize_sql_like(origin)}/%" }
+      return records.none if origins.empty?
+      clause = Array.new(origins.length, "discussion_bridge_content_bindings.canonical_url LIKE ?").join(" OR ")
+      records.where(clause, *origins)
+    end
+
+    def accepted_read
+      @content_connection.with_lock do
+        unless @content_connection.enabled && SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_endpoint_enabled
+          raise AdapterRequestBoundary::Error.new("temporarily_unavailable")
+        end
+        payload = yield
+        # Preserve baseline accepted-read diagnostics without making authentication
+        # or failed validation a presence write. Failed serialization rolls back.
+        values = { last_seen_at: Time.zone.now, updated_at: Time.zone.now }
+        adapter_id = request.headers["X-DiscussionBridge-Adapter"]
+        adapter_version = request.headers["X-DiscussionBridge-Adapter-Version"]
+        if adapter_id.present?
+          values.merge!(adapter_id: adapter_id.dup.force_encoding(Encoding::UTF_8),
+                        adapter_version: adapter_version.dup.force_encoding(Encoding::UTF_8))
+        end
+        @content_connection.update_columns(values)
+        payload
       end
-      origin_clause = Array.new(origin_patterns.length, "discussion_bridge_content_bindings.canonical_url LIKE ?").join(" OR ")
-      records.where(origin_clause, *origin_patterns)
-    end
-
-    def ensure_json_request
-      raise Discourse::InvalidParameters.new(:format) unless request.format.json?
-    end
-
-    def ensure_enabled
-      return if SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_endpoint_enabled
-
-      render json: rejection("endpoint_disabled"), status: :service_unavailable
-    end
-
-    def authenticate_connection
-      @content_connection = ContentConnectionAuthenticator.call(request)
-      render json: rejection("unauthorized"), status: :unauthorized unless @content_connection
-    end
-
-    def policy_request(data)
-      {
-        connection_id: @content_connection.public_id,
-        source_url: data.fetch(:canonical_url),
-        visibility: data.fetch(:visibility, "unlisted"),
-        lane: data[:lane],
-      }
-    end
-
-    def adapter_record(record)
-      topic = record.topic
-      first_post = topic&.first_post
-      {
-        resource_id: record.resource_id,
-        direction: record.direction,
-        state: record.state,
-        title: record.title,
-        topic_id: record.topic_id,
-        topic_url: topic&.url,
-        source_authors: record.source_authors,
-        primary_source_author_id: record.primary_source_author_id,
-        content_html: record.direction == "from_discourse" ? first_post&.cooked : nil,
-        source: record.direction == "from_discourse" ? discourse_source(topic, first_post) : nil,
-        bindings: record.content_bindings.where(content_connection_id: @content_connection.id).map do |binding|
-          {
-            role: binding.role,
-            state: binding.state,
-            external_id: binding.external_id,
-            canonical_url: binding.canonical_url,
-            native_materialization: binding.native_materialization,
-          }
-        end,
-      }
-    end
-
-    def record_within_connection_scope?(record)
-      binding = record.content_bindings.find do |candidate|
-        candidate.content_connection_id == @content_connection.id && candidate.state == "active"
-      end
-      binding && @content_connection.allows_direction?(record.direction) &&
-        @content_connection.allows_lane?(record.lane) &&
-        @content_connection.allows_origin?(binding.canonical_url)
-    end
-
-    def discourse_source(topic, first_post)
-      return nil unless topic && first_post
-
-      author = first_post.user
-      {
-        platform: "discourse",
-        origin: Discourse.base_url,
-        topic_id: topic.id,
-        topic_url: topic.url,
-        post_id: first_post.id,
-        post_number: first_post.post_number,
-        post_version: first_post.version,
-        revision: "post:#{first_post.id}:version:#{first_post.version}",
-        updated_at: first_post.updated_at&.iso8601(6),
-        author: {
-          username: author&.username,
-          name: author&.name.presence || author&.username,
-          profile_url: author ? "#{Discourse.base_url}/u/#{author.username_lower}" : nil,
-        },
-      }
-    end
-
-    def rejection(reason)
-      { outcome: "rejected", reason: reason, core_fallback: false }
-    end
-
-    def status_for(outcome)
-      return :created if outcome == "created"
-      return :ok if outcome == "resolved"
-      return :conflict if outcome == "reconciliation_required"
-
-      :unprocessable_entity
     end
   end
 end

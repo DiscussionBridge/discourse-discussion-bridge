@@ -125,6 +125,9 @@ describe DiscussionBridge::PublisherController do
         headers: {
           "X-DiscussionBridge-Connection" => @connection.public_id,
           "X-DiscussionBridge-Secret" => @secret,
+          "X-DiscussionBridge-Contract" => "0.2.0-alpha.22",
+          "X-DiscussionBridge-Correlation" => "publisher-read-1",
+          "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("bridge_record", "bindings", 0, "native_materialization")).to eq(true)
@@ -191,6 +194,9 @@ describe DiscussionBridge::PublisherController do
     headers = {
       "X-DiscussionBridge-Connection" => scoped.public_id,
       "X-DiscussionBridge-Secret" => secret,
+      "X-DiscussionBridge-Contract" => "0.2.0-alpha.22",
+      "X-DiscussionBridge-Correlation" => "publisher-read-1",
+      "HTTPS" => "on",
     }
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:ok)

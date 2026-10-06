@@ -11,7 +11,7 @@ describe "DiscussionBridge comments-only Interactive" do
 
   before do
     SiteSetting.discussion_bridge_enabled = true
-    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.discussion_bridge_comments_only_interactive = true
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
@@ -739,7 +739,7 @@ describe "DiscussionBridge comments-only Interactive" do
   end
 
   it "fails explicitly when the mapped capability is disabled" do
-    SiteSetting.discussion_bridge_comments_only_full_interactive = false
+    SiteSetting.discussion_bridge_comments_only_interactive = false
 
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 

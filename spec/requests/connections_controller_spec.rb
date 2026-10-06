@@ -29,17 +29,26 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       "X-DiscussionBridge-Secret" => secret,
       "X-DiscussionBridge-Adapter" => "wordpress-official",
       "X-DiscussionBridge-Adapter-Version" => "1.0.0",
+      "X-DiscussionBridge-Contract" => "0.2.0-alpha.22",
+      "X-DiscussionBridge-Correlation" => "delivery-1",
+      "HTTPS" => "on",
     }
   end
 
   def payload(overrides = {})
+    html = overrides.fetch(:content_html, "<h2>Community guide</h2><p>A complete source article.</p>")
     {
       bridge_record: {
         direction: "to_discourse",
         external_id: "post-482",
         canonical_url: "https://example.com/articles/community-guide/",
         title: "A controlled companion discussion topic",
-        content_html: "<h2>Community guide</h2><p>A complete source article.</p>",
+        content_html: html,
+        presentation_mode: "interactive",
+        source_revision: "revision:1", source_revision_sequence: 1,
+        source_created_at: "2026-09-01T00:00:00Z", source_updated_at: "2026-10-01T00:00:00Z",
+        content_disposition: "complete", source_content_bytes: html.bytesize,
+        source_content_sha256: Digest::SHA256.hexdigest(html),
         published: true,
         visibility: "unlisted",
         lane: "articles",
@@ -160,7 +169,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          params: payload(existing_topic_id: embedded_topic.id),
          as: :json
 
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:conflict)
     expect(DiscussionBridgeBridgeRecord.count).to eq(0)
     expect(DiscussionBridgeContentBinding.count).to eq(0)
   end
@@ -190,7 +199,7 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          params: payload(canonical_url: canonical_url, existing_topic_id: embedded_topic.id),
          as: :json
 
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:conflict)
     expect(DiscussionBridgeContentBinding.count).to eq(0)
   end
 
@@ -219,11 +228,12 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     authored_payload = payload(
       source_authors: [
         {
-          id: "astro:phil",
-          name: "Phil",
-          profile_url: "https://example.com/authors/phil/",
+          source_author_id: "astro:phil",
+          source_author_name: "Phil",
+          source_author_url: "https://example.com/authors/phil/",
         },
-        { id: "astro:editorial", name: "DiscussionBridge Editorial" },
+        { source_author_id: "astro:editorial", source_author_name: "DiscussionBridge Editorial",
+          source_author_url: "https://example.com/authors/editorial/" },
       ],
       primary_source_author_id: "astro:phil",
     )
@@ -232,8 +242,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          headers: headers,
          params: authored_payload,
          as: :json
-    expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body).to include("reason" => "source_author_unmapped")
+    expect(response).to have_http_status(:forbidden)
+    expect(response.parsed_body).to include("error_code" => "policy_denied")
     expect(Topic.count).to eq(0)
     source_author = @connection.source_authors.find_by!(source_author_id: "astro:phil")
     expect(source_author).to have_attributes(
@@ -279,7 +289,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       author_user: fallback,
     )
     authored = {
-      source_authors: [{ id: "astro:new", name: "New Astro Author" }],
+      source_authors: [{ source_author_id: "astro:new", source_author_name: "New Astro Author",
+                         source_author_url: "https://example.com/authors/new/" }],
       primary_source_author_id: "astro:new",
     }
     post "/discussion-bridge/v1/bridge-records/resolve.json",
@@ -296,9 +307,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
            canonical_url: "https://example.com/articles/second/",
            source_authors: [
              {
-               id: "astro:outside",
-               name: "Outside",
-               profile_url: "https://attacker.invalid/author/",
+               source_author_id: "astro:outside",
+               source_author_name: "Outside",
+               source_author_url: "https://attacker.invalid/author/",
              },
            ],
            primary_source_author_id: "astro:outside",
@@ -445,17 +456,17 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     @connection.update!(allowed_directions: ["from_discourse"])
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:forbidden)
-    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("bridge_records")).to be_empty
+    expect(response.parsed_body.fetch("records")).to be_empty
 
     @connection.update!(allowed_directions: ["to_discourse"], allowed_lanes: ["news"])
     get "/discussion-bridge/v1/bridge-records/#{resource_id}.json", headers: headers
     expect(response).to have_http_status(:forbidden)
-    expect(response.parsed_body).to include("reason" => "connection_scope_denied")
+    expect(response.parsed_body).to include("error_code" => "scope_denied")
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
-    expect(response.parsed_body.fetch("bridge_records")).to be_empty
+    expect(response.parsed_body.fetch("records")).to be_empty
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
@@ -643,6 +654,9 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
         headers: {
           "X-DiscussionBridge-Connection" => target.public_id,
           "X-DiscussionBridge-Secret" => target_secret,
+          "X-DiscussionBridge-Contract" => "0.2.0-alpha.22",
+          "X-DiscussionBridge-Correlation" => "delivery-1",
+          "HTTPS" => "on",
         }
     expect(response).to have_http_status(:ok)
   end
@@ -650,29 +664,27 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   it "paginates a connection's record inventory and rejects invalid pages" do
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.fetch("pagination")).to include(
+    expect(response.parsed_body).to include(
       "page" => 1,
-      "per_page" => 100,
-      "total" => 0,
-      "pages" => 1,
+      "total_pages" => 1,
+      "records" => [],
     )
-    snapshot = response.parsed_body.dig("pagination", "snapshot")
-    expect(snapshot).to be_present
 
     get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
-    expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:unprocessable_entity)
 
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
-    expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("pagination", "snapshot")).to eq(snapshot)
+    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: "removed-wire-field" }, headers: headers
+    expect(response).to have_http_status(:bad_request)
+    expect(response.parsed_body.fetch("error_code")).to eq("unknown_field")
 
     post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
     expect(response).to have_http_status(:created)
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
-    expect(response).to have_http_status(:bad_request)
+    get "/discussion-bridge/v1/bridge-records.json", headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("records").length).to eq(1)
 
     get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
-    expect(response).to have_http_status(:bad_request)
+    expect(response).to have_http_status(:unprocessable_entity)
   end
 
   it "creates, updates, and rotates a connection only through native administration" do

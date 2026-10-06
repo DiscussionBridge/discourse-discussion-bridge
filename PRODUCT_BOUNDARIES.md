@@ -1,5 +1,11 @@
 # DiscussionBridge product boundaries
 
+This Alpha.30-based recovery candidate implements only the selected incoming
+publication/adoption/revision slice. The baseline inventory below is not a claim
+that every path implements Alpha.22. Historical unknown revision context is
+preserved and fails closed on current-protocol reads/updates. No live schema,
+saved settings, later work history or installation is changed by these files.
+
 ## This plugin owns
 
 - generic Content Connection identity, independent credentials, scope, and

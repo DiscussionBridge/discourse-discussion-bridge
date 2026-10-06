@@ -1,5 +1,37 @@
 # The Bridge — DiscussionBridge for Discourse
 
+## Recovery candidate — not a release or installation instruction
+
+This isolated source starts from Alpha.30 (`9e64b4a83d5f`) and implements the
+selected To-Discourse adoption/revision repair against the approved local
+Adapter Protocol Alpha.22 (`827d943a7327`). The version metadata below still
+identifies the retained baseline; these changed bytes are not the Alpha.30
+release and must not be packaged or deployed under its tag.
+
+Initial eligible Core-embed adoption does not edit the existing topic or first
+post. An explicit later source revision uses native Discourse revision history;
+exact source replays do not rewrite the post. Source clock strings are stored
+without losing fractional precision. Unknown historical revision data remains
+unknown and requires reconciliation before automatic updates.
+
+Only `simple`, `full`, and `interactive` are accepted presentation values. The
+canonical setting is `discussion_bridge_comments_only_interactive`; there is
+no old-name fallback or automatic saved-setting transfer.
+
+The later source-snapshot/catalog/work/lease/acknowledgement graph, URL-migration
+proof and Operator action/audit recovery groups remain pending. Current-protocol
+record reads refuse unknown historical or unfinished From-Discourse context
+instead of fabricating revisions. The retained staff publisher/admin paths are
+not replaced. This partial candidate is not a recovered whole plugin and has
+not been released, installed on a live forum or accepted for deployment.
+
+The recovery branch is a source checkpoint, not a release. Local native
+verification recorded 33 focused examples with zero failures and 164 broader
+examples with four failures: three unfinished From-Discourse record reads and
+one migrated-binding read without current metadata. No failing expectation was
+skipped or weakened. GitHub Actions runs on every branch push; its exact-commit
+result must be checked separately and cannot be inferred from those local tests.
+
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent
 Content Connections. Each connection represents one configured installation
@@ -152,7 +184,7 @@ The response never includes another connection's record.
 - `discussion_bridge_effective_tags`
 - `discussion_bridge_lane_policies`
 - `discussion_bridge_default_visibility`
-- `discussion_bridge_comments_only_full_interactive`
+- `discussion_bridge_comments_only_interactive`
 
 The endpoint and plugin switches are independently default-disabled. The
 operating identity and forum-default author must be active, non-system Discourse

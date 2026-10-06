@@ -10,7 +10,7 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   before do
     topic.update!(visible: false)
     SiteSetting.discussion_bridge_enabled = true
-    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.discussion_bridge_comments_only_interactive = true
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
@@ -144,7 +144,7 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   it "fails closed when Core sign-in flow or Bridge readiness is disabled" do
     {
       embed_full_app_signin_flow: "embed_full_app_signin_flow_disabled",
-      discussion_bridge_comments_only_full_interactive: "comments_only_full_interactive_disabled",
+      discussion_bridge_comments_only_interactive: "comments_only_interactive_disabled",
       discussion_bridge_enabled: "plugin_disabled",
     }.each do |setting, reason|
       SiteSetting.public_send("#{setting}=", false)

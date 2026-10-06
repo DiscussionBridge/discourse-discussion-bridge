@@ -5,7 +5,8 @@ module DiscussionBridge
     def self.call(request)
       public_id = request.headers["X-DiscussionBridge-Connection"]
       secret = request.headers["X-DiscussionBridge-Secret"]
-      return unless public_id.is_a?(String) && public_id.bytesize <= 64
+      return unless public_id.is_a?(String) &&
+        AdapterRequestBoundary::CONNECTION_ID_PATTERN.match?(public_id)
 
       connection = DiscussionBridgeContentConnection.find_by(public_id: public_id, enabled: true)
       return unless connection&.authenticate_secret?(secret)
@@ -16,15 +17,15 @@ module DiscussionBridge
         return unless valid_adapter_value?(adapter_id) && valid_adapter_value?(adapter_version)
       end
 
-      attributes = { last_seen_at: Time.zone.now, updated_at: Time.zone.now }
-      attributes[:adapter_id] = adapter_id if adapter_id.present?
-      attributes[:adapter_version] = adapter_version if adapter_version.present?
-      connection.update_columns(**attributes)
+      # Authentication is read-only. Presence is recorded only after an accepted
+      # transaction, never as a side effect of a rejected request.
       connection
     end
 
     def self.valid_adapter_value?(value)
-      value.is_a?(String) && value.present? && value.bytesize <= 100 && !value.match?(/[\x00-\x1f\x7f]/)
+      return false unless value.is_a?(String)
+      utf8 = value.dup.force_encoding(Encoding::UTF_8)
+      utf8.valid_encoding? && utf8.present? && utf8.bytesize <= 100 && !utf8.match?(/[\x00-\x1f\x7f]/)
     end
 
     private_class_method :valid_adapter_value?

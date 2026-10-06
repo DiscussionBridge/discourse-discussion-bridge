@@ -19,7 +19,7 @@ describe DiscussionBridge do
       discussion_bridge_effective_tags
       discussion_bridge_lane_policies
       discussion_bridge_default_visibility
-      discussion_bridge_comments_only_full_interactive
+      discussion_bridge_comments_only_interactive
       discussion_bridge_publisher_enabled
     ]
 

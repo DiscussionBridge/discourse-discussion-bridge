@@ -1,134 +1,180 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
+require "date"
+require "time"
+require "nokogiri"
 
 module DiscussionBridge
   module BridgeRecordRequest
-    MAX_JSON_BYTES = 64 * 1024
-    MAX_CONTENT_HTML_BYTES = 48 * 1024
-    MAX_EXTERNAL_ID_BYTES = 255
-    MAX_CORRELATION_ID_BYTES = 200
-    MAX_SOURCE_AUTHORS = 20
-    MAX_SOURCE_AUTHOR_ID_BYTES = 255
-    MAX_SOURCE_AUTHOR_NAME_BYTES = 200
+    MAX_JSON_BYTES = 65_536
+    MAX_CONTENT_HTML_BYTES = 49_152
+    MAX_SAFE_INTEGER = 9_007_199_254_740_991
     MAX_TOPIC_ID = 9_223_372_036_854_775_807
-    REQUIRED_KEYS = %w[direction external_id canonical_url title content_html published].freeze
-    ALLOWED_KEYS = (
-      REQUIRED_KEYS + %w[
-        lane
-        adapter_id
-        adapter_version
-        correlation_id
-        visibility
-        source_authors
-        primary_source_author_id
-        existing_topic_id
-      ]
-    ).freeze
-    IDENTIFIER_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9._:-]*\z/
-    CONTROL_PATTERN = /[\x00-\x1f\x7f]/
+    REQUIRED_KEYS = %w[
+      direction external_id canonical_url title content_html published presentation_mode
+      source_revision source_revision_sequence source_created_at source_updated_at
+      content_disposition source_content_bytes source_content_sha256 correlation_id
+    ].freeze
+    ALLOWED_KEYS = (REQUIRED_KEYS + %w[
+      lane adapter_id adapter_version visibility source_authors primary_source_author_id
+      existing_topic_id read_more_url
+    ]).freeze
+    TIMESTAMP_PATTERN = /\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\z/
 
     def self.call(parameters)
-      raise ArgumentError, "bridge_record must be an object" unless parameters.is_a?(ActionController::Parameters)
-
-      raw = parameters.to_unsafe_h.stringify_keys
-      raise ArgumentError, "bridge record payload is too large" if JSON.generate(raw).bytesize > MAX_JSON_BYTES
-      raise ArgumentError, "invalid bridge record schema" unless (raw.keys - ALLOWED_KEYS).empty?
-      raise ArgumentError, "missing bridge record field" unless (REQUIRED_KEYS - raw.keys).empty?
-      raise ArgumentError, "content must be authoritatively published" unless raw["published"] == true
-      raise ArgumentError, "invalid direction" unless raw["direction"] == "to_discourse"
-
-      validate_string!(raw["external_id"], "external_id", MAX_EXTERNAL_ID_BYTES, identifier: false)
-      validate_string!(raw["canonical_url"], "canonical_url", CanonicalSource::MAX_SOURCE_URL_LENGTH, identifier: false)
-      validate_string!(raw["title"], "title", ConnectionRequest::MAX_TITLE_BYTES, identifier: false, strip: false)
+      raw = parameters.is_a?(ActionController::Parameters) ? parameters.to_unsafe_h : parameters
+      fail_with("validation_failed") unless raw.is_a?(Hash)
+      raw = raw.stringify_keys
+      fail_with("unknown_field") unless (raw.keys - ALLOWED_KEYS).empty?
+      fail_with("validation_failed") unless (REQUIRED_KEYS - raw.keys).empty?
+      fail_with("request_too_large") if JSON.generate(bridge_record: raw).bytesize > MAX_JSON_BYTES
+      fail_with("direction_denied") unless raw["direction"] == "to_discourse"
+      fail_with("validation_failed") unless raw["published"] == true
+      fail_with("validation_failed") unless %w[simple full interactive].include?(raw["presentation_mode"])
+      { "external_id" => 255, "canonical_url" => 2048, "title" => 1024,
+        "source_revision" => 255, "correlation_id" => 200 }.each do |key, maximum|
+        string!(raw[key], maximum)
+      end
       unless raw["title"].length.between?(SiteSetting.min_topic_title_length, SiteSetting.max_topic_title_length)
-        raise ArgumentError, "invalid title"
+        fail_with("validation_failed")
       end
-      validate_content_html!(raw["content_html"])
-
-      %w[lane adapter_id adapter_version correlation_id visibility].each do |key|
-        next unless raw.key?(key)
-        maximum = case key
-                  when "lane" then ConnectionRequest::MAX_LANE_BYTES
-                  when "adapter_id", "adapter_version" then ConnectionRequest::MAX_ADAPTER_ID_BYTES
-                  when "correlation_id" then MAX_CORRELATION_ID_BYTES
-                  else ConnectionRequest::MAX_VISIBILITY_BYTES
-                  end
-        validate_string!(raw[key], key, maximum, identifier: key != "visibility")
+      canonical!(raw["canonical_url"])
+      html = raw["content_html"]
+      unless html.is_a?(String) && html.valid_encoding? && !html.strip.empty? &&
+          html.bytesize <= MAX_CONTENT_HTML_BYTES && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.match?(html)
+        fail_with("validation_failed")
       end
-      raise ArgumentError, "invalid lane" if raw.key?("lane") && !LanePolicies::LANE_PATTERN.match?(raw["lane"])
-      raise ArgumentError, "invalid visibility" if raw.key?("visibility") && raw["visibility"] != "unlisted"
-      validate_source_authors!(raw)
-      if raw.key?("existing_topic_id")
-        existing_topic_id = raw["existing_topic_id"]
-        unless existing_topic_id.is_a?(Integer) && existing_topic_id.between?(1, MAX_TOPIC_ID)
-          raise ArgumentError, "invalid existing_topic_id"
+      integer!(raw["source_revision_sequence"], 1, MAX_SAFE_INTEGER)
+      integer!(raw["source_content_bytes"], 0, MAX_SAFE_INTEGER)
+      fail_with("validation_failed") unless raw["source_content_sha256"].is_a?(String) &&
+        /\A[a-f0-9]{64}\z/.match?(raw["source_content_sha256"])
+      created = timestamp!(raw["source_created_at"])
+      updated = timestamp!(raw["source_updated_at"])
+      fail_with("validation_failed") if updated < created
+      case raw["content_disposition"]
+      when "complete"
+        fail_with("validation_failed") if raw.key?("read_more_url")
+        unless raw["source_content_bytes"] == html.bytesize &&
+            raw["source_content_sha256"] == Digest::SHA256.hexdigest(html)
+          fail_with("integrity_failed")
         end
+      when "excerpt"
+        fail_with("validation_failed") unless raw["source_content_bytes"] > html.bytesize
+        excerpt!(html, raw["canonical_url"], raw["read_more_url"])
+      else
+        fail_with("validation_failed")
       end
-
+      { "lane" => 64, "adapter_id" => 100, "adapter_version" => 100,
+        "primary_source_author_id" => 255 }.each do |key, maximum|
+        string!(raw[key], maximum) if raw.key?(key)
+      end
+      fail_with("validation_failed") if raw.key?("lane") && !LanePolicies::LANE_PATTERN.match?(raw["lane"])
+      fail_with("validation_failed") if raw.key?("visibility") && raw["visibility"] != "unlisted"
+      integer!(raw["existing_topic_id"], 1, MAX_TOPIC_ID) if raw.key?("existing_topic_id")
+      authors!(raw)
       raw.symbolize_keys
-    rescue JSON::GeneratorError
-      raise ArgumentError, "invalid bridge record payload"
     end
 
-    def self.validate_string!(value, name, maximum, identifier:, strip: true)
-      valid = value.is_a?(String) && value.valid_encoding? && value.present? &&
-        value.bytesize <= maximum && !CONTROL_PATTERN.match?(value) && (!strip || value == value.strip)
-      valid &&= IDENTIFIER_PATTERN.match?(value) if identifier
-      raise ArgumentError, "invalid #{name}" unless valid
+    def self.timestamp!(value)
+      fail_with("malformed_value") unless value.is_a?(String) && TIMESTAMP_PATTERN.match?(value)
+      fail_with("malformed_value") if value[11, 2].to_i > 23 || value[14, 2].to_i > 59 || value[17, 2].to_i > 59
+      fail_with("malformed_value") unless Date.valid_date?(value[0, 4].to_i, value[5, 2].to_i, value[8, 2].to_i)
+      # DateTime retains arbitrary fractional precision; storage retains the wire string.
+      DateTime.iso8601(value)
+    rescue Date::Error
+      fail_with("malformed_value")
     end
-    private_class_method :validate_string!
 
-    def self.validate_content_html!(value)
-      invalid_controls = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
-      valid = value.is_a?(String) && value.valid_encoding? && value.strip.present? &&
-        value.bytesize <= MAX_CONTENT_HTML_BYTES && !invalid_controls.match?(value)
-      raise ArgumentError, "invalid content_html" unless valid
+    def self.string!(value, maximum)
+      unless value.is_a?(String) && value.valid_encoding? && !value.strip.empty? &&
+          value.bytesize <= maximum && !AdapterRequestBoundary::CONTROL_PATTERN.match?(value)
+        fail_with("validation_failed")
+      end
     end
-    private_class_method :validate_content_html!
 
-    def self.validate_source_authors!(raw)
-      authors = raw["source_authors"]
-      primary_id = raw["primary_source_author_id"]
-      if authors.nil?
-        raise ArgumentError, "primary source author requires source authors" if primary_id.present?
+    def self.integer!(value, minimum, maximum)
+      fail_with("validation_failed") unless value.is_a?(Integer) && value.between?(minimum, maximum)
+    end
+
+    def self.canonical!(url)
+      normalized = CanonicalSource.call(connection_id: "source-validation", source_url: url).source_url
+      fail_with("validation_failed") unless normalized == url
+    end
+
+    def self.authors!(raw)
+      unless raw.key?("source_authors")
+        fail_with("validation_failed") if raw.key?("primary_source_author_id")
         return
       end
-
-      unless authors.is_a?(Array) && authors.length.between?(1, MAX_SOURCE_AUTHORS)
-        raise ArgumentError, "invalid source authors"
-      end
-
+      authors = raw["source_authors"]
+      fail_with("validation_failed") unless authors.is_a?(Array) && authors.length <= 20
+      ids = []
       normalized = authors.map do |author|
-        raise ArgumentError, "invalid source author" unless author.is_a?(Hash)
-
-        author = author.stringify_keys
-        raise ArgumentError, "invalid source author schema" unless (author.keys - %w[id name profile_url]).empty?
-        raise ArgumentError, "invalid source author schema" unless %w[id name].all? { |key| author.key?(key) }
-        validate_string!(author["id"], "source author id", MAX_SOURCE_AUTHOR_ID_BYTES, identifier: false)
-        validate_string!(author["name"], "source author name", MAX_SOURCE_AUTHOR_NAME_BYTES, identifier: false)
-        if author.key?("profile_url")
-          validate_string!(
-            author["profile_url"],
-            "source author profile URL",
-            CanonicalSource::MAX_SOURCE_URL_LENGTH,
-            identifier: false,
-          )
-          author["profile_url"] = CanonicalSource.call(
-            connection_id: "author-profile-validation",
-            source_url: author["profile_url"],
-          ).source_url
-        end
-        author
+        fields = %w[source_author_id source_author_name source_author_url]
+        fail_with("unknown_field") unless author.is_a?(Hash) && author.keys.sort == fields.sort
+        string!(author["source_author_id"], 255)
+        string!(author["source_author_name"], 200)
+        string!(author["source_author_url"], 2048)
+        canonical!(author["source_author_url"])
+        ids << author["source_author_id"]
+        # Native authorship keeps its retained internal representation. The wire
+        # accepts only current contract names, never the old internal keys.
+        { "id" => author["source_author_id"], "name" => author["source_author_name"],
+          "profile_url" => author["source_author_url"] }
       end
-
-      ids = normalized.map { |author| author.fetch("id") }
-      raise ArgumentError, "duplicate source author identity" unless ids.uniq.length == ids.length
-      validate_string!(primary_id, "primary source author id", MAX_SOURCE_AUTHOR_ID_BYTES, identifier: false)
-      raise ArgumentError, "primary source author is not present" if ids.exclude?(primary_id)
-
+      fail_with("validation_failed") unless ids.uniq.length == ids.length
+      if raw.key?("primary_source_author_id") && !ids.include?(raw["primary_source_author_id"])
+        fail_with("validation_failed")
+      end
       raw["source_authors"] = normalized
     end
-    private_class_method :validate_source_authors!
+
+    def self.excerpt!(html, canonical_url, read_more_url)
+      fail_with("validation_failed") unless read_more_url == canonical_url
+      fragment = Nokogiri::HTML5.fragment(html, max_errors: 1, max_tree_depth: 65)
+      fail_with("validation_failed") unless fragment.errors.empty?
+      elements = fragment.css("*")
+      fail_with("validation_failed") if elements.size > 1024
+      elements.each do |element|
+        depth = element.ancestors.count(&:element?) + 1
+        stylesheet = element.name == "link" && element["rel"].to_s.split.any? { |rel| rel.downcase == "stylesheet" }
+        fail_with("validation_failed") if depth > 64 || %w[style script base].include?(element.name) || stylesheet
+      end
+      notice, paragraph = fragment.element_children.to_a.last(2)
+      fail_with("validation_failed") unless text_paragraph?(notice) && /excerpt/i.match?(notice.text)
+      unless paragraph&.name == "p" && paragraph.attribute_nodes.empty? && html_element?(paragraph)
+        fail_with("validation_failed")
+      end
+      children = paragraph.children.reject { |node| node.text? && node.text.strip.empty? }
+      link = children.first
+      unless children.one? && link.element? && link.name == "a" && html_element?(link) &&
+          link.attribute_nodes.map(&:name) == ["href"] && link["href"] == canonical_url &&
+          link.children.any? && link.children.all?(&:text?) && normalize_text(link.text) == "Read More"
+        fail_with("validation_failed")
+      end
+    rescue ArgumentError
+      fail_with("validation_failed")
+    end
+
+    def self.html_element?(node)
+      node.namespace&.href.nil? || node.namespace.href == "http://www.w3.org/1999/xhtml"
+    end
+
+    def self.text_paragraph?(node)
+      node&.name == "p" && html_element?(node) && node.attribute_nodes.empty? &&
+        node.children.any? && node.children.all?(&:text?)
+    end
+
+    def self.normalize_text(value)
+      value.gsub(/[[:space:]]+/, " ").strip
+    end
+
+    def self.fail_with(code)
+      raise AdapterRequestBoundary::Error.new(code)
+    end
+    private_class_method :string!, :integer!, :canonical!, :authors!, :excerpt!,
+                         :html_element?, :text_paragraph?, :normalize_text, :fail_with
   end
 end

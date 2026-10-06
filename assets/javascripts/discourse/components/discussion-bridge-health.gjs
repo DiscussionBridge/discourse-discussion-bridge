@@ -59,11 +59,11 @@ export default <template>
         {{/if}}
       </section>
       <section class="discussion-bridge-health__readiness" data-state={{if @status.interactive_readiness.ready "ready" "attention"}}>
-        <h3>{{i18n "discussion_bridge.admin.full_interactive_readiness"}}</h3>
+        <h3>{{i18n "discussion_bridge.admin.interactive_readiness"}}</h3>
         {{#if @status.interactive_readiness.blockers.length}}
           <ul>{{#each @status.interactive_readiness.blockers as |blocker|}}<li><code>{{blocker}}</code></li>{{/each}}</ul>
         {{else}}
-          <p>{{i18n "discussion_bridge.admin.full_interactive_ready"}}</p>
+          <p>{{i18n "discussion_bridge.admin.interactive_ready"}}</p>
         {{/if}}
         {{#each @status.interactive_readiness.connections as |connection|}}
           <h4>{{connection.name}}</h4>

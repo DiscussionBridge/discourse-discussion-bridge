@@ -43,6 +43,28 @@ module DiscussionBridge
       creation.post_creator.enqueue_jobs
     end
 
+    def update(record:, request:, policy:)
+      topic = record.topic
+      post = topic.first_post
+      actor = User.find(policy.operating_actor_id)
+      unless actor.guardian.can_edit?(topic) && actor.guardian.can_edit?(post)
+        raise AdapterRequestBoundary::Error.new("policy_denied")
+      end
+      raw = companion_post(request.fetch(:source_url), request.fetch(:content_html),
+                           request[:source_authors], request.fetch(:generate_topic_toc, false))
+      # A changed source revision with identical native content does not need a
+      # synthetic native edit. Never treat a failed revision as a successful one.
+      return if topic.title == request.fetch(:title) && post.raw == raw
+      revised = PostRevisor.new(post, topic).revise!(
+        actor,
+        { title: request.fetch(:title), raw: raw, edit_reason: "DiscussionBridge source revision update" },
+        force_new_version: true,
+      )
+      raise AdapterRequestBoundary::Error.new("content_unsupported") unless revised
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved, Discourse::InvalidParameters
+      raise AdapterRequestBoundary::Error.new("content_unsupported")
+    end
+
     private
 
     def companion_post(source_url, content_html, source_authors, generate_topic_toc)

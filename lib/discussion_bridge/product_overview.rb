@@ -44,7 +44,7 @@ module DiscussionBridge
           end,
         }
       end
-      interactive_blockers = DiscussionBridge::FullInteractiveReadiness.blockers
+      interactive_blockers = DiscussionBridge::InteractiveReadiness.blockers
       missing_embeddable_origin = interactive_connection_status.any? do |connection|
         connection[:origins].any? { |origin| !origin[:embeddable] }
       end

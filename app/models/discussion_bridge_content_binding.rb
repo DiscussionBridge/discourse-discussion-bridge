@@ -20,6 +20,10 @@ class DiscussionBridgeContentBinding < ActiveRecord::Base
   validate :one_current_binding_per_role
   validate :external_id_is_safe
 
+  validates :public_id, format: { with: /\Adbb_[a-f0-9]{32}\z/ }, uniqueness: true, allow_nil: true
+  validates :presentation_mode, inclusion: { in: %w[simple full interactive] }, allow_nil: true
+  validates :content_disposition, inclusion: { in: %w[complete excerpt] }, allow_nil: true
+
   def self.valid_external_id?(value)
     value.is_a?(String) && value.valid_encoding? && value.present? &&
       value == value.strip && value.bytesize <= 255 && !value.match?(/[\x00-\x1f\x7f]/)
