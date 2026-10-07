@@ -22,7 +22,9 @@ module DiscussionBridge
         bridge_record_id: record.id).order(id: :desc).first
       return last if last && last.context_digest == digest && context_digest(last.attributes) == digest
 
-      DiscussionBridgeSourceInventoryEntry.create!(attributes.merge(context_digest: digest, observed_at: Time.now.utc))
+      entry = DiscussionBridgeSourceInventoryEntry.create!(attributes.merge(context_digest: digest, observed_at: Time.now.utc))
+      PublicationWorkProducer.observe!(connection, entry)
+      entry
     end
 
     def self.context_digest(attributes)

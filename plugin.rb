@@ -49,6 +49,7 @@ add_admin_route(
 )
 
 Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
+Rails.application.config.filter_parameters += %i[lease_token stage_token]
 
 after_initialize do
   module ::DiscussionBridge
@@ -88,6 +89,8 @@ after_initialize do
   require_relative "lib/discussion_bridge/source_connection_scope"
   require_relative "lib/discussion_bridge/destination_policy"
   require_relative "lib/discussion_bridge/platform_catalog"
+  require_relative "lib/discussion_bridge/publication_work"
+  require_relative "lib/discussion_bridge/publication_work_producer"
   require_relative "lib/discussion_bridge/source_inventory"
   require_relative "lib/discussion_bridge/source_revocation_producer"
   require_relative "lib/discussion_bridge/source_revision_producer"
@@ -109,6 +112,12 @@ after_initialize do
   require_relative "app/models/discussion_bridge_catalog_revision"
   require_relative "app/models/discussion_bridge_catalog_item"
   require_relative "app/models/discussion_bridge_destination_policy"
+  require_relative "app/models/discussion_bridge_publication_destination"
+  require_relative "app/models/discussion_bridge_publication_work"
+  require_relative "app/models/discussion_bridge_work_issue"
+  require_relative "app/models/discussion_bridge_policy_production"
+  require_relative "app/jobs/regular/discussion_bridge_produce_publication_work"
+  require_relative "app/jobs/scheduled/discussion_bridge_resume_publication_work"
   require_relative "app/jobs/regular/discussion_bridge_record_source_revocations"
   require_relative "app/jobs/regular/discussion_bridge_capture_source_revisions"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
@@ -116,6 +125,7 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
   require_relative "app/controllers/discussion_bridge/adapter_source_revocations_controller"
   require_relative "app/controllers/discussion_bridge/adapter_platform_catalog_controller"
+  require_relative "app/controllers/discussion_bridge/adapter_publication_work_controller"
   require_relative "app/controllers/discussion_bridge/admin_destination_policies_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
@@ -381,6 +391,8 @@ after_initialize do
     get "/v1/source-revocations/:resource_id" => "adapter_source_revocations#show"
     get "/v1/platform-catalog" => "adapter_platform_catalog#show"
     put "/v1/platform-catalog" => "adapter_platform_catalog#update"
+    post "/v1/publication-work/claim" => "adapter_publication_work#claim"
+    post "/v1/publication-work/:work_id/renew" => "adapter_publication_work#renew"
     get "/admin/health" => "health#show"
     get "/admin/support-bundle" => "health#support_bundle"
     get "/admin/content-connections" => "admin_content_connections#index"

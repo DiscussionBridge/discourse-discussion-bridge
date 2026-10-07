@@ -75,15 +75,22 @@ module DiscussionBridge
         fail_with("catalog_revision_conflict") unless catalog && catalog.public_id == definition.fetch("catalog_revision")
         policy_id = definition.fetch("destination_policy_id")
         previous = DiscussionBridgeDestinationPolicy.current(connection).find_by(destination_policy_id: policy_id)
-        return previous if previous&.definition == definition
+        if previous&.definition == definition
+          # An explicit repeat approval can start the additive queue for a
+          # retained policy; migration/read/catalog discovery cannot do so.
+          PublicationWorkProducer.start!(previous)
+          return previous
+        end
         if previous && previous.platform_profile != definition.fetch("profile")
           fail_with("identity_conflict")
         end
         fail_with if !previous && DiscussionBridgeDestinationPolicy.current(connection).limit(101).count >= 100
         availability!(definition, catalog)
-        DiscussionBridgeDestinationPolicy.create!(content_connection: connection, catalog_revision: catalog,
+        policy = DiscussionBridgeDestinationPolicy.create!(content_connection: connection, catalog_revision: catalog,
           approved_by: actor, destination_policy_id: policy_id, platform_profile: definition.fetch("profile"),
           policy_revision: "destination:#{SecureRandom.hex(16)}", definition: definition.deep_dup, created_at: Time.now.utc)
+        PublicationWorkProducer.start!(policy)
+        policy
       end
     end
 
