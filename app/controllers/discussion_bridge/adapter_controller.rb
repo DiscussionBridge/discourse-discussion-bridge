@@ -38,7 +38,7 @@ module DiscussionBridge
       unless (request.query_parameters.keys - permitted_query).empty?
         raise AdapterRequestBoundary::Error.new("unknown_field")
       end
-      if request.post?
+      if request.post? || request.put?
         unless request.media_type == "application/json"
           raise AdapterRequestBoundary::Error.new("unsupported_media_type")
         end
@@ -47,14 +47,7 @@ module DiscussionBridge
         end
         # Never materialize an unbounded raw_post before enforcing the wire bound.
         text = request.body.read(AdapterRequestBoundary::MAX_JSON_BYTES + 1)
-        envelope = AdapterRequestBoundary.parse(text)
-        unless envelope.is_a?(Hash) && envelope.keys == ["bridge_record"]
-          raise AdapterRequestBoundary::Error.new("unknown_field")
-        end
-        @bridge_request = BridgeRecordRequest.call(envelope.fetch("bridge_record"))
-        unless @bridge_request[:correlation_id] == @correlation_id
-          raise AdapterRequestBoundary::Error.new("validation_failed")
-        end
+        parse_request_body(AdapterRequestBoundary.parse(text))
       elsif request.content_length.to_i.positive?
         raise AdapterRequestBoundary::Error.new("unknown_field")
       end
@@ -67,6 +60,26 @@ module DiscussionBridge
 
     def permitted_query_fields
       action_name == "index" ? %w[page] : []
+    end
+
+    def parse_request_body(envelope)
+      unless envelope.is_a?(Hash) && envelope.keys == ["bridge_record"]
+        raise AdapterRequestBoundary::Error.new("unknown_field")
+      end
+      @bridge_request = BridgeRecordRequest.call(envelope.fetch("bridge_record"))
+      unless @bridge_request[:correlation_id] == @correlation_id
+        raise AdapterRequestBoundary::Error.new("validation_failed")
+      end
+    end
+
+    def with_current_connection
+      @content_connection.with_lock do
+        unless SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_endpoint_enabled &&
+            @content_connection.enabled && @content_connection.authenticate_secret?(request.headers["X-DiscussionBridge-Secret"])
+          raise AdapterRequestBoundary::Error.new("authentication_failed")
+        end
+        yield
+      end
     end
 
     def render_protocol_error(error)

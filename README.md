@@ -282,6 +282,23 @@ permission to create content from retrieval access alone.
 
 ## Presentation boundary
 
+### Destination catalog and policy foundation
+
+The authenticated Alpha.22 platform-catalog GET/PUT endpoints describe one
+connection's permitted platform profile. Each atomic update replaces only its
+supplied complete segments against an exact base revision. Catalog discovery
+does not grant publication scope, select presentation, change existing mappings
+or create work. GET pages retain the revision/segment/connection context and
+current authorization; both request and complete response have a 64 KiB bound.
+
+Native administrators may approve an exact current-catalog destination policy
+through `PUT /discussion-bridge/admin/content-connections/:id/destination-policies`
+with a `destination_policy` object. Each policy has independent, append-only
+approval and revision history; an unavailable mapped item is not silently
+replaced. This source checkpoint implements configuration history, not completed
+publication claims, delivery, deployment or staged acknowledgements. It changes
+no legacy binding or native source content and is not a release candidate.
+
 DiscussionBridge can qualify a healthy mapped topic for Discourse Core's
 full-app embed. Core owns the iframe application, dynamic height,
 authentication, composer, reply, quote, edit, Like, moderation, and session

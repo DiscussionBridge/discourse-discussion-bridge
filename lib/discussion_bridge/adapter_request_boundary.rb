@@ -60,9 +60,24 @@ module DiscussionBridge
       text = text.dup.force_encoding(Encoding::UTF_8)
       raise Error.new("invalid_json") unless text.valid_encoding?
       # JSON.parse (unlike JSON.load) does not instantiate json_class additions.
-      JSON.parse(text, object_class: UniqueObject, max_nesting: 64)
+      parsed = JSON.parse(text, object_class: UniqueObject, max_nesting: 64)
+      # Duplicate detection belongs to lexical JSON ingestion. A strict parser
+      # Hash must not survive into ActiveSupport deep_dup, which reassigns keys
+      # already present in its shallow copy and would falsely report duplicates.
+      ordinary_objects(parsed)
     rescue JSON::ParserError, JSON::NestingError
       raise Error.new("invalid_json")
+    end
+
+    def self.ordinary_objects(value)
+      case value
+      when Hash
+        value.to_h { |key, child| [key, ordinary_objects(child)] }
+      when Array
+        value.map { |child| ordinary_objects(child) }
+      else
+        value
+      end
     end
 
     def self.error_payload(code, correlation)
@@ -77,19 +92,24 @@ module DiscussionBridge
   # The limit is enforced on actual bytes even when Content-Length is absent.
   class BoundedAdapterBody
     RESOLVE_PATH = %r{\A/discussion-bridge/v1/bridge-records/resolve(?:\.json)?\z}
+    CATALOG_PATH = %r{\A/discussion-bridge/v1/platform-catalog(?:\.json)?\z}
+    POLICY_CONFIGURATION_PATH = %r{\A/discussion-bridge/admin/content-connections/[1-9]\d*/destination-policies(?:\.json)?\z}
 
     def initialize(app)
       @app = app
     end
 
     def call(env)
-      return @app.call(env) unless env["REQUEST_METHOD"] == "POST" && RESOLVE_PATH.match?(env["PATH_INFO"].to_s)
+      native_configuration = env["REQUEST_METHOD"] == "PUT" && POLICY_CONFIGURATION_PATH.match?(env["PATH_INFO"].to_s)
+      bounded = native_configuration || (env["REQUEST_METHOD"] == "POST" && RESOLVE_PATH.match?(env["PATH_INFO"].to_s)) ||
+        (env["REQUEST_METHOD"] == "PUT" && CATALOG_PATH.match?(env["PATH_INFO"].to_s))
+      return @app.call(env) unless bounded
       supplied = env["HTTP_X_DISCUSSIONBRIDGE_CORRELATION"]
       valid_correlation = AdapterRequestBoundary.valid_correlation?(supplied)
       correlation = valid_correlation ? supplied.dup.force_encoding(Encoding::UTF_8) : SecureRandom.uuid
       begin
-        raise AdapterRequestBoundary::Error.new("validation_failed") unless valid_correlation
-        unless env["HTTP_X_DISCUSSIONBRIDGE_CONTRACT"] == AdapterRequestBoundary::CONTRACT_VERSION
+        raise AdapterRequestBoundary::Error.new("validation_failed") unless valid_correlation || native_configuration
+        unless native_configuration || env["HTTP_X_DISCUSSIONBRIDGE_CONTRACT"] == AdapterRequestBoundary::CONTRACT_VERSION
           raise AdapterRequestBoundary::Error.new("contract_version_mismatch")
         end
         if env["CONTENT_LENGTH"].to_i > AdapterRequestBoundary::MAX_JSON_BYTES

@@ -16,6 +16,15 @@ describe DiscussionBridge::AdapterRequestBoundary do
     wires.each { |wire| expect { described_class.parse(wire) }.to raise_error(described_class::Error) }
   end
 
+  it "returns ordinary nested objects after lexical duplicate screening so safe copies do not report false duplicates" do
+    value = described_class.parse('{"segments":[{"items":[{"id":"one"},{"id":"two"}]}]}')
+    copy = value.deep_dup
+    expect(copy).to eq(value)
+    copy.fetch("segments").sole.fetch("items").first["id"] = "changed"
+    expect(value.fetch("segments").sole.fetch("items").first.fetch("id")).to eq("one")
+    expect { described_class.parse('{"items":[{"id":"one","id":"two"}]}') }.to raise_error(described_class::Error, /invalid_json/)
+  end
+
   it "bounds every documented error without reflecting submitted secrets or content" do
     described_class::ERROR_STATUSES.each_key do |code|
       payload = described_class.error_payload(code, "correlation-1")
