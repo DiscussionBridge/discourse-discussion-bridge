@@ -56,11 +56,7 @@ module DiscussionBridge
     end
 
     def policy_revision
-      scope = { "platform" => @connection.platform,
-        "directions" => Array(@connection.allowed_directions).sort,
-        "lanes" => Array(@connection.allowed_lanes).sort,
-        "origins" => Array(@connection.allowed_origins).sort }
-      "policy:#{NativeSourceRevisionCapture.fingerprint(scope)}"
+      SourceConnectionScope.revision(@connection)
     end
 
     def parse_limit

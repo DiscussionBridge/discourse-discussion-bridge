@@ -85,7 +85,10 @@ after_initialize do
   require_relative "lib/discussion_bridge/native_source_revision_capture"
   require_relative "lib/discussion_bridge/source_revision_transport"
   require_relative "lib/discussion_bridge/source_inventory_observation"
+  require_relative "lib/discussion_bridge/source_connection_scope"
   require_relative "lib/discussion_bridge/source_inventory"
+  require_relative "lib/discussion_bridge/source_revocation_producer"
+  require_relative "lib/discussion_bridge/source_revocations"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
   require_relative "lib/discussion_bridge/product_overview"
@@ -98,14 +101,39 @@ after_initialize do
   require_relative "app/models/discussion_bridge_native_source_revision"
   require_relative "app/models/discussion_bridge_source_inventory_entry"
   require_relative "app/models/discussion_bridge_source_inventory_snapshot"
+  require_relative "app/models/discussion_bridge_source_revocation"
+  require_relative "app/models/discussion_bridge_source_revocation_window"
+  require_relative "app/jobs/regular/discussion_bridge_record_source_revocations"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
+  require_relative "app/controllers/discussion_bridge/adapter_source_revocations_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
+
+  on(:topic_destroyed) do |topic, *_args|
+    DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("topic_id" => topic.id) }
+  end
+  on(:post_destroyed) do |post, *_args|
+    if post.post_number == 1
+      DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("topic_id" => post.topic_id) }
+    end
+  end
+  on(:topic_category_changed) do |topic, *_args|
+    DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("topic_id" => topic.id) }
+  end
+  on(:category_updated) do |category|
+    DiscussionBridge::SourceRevocationProducer.enqueue("category_id" => category.id) if category.saved_change_to_read_restricted?
+  end
+  add_model_callback(DiscussionBridgeContentConnection, :after_update) do
+    if saved_change_to_allowed_origins? || saved_change_to_allowed_lanes? || saved_change_to_allowed_directions?
+      connection_id = id
+      DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("content_connection_id" => connection_id) }
+    end
+  end
 
   SiteSettings::LabelFormatter.singleton_class.prepend(
     DiscussionBridge::SiteSettingLabelFormatterExtension,
@@ -322,6 +350,8 @@ after_initialize do
     get "/v1/source-topics" => "adapter_source_topics#index"
     get "/v1/source-topics/:topic_id" => "adapter_source_topics#show"
     get "/v1/source-topics/:topic_id/content" => "adapter_source_topics#content"
+    get "/v1/source-revocations" => "adapter_source_revocations#index"
+    get "/v1/source-revocations/:resource_id" => "adapter_source_revocations#show"
     get "/admin/health" => "health#show"
     get "/admin/support-bundle" => "health#support_bundle"
     get "/admin/content-connections" => "admin_content_connections#index"

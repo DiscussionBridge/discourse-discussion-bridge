@@ -18,7 +18,7 @@ Only `simple`, `full`, and `interactive` are accepted presentation values. The
 canonical setting is `discussion_bridge_comments_only_interactive`; there is
 no old-name fallback or automatic saved-setting transfer.
 
-The catalog/destination-policy/work/lease/acknowledgement and revocation graph,
+The catalog/destination-policy/work/lease/acknowledgement and restoration graph,
 URL-migration proof and Operator action/audit groups remain pending.
 Exact-revision source detail, byte-chunk and pinned inventory routes implement
 source-side parts of that graph, not an operational delivery worker. New captures
@@ -35,6 +35,26 @@ revisions cannot replace that cut. Each page scans at most its requested limit
 progress, and rechecks current scope and native identity. A successful page
 extends snapshot retention for30days; expiry does not delete publication history.
 Inventory reads never manufacture earlier observations or acknowledge delivery.
+Source withdrawal notices are append-only and tied to an already-observed
+connection, resource, binding and exact retained source revision. Native
+first-post/topic deletion, category visibility changes and connection scope
+changes enqueue bounded jobs over those observed bindings. Each job rechecks
+current source eligibility; it does not withdraw content that has become
+eligible again before the job runs. Unmapped topics and disabled publisher
+installations do not produce notices. These hooks record current withdrawal
+conditions, not a complete history of transient changes.
+Authenticated `/v1/source-revocations.json` and
+`/v1/source-revocations/{resource_id}.json` return retained notice metadata even
+after the source is private or outside its former origin/lane scope. They never
+return the source body/title/URL, manufacture a notice or acknowledge delivery.
+The index pins a finite connection-owned notice cut, defaults to25 items and
+accepts at most100; signed cursors bind connection, cut and current policy.
+Successful reads extend cursor-window activity for30days. Notices are retained
+indefinitely in this implementation, including beyond the90-day minimum; no
+purge or implicit-ACK shortcut is implemented. Native current-state producers
+cover `source_deleted`, `source_unpublished` and `scope_removed`. Operator/policy
+hold producers, higher-revision restoration and delivery/ACK remain separate
+implementation work. These source routes do not unpublish a destination.
 Durable state and signed cursors are not, by themselves, process-restart, scale
 or installation qualification; those gates remain open.
 Explicit staff/admin From-Discourse publication now retains immutable whole
@@ -42,7 +62,7 @@ cooked native-source captures with actual first-post clocks and stable binding
 identity. Reads use retained context and recheck current public visibility;
 they do not capture or edit source posts. Explicit staff re-publication captures
 a changed native revision, including a wiki edit or revert, without reusing an
-older sequence. Automatic native-source hooks and bounded outbound delivery are
+older sequence. Automatic native-source revision updates and bounded outbound delivery are
 not implemented by this correction. Unknown historical context still fails
 closed; no existing rows are backfilled or given invented synchronization dates.
 New migration bindings have identity and presentation metadata, but never
