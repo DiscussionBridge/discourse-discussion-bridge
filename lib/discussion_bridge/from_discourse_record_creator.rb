@@ -90,8 +90,8 @@ module DiscussionBridge
           raise ArgumentError, "binding identity conflict" unless valid
 
           binding.bridge_record.lock!
-          capture = NativeSourceRevisionCapture.call(record: binding.bridge_record, topic: topic)
-          SourceInventoryObservation.call(connection: connection, record: binding.bridge_record, binding: binding, capture: capture)
+          capture = SourceRevisionProducer.refresh(connection: connection, record: binding.bridge_record, binding: binding, topic: topic)
+          raise ArgumentError, "source update context requires reconciliation" unless capture
           result = Result.new(record: binding.bridge_record, outcome: "resolved")
           next
         end

@@ -53,8 +53,8 @@ Successful reads extend cursor-window activity for30days. Notices are retained
 indefinitely in this implementation, including beyond the90-day minimum; no
 purge or implicit-ACK shortcut is implemented. Native current-state producers
 cover `source_deleted`, `source_unpublished` and `scope_removed`. Operator/policy
-hold producers, higher-revision restoration and delivery/ACK remain separate
-implementation work. These source routes do not unpublish a destination.
+hold producers and delivery/ACK remain separate implementation work. These
+source routes do not unpublish a destination.
 Durable state and signed cursors are not, by themselves, process-restart, scale
 or installation qualification; those gates remain open.
 Explicit staff/admin From-Discourse publication now retains immutable whole
@@ -62,8 +62,18 @@ cooked native-source captures with actual first-post clocks and stable binding
 identity. Reads use retained context and recheck current public visibility;
 they do not capture or edit source posts. Explicit staff re-publication captures
 a changed native revision, including a wiki edit or revert, without reusing an
-older sequence. Automatic native-source revision updates and bounded outbound delivery are
-not implemented by this correction. Unknown historical context still fails
+older sequence. Native first-post edits (including wiki, title and taxonomy
+changes), recovery, category visibility and connection scope events now enqueue
+fixed-cut batches of at most100 already-observed bindings. Each refresh rechecks
+current public source visibility, connection scope and retained native identity;
+it updates the immutable source capture/observation without editing source posts,
+binding identities or destination receipts. Returning after a retained native
+withdrawal creates a higher source sequence, even for identical content and
+native clocks. Duplicate callbacks/replays are idempotent. Operator/policy holds
+are not cleared by source eligibility. Queued events observe the latest eligible
+native state, not every transient intermediate revision. Disabled or unmapped
+sources are inert. This implements source revision capture, not destination
+update/restore delivery or staged ACK; those remain pending. Unknown historical context still fails
 closed; no existing rows are backfilled or given invented synchronization dates.
 New migration bindings have identity and presentation metadata, but never
 inherit a destination publication receipt. The retained staff/admin paths are

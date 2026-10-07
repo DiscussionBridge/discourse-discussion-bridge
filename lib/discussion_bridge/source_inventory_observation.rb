@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module DiscussionBridge
-  # The explicit publication caller owns connection/topic/record locks and its
+  # The publication/update caller owns connection/topic/record locks and its
   # transaction. Observe one exact association; never populate history on GET.
   class SourceInventoryObservation
     FIELDS = %w[content_connection_id bridge_record_id content_binding_id native_source_revision_id

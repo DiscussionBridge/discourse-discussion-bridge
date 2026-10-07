@@ -88,6 +88,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/source_connection_scope"
   require_relative "lib/discussion_bridge/source_inventory"
   require_relative "lib/discussion_bridge/source_revocation_producer"
+  require_relative "lib/discussion_bridge/source_revision_producer"
   require_relative "lib/discussion_bridge/source_revocations"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
@@ -104,6 +105,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_source_revocation"
   require_relative "app/models/discussion_bridge_source_revocation_window"
   require_relative "app/jobs/regular/discussion_bridge_record_source_revocations"
+  require_relative "app/jobs/regular/discussion_bridge_capture_source_revisions"
   require_relative "app/controllers/discussion_bridge/adapter_controller"
   require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
@@ -124,14 +126,32 @@ after_initialize do
   end
   on(:topic_category_changed) do |topic, *_args|
     DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("topic_id" => topic.id) }
+    DB.after_commit { DiscussionBridge::SourceRevisionProducer.enqueue("topic_id" => topic.id) }
+  end
+  on(:post_edited) do |post, *_args|
+    if post.post_number == 1
+      DB.after_commit { DiscussionBridge::SourceRevisionProducer.enqueue("topic_id" => post.topic_id) }
+    end
+  end
+  on(:post_recovered) do |post, *_args|
+    if post.post_number == 1
+      DB.after_commit { DiscussionBridge::SourceRevisionProducer.enqueue("topic_id" => post.topic_id) }
+    end
+  end
+  on(:topic_recovered) do |topic, *_args|
+    DB.after_commit { DiscussionBridge::SourceRevisionProducer.enqueue("topic_id" => topic.id) }
   end
   on(:category_updated) do |category|
-    DiscussionBridge::SourceRevocationProducer.enqueue("category_id" => category.id) if category.saved_change_to_read_restricted?
+    if category.saved_change_to_read_restricted?
+      DiscussionBridge::SourceRevocationProducer.enqueue("category_id" => category.id)
+      DiscussionBridge::SourceRevisionProducer.enqueue("category_id" => category.id)
+    end
   end
   add_model_callback(DiscussionBridgeContentConnection, :after_update) do
-    if saved_change_to_allowed_origins? || saved_change_to_allowed_lanes? || saved_change_to_allowed_directions?
+    if saved_change_to_allowed_origins? || saved_change_to_allowed_lanes? || saved_change_to_allowed_directions? || saved_change_to_enabled?
       connection_id = id
       DB.after_commit { DiscussionBridge::SourceRevocationProducer.enqueue("content_connection_id" => connection_id) }
+      DB.after_commit { DiscussionBridge::SourceRevisionProducer.enqueue("content_connection_id" => connection_id) }
     end
   end
 

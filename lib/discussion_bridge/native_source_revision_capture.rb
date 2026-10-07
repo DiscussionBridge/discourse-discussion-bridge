@@ -3,10 +3,11 @@
 require "digest"
 
 module DiscussionBridge
-  # Called only by explicit staff publication, inside its locked transaction.
+  # Called by explicit staff publication or an already-authorized native update,
+  # inside the caller's locked transaction.
   # Retain the whole cooked first post, not an excerpt or a later mutable read.
   class NativeSourceRevisionCapture
-    def self.call(record:, topic:)
+    def self.call(record:, topic:, restoration: nil)
       post = Post.unscoped.lock.find_by(topic_id: topic.id, post_number: 1, deleted_at: nil)
       unless post && Guardian.new.can_see?(topic) && !topic.private_message?
         raise Discourse::InvalidAccess
@@ -46,11 +47,25 @@ module DiscussionBridge
             record.source_revision_sequence == latest.sequence && record.source_request_fingerprint == latest.fingerprint
           raise ArgumentError, "source revision context requires reconciliation"
         end
-        return latest if latest.fingerprint == fingerprint && latest.content_html == html
+        unless latest.metadata.fetch("post_id") == post.id &&
+            latest.metadata.fetch("source_created_at") == metadata.fetch("source_created_at")
+          raise ArgumentError, "native source identity requires reconciliation"
+        end
+        restore = false
+        if restoration
+          SourceRevocationProducer.verify!(restoration)
+          unless restoration.bridge_record_id == record.id && restoration.restorable &&
+              %w[source_deleted source_unpublished scope_removed].include?(restoration.reason) &&
+              restoration.source_revision_sequence <= latest.sequence
+            raise ArgumentError, "source restoration context requires reconciliation"
+          end
+          restore = restoration.source_revision_sequence == latest.sequence
+        end
+        return latest if !restore && latest.fingerprint == fingerprint && latest.content_html == html
         if updated < BridgeRecordRequest.timestamp!(latest.metadata.fetch("source_updated_at"))
           raise ArgumentError, "native source clock is stale"
         end
-      elsif record.source_revision || record.source_revision_sequence || record.persisted? && !record.previously_new_record?
+      elsif restoration || record.source_revision || record.source_revision_sequence || record.persisted? && !record.previously_new_record?
         raise ArgumentError, "source revision context requires reconciliation"
       end
 
