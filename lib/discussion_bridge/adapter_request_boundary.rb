@@ -95,7 +95,7 @@ module DiscussionBridge
     CATALOG_PATH = %r{\A/discussion-bridge/v1/platform-catalog(?:\.json)?\z}
     POLICY_CONFIGURATION_PATH = %r{\A/discussion-bridge/admin/content-connections/[1-9]\d*/destination-policies(?:\.json)?\z}
     WORK_PATH = %r{\A/discussion-bridge/v1/publication-work/(?:claim|[^/]+/renew)(?:\.json)?\z}
-    ACK_PATH = %r{\A/discussion-bridge/v1/publication-work/[^/]+/acknowledgement(?:\.json)?\z}
+    ACK_PATH = %r{\A/discussion-bridge/v1/publication-work/[^/]+/(?:acknowledgement|failure)(?:\.json)?\z}
 
     def initialize(app)
       @app = app

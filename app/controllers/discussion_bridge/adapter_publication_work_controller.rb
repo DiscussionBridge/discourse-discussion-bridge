@@ -18,6 +18,16 @@ module DiscussionBridge
       end
     end
 
+    def failure
+      with_current_connection do
+        PublicationFailure.accept!(@content_connection, params[:work_id], @work_request,
+          secret: request.headers["X-DiscussionBridge-Secret"])
+        # CENTRAL's common rule requires correlation in every response body;
+        # no failure-specific success fields are declared.
+        render json: JSON.generate("correlation_id" => @correlation_id)
+      end
+    end
+
     private
 
     def parse_request_body(value)

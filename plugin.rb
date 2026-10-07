@@ -49,7 +49,7 @@ add_admin_route(
 )
 
 Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
-Rails.application.config.filter_parameters += %i[lease_token stage_token]
+Rails.application.config.filter_parameters += %i[lease_token stage_token error_detail]
 
 after_initialize do
   module ::DiscussionBridge
@@ -90,6 +90,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/destination_policy"
   require_relative "lib/discussion_bridge/platform_catalog"
   require_relative "lib/discussion_bridge/publication_work"
+  require_relative "lib/discussion_bridge/publication_failure"
   require_relative "lib/discussion_bridge/publication_work_producer"
   require_relative "lib/discussion_bridge/publication_acknowledgement"
   require_relative "lib/discussion_bridge/source_inventory"
@@ -115,6 +116,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_destination_policy"
   require_relative "app/models/discussion_bridge_publication_destination"
   require_relative "app/models/discussion_bridge_publication_work"
+  require_relative "app/models/discussion_bridge_publication_failure"
   require_relative "app/models/discussion_bridge_publication_receipt"
   require_relative "app/models/discussion_bridge_work_issue"
   require_relative "app/models/discussion_bridge_policy_production"
@@ -396,6 +398,7 @@ after_initialize do
     post "/v1/publication-work/claim" => "adapter_publication_work#claim"
     post "/v1/publication-work/:work_id/renew" => "adapter_publication_work#renew"
     put "/v1/publication-work/:work_id/acknowledgement" => "adapter_publication_work#acknowledge"
+    put "/v1/publication-work/:work_id/failure" => "adapter_publication_work#failure"
     get "/admin/health" => "health#show"
     get "/admin/support-bundle" => "health#support_bundle"
     get "/admin/content-connections" => "admin_content_connections#index"

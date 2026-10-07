@@ -58,11 +58,12 @@ module DiscussionBridge
       connection!(connection)
       claim_request!(request)
       maintain!(connection)
+      PublicationFailure.release_due!(connection)
       maximum = request.fetch("maximum_items", 1)
       seconds = request.fetch("requested_lease_seconds", 300)
       eligible = []
       scope = DiscussionBridgePublicationDestination.where(content_connection_id: connection.id, active_work_id: nil)
-        .joins(:desired_work).where(discussion_bridge_publication_works: { state: "available" })
+        .joins(:desired_work).where(discussion_bridge_publication_works: { state: "available", retry_resume_state: nil })
       scope.order("discussion_bridge_publication_works.id").limit(MAINTENANCE_LIMIT).each do |destination|
         destination.lock!
         work = destination.desired_work

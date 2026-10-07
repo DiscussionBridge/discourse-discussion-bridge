@@ -26,7 +26,9 @@ end
 #  lease_expires_at           :datetime
 #  lease_started_at           :datetime
 #  lease_token                :string(64)
+#  next_retry_at              :datetime
 #  retry_generation           :integer          default(0), not null
+#  retry_resume_state         :string(32)
 #  stage_token                :string(64)
 #  state                      :string(32)       default("available"), not null
 #  total_lease_seconds        :integer          default(0), not null
@@ -44,6 +46,7 @@ end
 #  idx_db_work_expiry       (state,lease_expires_at,id)
 #  idx_db_work_identity     (identity_digest) UNIQUE
 #  idx_db_work_public       (public_id) UNIQUE
+#  idx_db_work_retry_due    (state,next_retry_at,id)
 #
 # Foreign Keys
 #
