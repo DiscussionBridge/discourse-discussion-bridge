@@ -95,6 +95,7 @@ module DiscussionBridge
     CATALOG_PATH = %r{\A/discussion-bridge/v1/platform-catalog(?:\.json)?\z}
     POLICY_CONFIGURATION_PATH = %r{\A/discussion-bridge/admin/content-connections/[1-9]\d*/destination-policies(?:\.json)?\z}
     WORK_PATH = %r{\A/discussion-bridge/v1/publication-work/(?:claim|[^/]+/renew)(?:\.json)?\z}
+    ACK_PATH = %r{\A/discussion-bridge/v1/publication-work/[^/]+/acknowledgement(?:\.json)?\z}
 
     def initialize(app)
       @app = app
@@ -104,7 +105,8 @@ module DiscussionBridge
       native_configuration = env["REQUEST_METHOD"] == "PUT" && POLICY_CONFIGURATION_PATH.match?(env["PATH_INFO"].to_s)
       bounded = native_configuration || (env["REQUEST_METHOD"] == "POST" && RESOLVE_PATH.match?(env["PATH_INFO"].to_s)) ||
         (env["REQUEST_METHOD"] == "PUT" && CATALOG_PATH.match?(env["PATH_INFO"].to_s)) ||
-        (env["REQUEST_METHOD"] == "POST" && WORK_PATH.match?(env["PATH_INFO"].to_s))
+        (env["REQUEST_METHOD"] == "POST" && WORK_PATH.match?(env["PATH_INFO"].to_s)) ||
+        (env["REQUEST_METHOD"] == "PUT" && ACK_PATH.match?(env["PATH_INFO"].to_s))
       return @app.call(env) unless bounded
       supplied = env["HTTP_X_DISCUSSIONBRIDGE_CORRELATION"]
       valid_correlation = AdapterRequestBoundary.valid_correlation?(supplied)

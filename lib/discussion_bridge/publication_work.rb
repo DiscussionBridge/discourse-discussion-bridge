@@ -15,6 +15,7 @@ module DiscussionBridge
       value = work.context
       identity = NativeSourceRevisionCapture.fingerprint("destination_id" => destination.id, "entry_id" => entry.id, "policy_id" => policy.id)
       unless work.identity_digest == identity && work.context_digest == NativeSourceRevisionCapture.fingerprint(value) &&
+          work.destination_mode == PublicationAcknowledgement.profile_mode!(value["platform_profile"]) &&
           (value.keys - CONTEXT_FIELDS).empty? && (CONTEXT_FIELDS - value.keys).empty? &&
           value["policy_definition"] == policy.definition && value["source_context_digest"] == entry.context_digest &&
           SourceInventoryObservation.context_digest(entry.attributes) == entry.context_digest &&

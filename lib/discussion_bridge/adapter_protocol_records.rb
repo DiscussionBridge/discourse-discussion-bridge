@@ -40,6 +40,16 @@ module DiscussionBridge
         value[:read_more_url] = binding.read_more_url if binding.read_more_url
         value
       end
+      destinations = DiscussionBridgePublicationDestination.where(bridge_record_id: record.id,
+        content_connection_id: connection.id).where.not(binding: nil).order(:id).limit(101).to_a
+      raise AdapterRequestBoundary::Error.new("integrity_failed") if destinations.size > 100
+      projected = destinations.map { |destination| PublicationAcknowledgement.projected_binding!(destination, connection) }
+      # Replace only the exact original ID when it is the accepted destination
+      # identity; append separately identified siblings. Never select the first
+      # presentation binding or mutate the original row to represent them all.
+      projected_ids = projected.map { |binding| binding.fetch("binding_id") }
+      bindings.reject! { |binding| projected_ids.include?(binding.fetch(:binding_id)) }
+      bindings.concat(projected)
       {
         resource_id: record.resource_id, direction: record.direction, state: record.state,
         title: record.title, topic_id: record.topic_id, topic_url: topic.url,

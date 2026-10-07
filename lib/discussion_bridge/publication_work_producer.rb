@@ -92,7 +92,8 @@ module DiscussionBridge
       end
       work = DiscussionBridgePublicationWork.create!(publication_destination: destination, source_inventory_entry: entry,
         destination_policy: policy, public_id: "dbw_#{SecureRandom.hex(16)}", identity_digest: identity,
-        context: context, context_digest: NativeSourceRevisionCapture.fingerprint(context), state: state)
+        context: context, context_digest: NativeSourceRevisionCapture.fingerprint(context), state: state,
+        destination_mode: PublicationAcknowledgement.profile_mode!(policy.platform_profile))
       if previous && %w[available retry_wait operator_attention].include?(previous.state)
         previous.update!(state: "superseded")
       end

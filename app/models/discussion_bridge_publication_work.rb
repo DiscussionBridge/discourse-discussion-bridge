@@ -6,7 +6,7 @@ class DiscussionBridgePublicationWork < ActiveRecord::Base
   belongs_to :source_inventory_entry, class_name: "DiscussionBridgeSourceInventoryEntry"
   belongs_to :destination_policy, class_name: "DiscussionBridgeDestinationPolicy"
 
-  IMMUTABLE = %w[publication_destination_id source_inventory_entry_id destination_policy_id public_id identity_digest context_digest context].freeze
+  IMMUTABLE = %w[publication_destination_id source_inventory_entry_id destination_policy_id public_id identity_digest context_digest context destination_mode].freeze
   before_update do
     raise ActiveRecord::ReadOnlyRecord if IMMUTABLE.any? { |field| will_save_change_to_attribute?(field) }
   end
@@ -21,6 +21,7 @@ end
 #  attempt_count              :integer          default(1), not null
 #  context                    :jsonb            not null
 #  context_digest             :string(64)       not null
+#  destination_mode           :string(16)
 #  identity_digest            :string(64)       not null
 #  lease_expires_at           :datetime
 #  lease_started_at           :datetime

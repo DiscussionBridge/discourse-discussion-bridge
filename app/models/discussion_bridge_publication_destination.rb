@@ -13,20 +13,29 @@ end
 #
 # Table name: discussion_bridge_publication_destinations
 #
-#  id                    :bigint           not null, primary key
-#  created_at            :datetime         not null
-#  updated_at            :datetime         not null
-#  active_work_id        :bigint
-#  bridge_record_id      :bigint           not null
-#  content_binding_id    :bigint           not null
-#  content_connection_id :bigint           not null
-#  desired_work_id       :bigint
-#  destination_policy_id :string(255)      not null
-#  resource_id           :string(36)       not null
+#  id                     :bigint           not null, primary key
+#  binding                :jsonb
+#  binding_digest         :string(64)
+#  native_identity_digest :string(64)
+#  native_url_digest      :string(64)
+#  created_at             :datetime         not null
+#  updated_at             :datetime         not null
+#  active_work_id         :bigint
+#  binding_public_id      :string(36)
+#  bridge_record_id       :bigint           not null
+#  content_binding_id     :bigint           not null
+#  content_connection_id  :bigint           not null
+#  desired_work_id        :bigint
+#  destination_policy_id  :string(255)      not null
+#  last_receipt_work_id   :bigint
+#  resource_id            :string(36)       not null
 #
 # Indexes
 #
-#  idx_db_destination_identity  (content_connection_id,destination_policy_id,resource_id) UNIQUE
+#  idx_db_destination_binding_public_id       (binding_public_id) UNIQUE
+#  idx_db_destination_identity                (content_connection_id,destination_policy_id,resource_id) UNIQUE
+#  idx_db_destination_native_identity_digest  (native_identity_digest) UNIQUE
+#  idx_db_destination_native_url_digest       (native_url_digest) UNIQUE
 #
 # Foreign Keys
 #
@@ -35,4 +44,5 @@ end
 #  fk_rails_...  (content_binding_id => discussion_bridge_content_bindings.id)
 #  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
 #  fk_rails_...  (desired_work_id => discussion_bridge_publication_works.id)
+#  fk_rails_...  (last_receipt_work_id => discussion_bridge_publication_works.id)
 #

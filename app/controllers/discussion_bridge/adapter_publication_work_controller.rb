@@ -12,6 +12,12 @@ module DiscussionBridge
       with_current_connection { render json: JSON.generate(PublicationWork.renew!(@content_connection, params[:work_id], @work_request)) }
     end
 
+    def acknowledge
+      with_current_connection do
+        render json: JSON.generate(PublicationAcknowledgement.accept!(@content_connection, params[:work_id], @work_request))
+      end
+    end
+
     private
 
     def parse_request_body(value)
