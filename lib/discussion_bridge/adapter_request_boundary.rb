@@ -94,6 +94,7 @@ module DiscussionBridge
     RESOLVE_PATH = %r{\A/discussion-bridge/v1/bridge-records/resolve(?:\.json)?\z}
     CATALOG_PATH = %r{\A/discussion-bridge/v1/platform-catalog(?:\.json)?\z}
     POLICY_CONFIGURATION_PATH = %r{\A/discussion-bridge/admin/content-connections/[1-9]\d*/destination-policies(?:\.json)?\z}
+    RETRY_CONFIGURATION_PATH = %r{\A/discussion-bridge/admin/content-connections/[1-9]\d*/publication-work/[^/]+/retry(?:\.json)?\z}
     WORK_PATH = %r{\A/discussion-bridge/v1/publication-work/(?:claim|[^/]+/renew)(?:\.json)?\z}
     ACK_PATH = %r{\A/discussion-bridge/v1/publication-work/[^/]+/(?:acknowledgement|failure)(?:\.json)?\z}
 
@@ -102,7 +103,8 @@ module DiscussionBridge
     end
 
     def call(env)
-      native_configuration = env["REQUEST_METHOD"] == "PUT" && POLICY_CONFIGURATION_PATH.match?(env["PATH_INFO"].to_s)
+      native_configuration = (env["REQUEST_METHOD"] == "PUT" && POLICY_CONFIGURATION_PATH.match?(env["PATH_INFO"].to_s)) ||
+        (env["REQUEST_METHOD"] == "POST" && RETRY_CONFIGURATION_PATH.match?(env["PATH_INFO"].to_s))
       bounded = native_configuration || (env["REQUEST_METHOD"] == "POST" && RESOLVE_PATH.match?(env["PATH_INFO"].to_s)) ||
         (env["REQUEST_METHOD"] == "PUT" && CATALOG_PATH.match?(env["PATH_INFO"].to_s)) ||
         (env["REQUEST_METHOD"] == "POST" && WORK_PATH.match?(env["PATH_INFO"].to_s)) ||

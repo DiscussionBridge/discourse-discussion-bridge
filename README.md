@@ -18,8 +18,32 @@ Only `simple`, `full`, and `interactive` are accepted presentation values. The
 canonical setting is `discussion_bridge_comments_only_interactive`; there is
 no old-name fallback or automatic saved-setting transfer.
 
-The catalog/destination-policy/work/lease/acknowledgement and restoration graph,
-URL-migration proof and Operator action/audit groups remain pending.
+The current source also implements native catalogs and administrator-approved
+destination policies, independent destination work, bounded claims/renewals,
+staged acknowledgements and registered failure/retry handling. These source
+features are not normal-install, crash/restart, scale or release qualification.
+Fresh static-stage recovery acquisition, withdrawal/restore delivery, remaining
+capability/UI, URL-migration proof and Operator Service groups remain pending.
+
+Native administrator Retry records an operator-verified correction, its evidence
+reference and verification timestamp, actor, failed attempt and exact generation.
+It is not a blind retry button, adapter-granted permission or remote health probe.
+`POST /discussion-bridge/admin/content-connections/{id}/publication-work/{work_id}/retry.json`
+accepts exactly `failure_id`, current `retry_generation`, and `correction_evidence`.
+Evidence contains `error_code`, `summary`, `verification`, `reference`, `verified_at`;
+the reference is a credential-free canonical HTTP(S) URL without query/fragment
+and is recorded, never fetched. The verification must follow the exact retained
+failure receipt and cannot be in the future. Blank, secret-bearing or recycled
+evidence does not authorize retry. Current connection, source visibility/scope,
+retained identity, approved policy and catalog availability are rechecked.
+Exact replay returns the retained result without another generation; changed
+replay fails. An accepted correction keeps the same work/resource/revision/policy/
+destination identity, increments generation once and resets attempt count to1.
+Lease ownership is cleared; prior issue/failure/authorization receipts are not.
+Static binding and resume stage survive and are excluded from ordinary native
+publication claims while their separate stage-recovery acquisition is unfinished.
+This native administration path is not an addition to the shared adapter wire
+contract. The current UI does not yet expose this action.
 Exact-revision source detail, byte-chunk and pinned inventory routes implement
 source-side parts of that graph, not an operational delivery worker. New captures
 retain author/category/tag descriptions and the source URL at capture time.

@@ -49,7 +49,7 @@ add_admin_route(
 )
 
 Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
-Rails.application.config.filter_parameters += %i[lease_token stage_token error_detail]
+Rails.application.config.filter_parameters += %i[lease_token stage_token error_detail correction_evidence]
 
 after_initialize do
   module ::DiscussionBridge
@@ -91,6 +91,7 @@ after_initialize do
   require_relative "lib/discussion_bridge/platform_catalog"
   require_relative "lib/discussion_bridge/publication_work"
   require_relative "lib/discussion_bridge/publication_failure"
+  require_relative "lib/discussion_bridge/publication_retry"
   require_relative "lib/discussion_bridge/publication_work_producer"
   require_relative "lib/discussion_bridge/publication_acknowledgement"
   require_relative "lib/discussion_bridge/source_inventory"
@@ -117,6 +118,7 @@ after_initialize do
   require_relative "app/models/discussion_bridge_publication_destination"
   require_relative "app/models/discussion_bridge_publication_work"
   require_relative "app/models/discussion_bridge_publication_failure"
+  require_relative "app/models/discussion_bridge_publication_retry"
   require_relative "app/models/discussion_bridge_publication_receipt"
   require_relative "app/models/discussion_bridge_work_issue"
   require_relative "app/models/discussion_bridge_policy_production"
@@ -131,6 +133,7 @@ after_initialize do
   require_relative "app/controllers/discussion_bridge/adapter_platform_catalog_controller"
   require_relative "app/controllers/discussion_bridge/adapter_publication_work_controller"
   require_relative "app/controllers/discussion_bridge/admin_destination_policies_controller"
+  require_relative "app/controllers/discussion_bridge/admin_publication_retries_controller"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
@@ -405,6 +408,7 @@ after_initialize do
     post "/admin/content-connections" => "admin_content_connections#create"
     put "/admin/content-connections/:id" => "admin_content_connections#update"
     put "/admin/content-connections/:id/destination-policies" => "admin_destination_policies#update"
+    post "/admin/content-connections/:id/publication-work/:work_id/retry" => "admin_publication_retries#create"
     post "/admin/content-connections/:id/rotate-secret" => "admin_content_connections#rotate_secret"
     put "/admin/content-connections/:id/authors/:author_id" => "admin_content_connections#update_author"
     get "/admin/bridge-records" => "admin_bridge_records#index"
