@@ -1,0 +1,3 @@
+*.js text eol=lf
+*.gjs text eol=lf
+lib/discussion_bridge/cms_protocol_types.json -text -filter -ident -working-tree-encoding

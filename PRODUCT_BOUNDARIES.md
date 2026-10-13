@@ -77,6 +77,11 @@ an administrator creates a connection.
 
 ## Explicitly excluded
 
+- Network publishing coordination and Workspace hosting, membership, feeds, or
+  navigation; the proposed Network add-on requires DiscussionBridge, while the
+  proposed Federation plugin is independent of it;
+- interforum sharing, participation, or remote forum membership implemented by
+  this core package;
 - the rejected v1 control plane, Bridge Spaces, deployment brokers, signed plan
   estates, receipt chains, or platform-wide orchestration;
 - embedding Astro-specific build, routing, frontmatter, CLI, import, or

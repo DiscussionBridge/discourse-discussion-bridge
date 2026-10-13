@@ -9,33 +9,36 @@ module ::DiscussionBridge
     def overview
       connections = available_connections
       render json: {
-        product: {
-          name: "DiscussionBridge",
-          version: DiscussionBridge::VERSION,
-          ready: readiness_blockers(connections).empty?,
-          blockers: readiness_blockers(connections),
-        },
-        connections: connections.map { |connection| connection_payload(connection) },
-        metrics: {
-          published_topics: from_discourse_records.distinct.count(:topic_id),
-          presentations: from_discourse_records.count,
-          connected_platforms: connections.map(&:platform).uniq.count,
-        },
-        recent_records: recent_records,
-      }
+               product: {
+                 name: "DiscussionBridge",
+                 version: DiscussionBridge::VERSION,
+                 ready: readiness_blockers(connections).empty?,
+                 blockers: readiness_blockers(connections),
+               },
+               connections: connections.map { |connection| connection_payload(connection) },
+               metrics: {
+                 published_topics: from_discourse_records.distinct.count(:topic_id),
+                 presentations: from_discourse_records.count,
+                 connected_platforms: connections.map(&:platform).uniq.count,
+               },
+               recent_records: recent_records,
+             }
     end
 
     def publish_topic
       input = params.require(:publication)
-      result = FromDiscourseRecordCreator.call(
-        user: current_user,
-        connection_id: input.fetch(:content_connection_id),
-        topic_id: params.require(:topic_id),
-        external_id: input.fetch(:external_id),
-        canonical_url: input.fetch(:canonical_url),
-        lane: input[:lane],
-        native_materialization: native_materialization(input[:native_materialization]),
-      )
+      result =
+        FromDiscourseRecordCreator.call(
+          user: current_user,
+          connection_id: input.fetch(:content_connection_id),
+          topic_id: params.require(:topic_id),
+          external_id: input.fetch(:external_id),
+          canonical_url: input.fetch(:canonical_url),
+          lane: input[:lane],
+          native_materialization: native_materialization(input[:native_materialization]),
+          presentation_mode:
+            input.key?(:presentation_mode) ? input[:presentation_mode] : :unchanged,
+        )
       render json: publication_payload(result.record).merge(outcome: result.outcome),
              status: result.outcome == "created" ? :created : :ok
     rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique, ArgumentError => error
@@ -47,24 +50,29 @@ module ::DiscussionBridge
       topic = Topic.find(params.require(:topic_id))
       guardian.ensure_can_see!(topic)
       render json: {
-        topic_id: topic.id,
-        title: topic.title,
-        topic_url: topic.url,
-        publications: from_discourse_records.where(topic_id: topic.id).order(:id).map do |record|
-          publication_payload(record)
-        end,
-      }
+               topic_id: topic.id,
+               title: topic.title,
+               topic_url: topic.url,
+               publications:
+                 from_discourse_records
+                   .where(topic_id: topic.id)
+                   .order(:id)
+                   .map do |record| publication_payload(record) end,
+             }
     end
 
     def correct_presentation
-      record = PresentationBindingCorrector.call(
-        user: current_user,
-        resource_id: params.require(:resource_id),
-        canonical_url: params.require(:publication).fetch(:canonical_url),
-      )
+      record =
+        PresentationBindingCorrector.call(
+          user: current_user,
+          resource_id: params.require(:resource_id),
+          canonical_url: params.require(:publication).fetch(:canonical_url),
+        )
       render json: publication_payload(record).merge(outcome: "presentation_corrected")
-    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique,
-           ActiveRecord::RecordNotFound, ArgumentError => error
+    rescue ActiveRecord::RecordInvalid,
+           ActiveRecord::RecordNotUnique,
+           ActiveRecord::RecordNotFound,
+           ArgumentError => error
       errors = error.respond_to?(:record) ? error.record.errors.full_messages : [error.message]
       render json: { errors: errors }, status: :unprocessable_entity
     end
@@ -72,10 +80,11 @@ module ::DiscussionBridge
     private
 
     def available_connections
-      @available_connections ||= DiscussionBridgeContentConnection
-        .where(enabled: true)
-        .order(:platform, :name, :id)
-        .select { |connection| connection.allows_direction?("from_discourse") }
+      @available_connections ||=
+        DiscussionBridgeContentConnection
+          .where(enabled: true)
+          .order(:platform, :name, :id)
+          .select { |connection| connection.allows_direction?("from_discourse") }
     end
 
     def from_discourse_records
@@ -108,7 +117,7 @@ module ::DiscussionBridge
         resource_id: record.resource_id,
         state: record.state,
         topic_id: record.topic_id,
-        title: record.title,
+        title: record.topic&.title || record.title,
         topic_url: record.topic&.url,
         connection_id: binding&.content_connection_id,
         connection_name: binding&.content_connection&.name,
@@ -117,12 +126,16 @@ module ::DiscussionBridge
         canonical_url: binding&.canonical_url,
         lane: record.lane,
         native_materialization: binding&.native_materialization || false,
+        presentation_mode: binding&.presentation_mode,
       }
     end
 
     def recent_records
-      from_discourse_records.includes(:topic, content_bindings: :content_connection)
-        .order(updated_at: :desc, id: :desc).limit(20).map { |record| publication_payload(record) }
+      from_discourse_records
+        .includes(:topic, content_bindings: :content_connection)
+        .order(updated_at: :desc, id: :desc)
+        .limit(20)
+        .map { |record| publication_payload(record) }
     end
 
     def native_materialization(value)

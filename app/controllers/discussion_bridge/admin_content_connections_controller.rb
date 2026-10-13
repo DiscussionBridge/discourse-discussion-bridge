@@ -4,17 +4,23 @@ module DiscussionBridge
   class AdminContentConnectionsController < ::Admin::AdminController
     requires_plugin DiscussionBridge::PLUGIN_NAME
 
+    before_action :prevent_secret_response_caching, only: %i[create rotate_secret]
+
     def index
       connections = DiscussionBridgeContentConnection.order(:name, :id)
       render json: {
-        content_connections: connections.map { |connection| serialize(connection) },
-        platforms: DiscussionBridgeContentConnection::PLATFORMS,
-        directions: DiscussionBridgeContentConnection::DIRECTIONS,
-        categories: Category.order(:name, :id).pluck(:id, :name).map do |id, name|
-          { id: id, id_string: id.to_s, name: name }
-        end,
-        fallback_category: fallback_category,
-      }
+               content_connections: connections.map { |connection| serialize(connection) },
+               platforms: DiscussionBridgeContentConnection::PLATFORMS,
+               directions: DiscussionBridgeContentConnection::DIRECTIONS,
+               categories:
+                 Category
+                   .order(:name, :id)
+                   .pluck(:id, :name, :read_restricted)
+                   .map do |id, name, read_restricted|
+                     { id: id, id_string: id.to_s, name: name, read_restricted: read_restricted }
+                   end,
+               fallback_category: fallback_category,
+             }
     end
 
     def create
@@ -26,8 +32,12 @@ module DiscussionBridge
     end
 
     def update
-      connection = DiscussionBridgeContentConnection.find(params[:id])
-      connection.update!(connection_params)
+      connection =
+        DiscussionBridge::CmsAuthorityLifecycle.admin_update!(
+          connection_id: params[:id],
+          attributes: connection_params,
+          actor: current_user,
+        )
       render json: { content_connection: serialize(connection) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -41,10 +51,9 @@ module DiscussionBridge
     def update_author
       connection = DiscussionBridgeContentConnection.find(params[:id])
       source_author = connection.source_authors.find(params[:author_id])
-      username = params.require(:source_author).permit(:discourse_username)[:discourse_username].to_s.strip
-      source_author.update!(
-        discourse_user: username.present? ? author_user!(username) : nil,
-      )
+      username =
+        params.require(:source_author).permit(:discourse_username)[:discourse_username].to_s.strip
+      source_author.update!(discourse_user: username.present? ? author_user!(username) : nil)
       render json: { source_author: serialize_source_author(source_author) }
     rescue ActiveRecord::RecordInvalid, ArgumentError => error
       render json: { errors: errors_for(error) }, status: :unprocessable_entity
@@ -52,22 +61,32 @@ module DiscussionBridge
 
     private
 
+    def prevent_secret_response_caching
+      response.headers["Cache-Control"] = "no-store"
+      response.headers["Pragma"] = "no-cache"
+    end
+
     def connection_params
-      raw = params.require(:content_connection).permit(
-        :name,
-        :platform,
-        :author_username,
-        :authorship_mode,
-        :unmapped_author_policy,
-        :generate_topic_toc,
-        :default_category_id,
-        :adapter_id,
-        :adapter_version,
-        :enabled,
-        allowed_origins: [],
-        allowed_directions: [],
-        allowed_lanes: [],
-      ).to_h.symbolize_keys
+      raw =
+        params
+          .require(:content_connection)
+          .permit(
+            :name,
+            :platform,
+            :author_username,
+            :authorship_mode,
+            :unmapped_author_policy,
+            :generate_topic_toc,
+            :default_category_id,
+            :adapter_id,
+            :adapter_version,
+            :enabled,
+            allowed_origins: [],
+            allowed_directions: [],
+            allowed_lanes: [],
+          )
+          .to_h
+          .symbolize_keys
       if raw.key?(:author_username)
         username = raw.delete(:author_username).to_s.strip
         raw[:author_user_id] = username.present? ? author_user!(username).id : nil
@@ -76,16 +95,21 @@ module DiscussionBridge
         category_id = raw[:default_category_id].to_s.strip
         raw[:default_category_id] = category_id.present? ? Integer(category_id, 10) : nil
       end
-      raw[:allowed_origins] = Array(raw[:allowed_origins]).map { |origin| CanonicalSource.origin(origin) } if raw.key?(:allowed_origins)
-      raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(:allowed_directions)
+      raw[:allowed_origins] = Array(raw[:allowed_origins]).map do |origin|
+        CanonicalSource.origin(origin)
+      end if raw.key?(:allowed_origins)
+      raw[:allowed_directions] = Array(raw[:allowed_directions]).map(&:to_s) if raw.key?(
+        :allowed_directions,
+      )
       raw[:allowed_lanes] = Array(raw[:allowed_lanes]).map(&:to_s) if raw.key?(:allowed_lanes)
       raw
     end
 
     def author_user!(username)
       user = User.find_by(username_lower: username.downcase)
-      valid = user&.active? && !user.staged? && !user.suspended? && !user.silenced? &&
-        user.id != Discourse::SYSTEM_USER_ID
+      valid =
+        user&.active? && !user.staged? && !user.suspended? && !user.silenced? &&
+          user.id != Discourse::SYSTEM_USER_ID
       raise ArgumentError, "author username is unavailable" unless valid
 
       user
@@ -94,12 +118,17 @@ module DiscussionBridge
     def serialize(connection)
       bindings = connection.content_bindings
       active_records = bindings.where(state: "active").distinct.count(:bridge_record_id)
-      attention_records = DiscussionBridgeBridgeRecord
-        .joins(:content_bindings)
-        .where(
-          discussion_bridge_content_bindings: { content_connection_id: connection.id },
-          state: %w[attention failed migration],
-        ).distinct.count
+      attention_records =
+        DiscussionBridgeBridgeRecord
+          .joins(:content_bindings)
+          .where(
+            discussion_bridge_content_bindings: {
+              content_connection_id: connection.id,
+            },
+            state: %w[attention failed migration],
+          )
+          .distinct
+          .count
       {
         id: connection.id,
         public_id: connection.public_id,
@@ -112,9 +141,11 @@ module DiscussionBridge
         generate_topic_toc: connection.generate_topic_toc,
         default_category_id: connection.default_category_id,
         category_route: category_route(connection),
-        source_authors: connection.source_authors.order(:display_name, :source_author_id).map do |source_author|
-          serialize_source_author(source_author)
-        end,
+        source_authors:
+          connection
+            .source_authors
+            .order(:display_name, :source_author_id)
+            .map { |source_author| serialize_source_author(source_author) },
         source_author_count: connection.source_authors.count,
         unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
         enabled: connection.enabled,
@@ -126,13 +157,14 @@ module DiscussionBridge
         last_seen_at: connection.last_seen_at,
         bridge_record_count: active_records,
         attention_count: attention_records,
-        health: if !connection.enabled || attention_records.positive?
-                  "attention"
-                elsif connection.last_seen_at.nil?
-                  "setup"
-                else
-                  "healthy"
-                end,
+        health:
+          if !connection.enabled || attention_records.positive?
+            "attention"
+          elsif connection.last_seen_at.nil?
+            "setup"
+          else
+            "healthy"
+          end,
       }
     end
 
@@ -154,8 +186,9 @@ module DiscussionBridge
     end
 
     def category_route(connection)
-      category = Category.find_by(id: connection.default_category_id) ||
-        Category.find_by(id: SiteSetting.discussion_bridge_effective_category_id)
+      category =
+        Category.find_by(id: connection.default_category_id) ||
+          Category.find_by(id: SiteSetting.discussion_bridge_effective_category_id)
       {
         category_id: category&.id,
         category_name: category&.name,

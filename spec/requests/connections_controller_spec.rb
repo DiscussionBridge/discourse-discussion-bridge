@@ -14,13 +14,14 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     SiteSetting.discussion_bridge_effective_category_id = category.id
     SiteSetting.discussion_bridge_effective_tags = ""
     SiteSetting.discussion_bridge_lane_policies = "[]"
-    @connection, @secret = DiscussionBridgeContentConnection.issue!(
-      name: "Main WordPress",
-      platform: "wordpress",
-      allowed_origins: ["https://example.com"],
-      allowed_directions: %w[to_discourse from_discourse],
-      allowed_lanes: ["articles"],
-    )
+    @connection, @secret =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Main WordPress",
+        platform: "wordpress",
+        allowed_origins: ["https://example.com"],
+        allowed_directions: %w[to_discourse from_discourse],
+        allowed_lanes: ["articles"],
+      )
   end
 
   def headers(secret: @secret)
@@ -51,11 +52,17 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "creates one stable Bridge Record and resolves an idempotent retry" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:created), response.body
     created = response.parsed_body
 
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body).to include(
       "outcome" => "resolved",
@@ -66,20 +73,29 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     )
     expect(DiscussionBridgeBridgeRecord.count).to eq(1)
     expect(DiscussionBridgeContentBinding.count).to eq(1)
-    expect(DiscussionBridgeBridgeRecord.last.topic).to have_attributes(user_id: service_actor.id, visible: false)
+    expect(DiscussionBridgeBridgeRecord.last.topic).to have_attributes(
+      user_id: service_actor.id,
+      visible: false,
+    )
     expect(DiscussionBridgeBridgeRecord.last.topic.first_post.cooked).to include(
       "Community guide",
       "A complete source article.",
       "https://example.com/articles/community-guide/",
     )
-    expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
+    expect(@connection.reload).to have_attributes(
+      adapter_id: "wordpress-official",
+      adapter_version: "1.0.0",
+    )
   end
 
   it "uses the forum-selected connection category instead of the forum fallback" do
     connection_category = Fabricate(:category)
     @connection.update!(default_category_id: connection_category.id)
 
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
 
     expect(response).to have_http_status(:created), response.body
     expect(DiscussionBridgeBridgeRecord.last.topic.category_id).to eq(connection_category.id)
@@ -87,11 +103,12 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
   it "applies the selected connection's forum table-of-contents policy" do
     @connection.update!(generate_topic_toc: true)
-    structured = payload(
-      content_html: "<h2>First section</h2><p>One.</p><h2>Second section</h2><p>Two.</p>",
-      external_id: "post-483",
-      canonical_url: "https://example.com/articles/structured-guide/",
-    )
+    structured =
+      payload(
+        content_html: "<h2>First section</h2><p>One.</p><h2>Second section</h2><p>Two.</p>",
+        external_id: "post-483",
+        canonical_url: "https://example.com/articles/structured-guide/",
+      )
 
     post "/discussion-bridge/v1/bridge-records/resolve.json",
          headers: headers,
@@ -199,14 +216,20 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     replacement_author = Fabricate(:user, username: "replacement_author", trust_level: 1)
     @connection.update!(author_user: selected_author)
 
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:created), response.body
     record = DiscussionBridgeBridgeRecord.last
     expect(record).to have_attributes(effective_actor_id: selected_author.id)
     expect(record.topic).to have_attributes(user_id: selected_author.id)
 
     @connection.update!(author_user: replacement_author)
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("outcome")).to eq("resolved")
     expect(record.reload.effective_actor_id).to eq(selected_author.id)
@@ -216,17 +239,14 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   it "observes platform authors, holds an unmapped primary, and creates after an operator mapping" do
     mapped_author = Fabricate(:user, username: "mapped_author", trust_level: 1)
     @connection.update!(authorship_mode: "mapped", unmapped_author_policy: "hold")
-    authored_payload = payload(
-      source_authors: [
-        {
-          id: "astro:phil",
-          name: "Phil",
-          profile_url: "https://example.com/authors/phil/",
-        },
-        { id: "astro:editorial", name: "DiscussionBridge Editorial" },
-      ],
-      primary_source_author_id: "astro:phil",
-    )
+    authored_payload =
+      payload(
+        source_authors: [
+          { id: "astro:phil", name: "Phil", profile_url: "https://example.com/authors/phil/" },
+          { id: "astro:editorial", name: "DiscussionBridge Editorial" },
+        ],
+        primary_source_author_id: "astro:phil",
+      )
 
     post "/discussion-bridge/v1/bridge-records/resolve.json",
          headers: headers,
@@ -244,10 +264,16 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
     sign_in(admin)
     put "/discussion-bridge/admin/content-connections/#{@connection.id}/authors/#{source_author.id}.json",
-        params: { source_author: { discourse_username: mapped_author.username } },
+        params: {
+          source_author: {
+            discourse_username: mapped_author.username,
+          },
+        },
         as: :json
     expect(response).to have_http_status(:ok)
-    expect(response.parsed_body.dig("source_author", "discourse_username")).to eq(mapped_author.username)
+    expect(response.parsed_body.dig("source_author", "discourse_username")).to eq(
+      mapped_author.username,
+    )
     sign_out
 
     post "/discussion-bridge/v1/bridge-records/resolve.json",
@@ -291,18 +317,19 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
 
     post "/discussion-bridge/v1/bridge-records/resolve.json",
          headers: headers,
-         params: payload(
-           external_id: "post-483",
-           canonical_url: "https://example.com/articles/second/",
-           source_authors: [
-             {
-               id: "astro:outside",
-               name: "Outside",
-               profile_url: "https://attacker.invalid/author/",
-             },
-           ],
-           primary_source_author_id: "astro:outside",
-         ),
+         params:
+           payload(
+             external_id: "post-483",
+             canonical_url: "https://example.com/articles/second/",
+             source_authors: [
+               {
+                 id: "astro:outside",
+                 name: "Outside",
+                 profile_url: "https://attacker.invalid/author/",
+               },
+             ],
+             primary_source_author_id: "astro:outside",
+           ),
          as: :json
     expect(response).to have_http_status(:unprocessable_entity)
     expect(DiscussionBridgeContentBinding.count).to eq(1)
@@ -317,7 +344,10 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       else
         body[:bridge_record][:content_html] = content_html
       end
-      post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
+      post "/discussion-bridge/v1/bridge-records/resolve.json",
+           headers: headers,
+           params: body,
+           as: :json
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
@@ -336,7 +366,10 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       payload(existing_topic_id: "1"),
       payload(existing_topic_id: DiscussionBridge::BridgeRecordRequest::MAX_TOPIC_ID + 1),
     ].each do |body|
-      post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: body, as: :json
+      post "/discussion-bridge/v1/bridge-records/resolve.json",
+           headers: headers,
+           params: body,
+           as: :json
       expect(response).not_to have_http_status(:created)
     end
 
@@ -350,7 +383,10 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "fails closed when the same external identity and canonical URL disagree" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     post "/discussion-bridge/v1/bridge-records/resolve.json",
          headers: headers,
          params: payload(canonical_url: "https://example.com/articles/changed/"),
@@ -408,13 +444,20 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "records adapter presence during an authenticated read without creating content" do
-    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil, last_seen_at: nil)
+    expect(@connection.reload).to have_attributes(
+      adapter_id: nil,
+      adapter_version: nil,
+      last_seen_at: nil,
+    )
 
     get "/discussion-bridge/v1/bridge-records.json", headers: headers
 
     expect(response).to have_http_status(:ok)
     expect(DiscussionBridgeBridgeRecord.count).to eq(0)
-    expect(@connection.reload).to have_attributes(adapter_id: "wordpress-official", adapter_version: "1.0.0")
+    expect(@connection.reload).to have_attributes(
+      adapter_id: "wordpress-official",
+      adapter_version: "1.0.0",
+    )
     expect(@connection.last_seen_at).to be_present
   end
 
@@ -424,11 +467,18 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/v1/bridge-records.json", headers: invalid_headers
 
     expect(response).to have_http_status(:unauthorized)
-    expect(@connection.reload).to have_attributes(adapter_id: nil, adapter_version: nil, last_seen_at: nil)
+    expect(@connection.reload).to have_attributes(
+      adapter_id: nil,
+      adapter_version: nil,
+      last_seen_at: nil,
+    )
   end
 
   it "does not attach Discourse publisher provenance to a To Discourse record" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:created), response.body
 
     resource_id = response.parsed_body.fetch("resource_id")
@@ -439,7 +489,10 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "stops returning an existing record when its current connection scope is narrowed" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     resource_id = response.parsed_body.fetch("resource_id")
 
     @connection.update!(allowed_directions: ["from_discourse"])
@@ -459,15 +512,19 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "prepares and applies a source migration without changing the resource or topic" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     record = DiscussionBridgeBridgeRecord.last
-    target, = DiscussionBridgeContentConnection.issue!(
-      name: "Documentation Astro",
-      platform: "astro",
-      allowed_origins: ["https://docs.example.com"],
-      allowed_directions: ["to_discourse"],
-      allowed_lanes: ["articles"],
-    )
+    target, =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Documentation Astro",
+        platform: "astro",
+        allowed_origins: ["https://docs.example.com"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["articles"],
+      )
     resource_id = record.resource_id
     topic_id = record.topic_id
 
@@ -484,24 +541,33 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response).to have_http_status(:ok)
     prepared_id = response.parsed_body.fetch("prepared_binding_id")
 
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json",
+         as: :json
     expect(response).to have_http_status(:ok)
-    expect(record.reload).to have_attributes(resource_id: resource_id, topic_id: topic_id, state: "healthy")
+    expect(record.reload).to have_attributes(
+      resource_id: resource_id,
+      topic_id: topic_id,
+      state: "healthy",
+    )
     expect(record.content_bindings.pluck(:state)).to contain_exactly("historical", "active")
     expect(record.content_bindings.find_by(state: "active").content_connection).to eq(target)
   end
 
   it "revalidates a prepared target at apply time without retiring the current binding" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     record = DiscussionBridgeBridgeRecord.last
     current = record.content_bindings.find_by!(state: "active")
-    target, = DiscussionBridgeContentConnection.issue!(
-      name: "Disabled migration target",
-      platform: "astro",
-      allowed_origins: ["https://docs.example.com"],
-      allowed_directions: ["to_discourse"],
-      allowed_lanes: ["articles"],
-    )
+    target, =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Disabled migration target",
+        platform: "astro",
+        allowed_origins: ["https://docs.example.com"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["articles"],
+      )
 
     sign_in(admin)
     post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
@@ -516,7 +582,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     prepared_id = response.parsed_body.fetch("prepared_binding_id")
     target.update!(enabled: false)
 
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json",
+         as: :json
 
     expect(response).to have_http_status(:unprocessable_entity)
     expect(response.parsed_body.fetch("errors")).to include("target connection is unavailable")
@@ -526,16 +593,20 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
   end
 
   it "rejects migration prepare and apply when the target does not allow the record lane" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     record = DiscussionBridgeBridgeRecord.last
     current = record.content_bindings.find_by!(state: "active")
-    target, = DiscussionBridgeContentConnection.issue!(
-      name: "Lane-scoped migration target",
-      platform: "astro",
-      allowed_origins: ["https://docs.example.com"],
-      allowed_directions: ["to_discourse"],
-      allowed_lanes: ["news"],
-    )
+    target, =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Lane-scoped migration target",
+        platform: "astro",
+        allowed_origins: ["https://docs.example.com"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["news"],
+      )
 
     sign_in(admin)
     migration = {
@@ -544,37 +615,50 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
       canonical_url: "https://docs.example.com/community-guide/",
     }
     post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
-         params: { migration: migration },
+         params: {
+           migration: migration,
+         },
          as: :json
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body.fetch("errors")).to include("lane is outside target connection scope")
+    expect(response.parsed_body.fetch("errors")).to include(
+      "lane is outside target connection scope",
+    )
 
     target.update!(allowed_lanes: ["articles"])
     post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
-         params: { migration: migration },
+         params: {
+           migration: migration,
+         },
          as: :json
     expect(response).to have_http_status(:ok)
     prepared_id = response.parsed_body.fetch("prepared_binding_id")
     target.update!(allowed_lanes: ["news"])
 
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json",
+         as: :json
     expect(response).to have_http_status(:unprocessable_entity)
-    expect(response.parsed_body.fetch("errors")).to include("lane is outside target connection scope")
+    expect(response.parsed_body.fetch("errors")).to include(
+      "lane is outside target connection scope",
+    )
     expect(current.reload.state).to eq("active")
     expect(record.content_bindings.find(prepared_id).state).to eq("prepared")
   end
 
   it "reuses exact historical bindings for a reverse migration without changing the resource or topic" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     record = DiscussionBridgeBridgeRecord.last
     original = record.content_bindings.find_by!(state: "active")
-    target, = DiscussionBridgeContentConnection.issue!(
-      name: "Reversible migration target",
-      platform: "astro",
-      allowed_origins: ["https://docs.example.com"],
-      allowed_directions: ["to_discourse"],
-      allowed_lanes: ["articles"],
-    )
+    target, =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Reversible migration target",
+        platform: "astro",
+        allowed_origins: ["https://docs.example.com"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["articles"],
+      )
     resource_id = record.resource_id
     topic_id = record.topic_id
 
@@ -589,7 +673,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          },
          as: :json
     forward_id = response.parsed_body.fetch("prepared_binding_id")
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{forward_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{forward_id}/apply.json",
+         as: :json
     expect(response).to have_http_status(:ok)
 
     post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
@@ -605,23 +690,32 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     reverse_id = response.parsed_body.fetch("prepared_binding_id")
     expect(reverse_id).to eq(original.id)
 
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{reverse_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{reverse_id}/apply.json",
+         as: :json
     expect(response).to have_http_status(:ok), response.body
-    expect(record.reload).to have_attributes(resource_id: resource_id, topic_id: topic_id, state: "healthy")
+    expect(record.reload).to have_attributes(
+      resource_id: resource_id,
+      topic_id: topic_id,
+      state: "healthy",
+    )
     expect(record.content_bindings.where(state: "active").sole.id).to eq(original.id)
     expect(record.content_bindings.where(state: "historical").sole.id).to eq(forward_id)
   end
 
   it "stops the former connection from reading a record after migration" do
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     record = DiscussionBridgeBridgeRecord.last
-    target, target_secret = DiscussionBridgeContentConnection.issue!(
-      name: "Replacement Statamic",
-      platform: "statamic",
-      allowed_origins: ["https://statamic.example"],
-      allowed_directions: ["to_discourse"],
-      allowed_lanes: ["articles"],
-    )
+    target, target_secret =
+      DiscussionBridgeContentConnection.issue!(
+        name: "Replacement Statamic",
+        platform: "statamic",
+        allowed_origins: ["https://statamic.example"],
+        allowed_directions: ["to_discourse"],
+        allowed_lanes: ["articles"],
+      )
 
     sign_in(admin)
     post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations.json",
@@ -634,7 +728,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
          },
          as: :json
     prepared_id = response.parsed_body.fetch("prepared_binding_id")
-    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json", as: :json
+    post "/discussion-bridge/admin/bridge-records/#{record.id}/migrations/#{prepared_id}/apply.json",
+         as: :json
     sign_out
 
     get "/discussion-bridge/v1/bridge-records/#{record.resource_id}.json", headers: headers
@@ -662,13 +757,24 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/v1/bridge-records.json", params: { page: 2 }, headers: headers
     expect(response).to have_http_status(:bad_request)
 
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
+    get "/discussion-bridge/v1/bridge-records.json",
+        params: {
+          snapshot: snapshot,
+        },
+        headers: headers
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.dig("pagination", "snapshot")).to eq(snapshot)
 
-    post "/discussion-bridge/v1/bridge-records/resolve.json", headers: headers, params: payload, as: :json
+    post "/discussion-bridge/v1/bridge-records/resolve.json",
+         headers: headers,
+         params: payload,
+         as: :json
     expect(response).to have_http_status(:created)
-    get "/discussion-bridge/v1/bridge-records.json", params: { snapshot: snapshot }, headers: headers
+    get "/discussion-bridge/v1/bridge-records.json",
+        params: {
+          snapshot: snapshot,
+        },
+        headers: headers
     expect(response).to have_http_status(:bad_request)
 
     get "/discussion-bridge/v1/bridge-records.json?page=10001", headers: headers
@@ -696,6 +802,8 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     expect(response).to have_http_status(:created)
     created = response.parsed_body.fetch("content_connection")
     issued_secret = response.parsed_body.fetch("secret")
+    expect(response.headers["Cache-Control"]).to eq("no-store")
+    expect(response.headers["Pragma"]).to eq("no-cache")
     expect(created).to include(
       "platform" => "discourse",
       "author_username" => selected_author.username,
@@ -709,18 +817,29 @@ describe DiscussionBridge::AdapterBridgeRecordsController do
     get "/discussion-bridge/admin/content-connections.json"
     expect(response.parsed_body.to_json).not_to include(issued_secret)
     put "/discussion-bridge/admin/content-connections/#{created.fetch("id")}.json",
-        params: { content_connection: { enabled: false, author_username: "", generate_topic_toc: false } },
+        params: {
+          content_connection: {
+            enabled: false,
+            author_username: "",
+            generate_topic_toc: false,
+          },
+        },
         as: :json
     expect(response.parsed_body.dig("content_connection", "enabled")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "author_override")).to eq(false)
-    expect(response.parsed_body.dig("content_connection", "author_username")).to eq(service_actor.username)
+    expect(response.parsed_body.dig("content_connection", "author_username")).to eq(
+      service_actor.username,
+    )
     expect(response.parsed_body.dig("content_connection", "generate_topic_toc")).to eq(false)
     expect(response.parsed_body.dig("content_connection", "category_route")).to include(
       "category_id" => selected_category.id,
       "source" => "connection",
     )
-    post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json", as: :json
+    post "/discussion-bridge/admin/content-connections/#{created.fetch("id")}/rotate-secret.json",
+         as: :json
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("secret")).not_to eq(issued_secret)
+    expect(response.headers["Cache-Control"]).to eq("no-store")
+    expect(response.headers["Pragma"]).to eq("no-cache")
   end
 end

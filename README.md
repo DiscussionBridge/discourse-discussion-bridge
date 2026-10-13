@@ -1,5 +1,10 @@
 # The Bridge — DiscussionBridge for Discourse
 
+Local build candidate: family `0.3.0-alpha.1`, native component
+`0.3.0.alpha.1`, bridge compatibility `0.3`. The additive candidate contract is
+[`core-publication-extension.json`](../adapter-contract/core-publication-extension.json).
+This is a local source candidate, with no release or deployment claim.
+
 DiscussionBridge is a generic Discourse plugin for durable discussions shared
 with publishing platforms. One forum can have any number of independent
 Content Connections. Each connection represents one configured installation
@@ -9,9 +14,16 @@ adapter and manages many Bridge Records.
 The plugin is default-disabled. Discourse remains authoritative for users,
 topics, categories, tags, visibility, moderation, sessions, and replies.
 
-The same downloadable plugin can receive connected-platform content, publish
-explicitly selected Discourse topics to another DiscussionBridge forum, or do
-both. Its role is configuration, not a separate receiver or publisher package.
+The same plugin receives connected-platform content and creates local From
+Discourse records for explicitly selected topics. An authorized platform adapter
+retrieves those records and owns publication at its destination. The plugin does
+not send topics to another forum or deploy content into a CMS.
+
+Network is planned as an optional add-on requiring DiscussionBridge. Federation
+is planned as an independent plugin for interforum relationships, sharing, and
+participation. This core package contains neither add-on's runtime or Workspace
+setup UI. Its v1 publication extension remains connection-scoped; it adds no
+interforum membership, sharing or Network coordination API.
 
 ## Product model
 
@@ -107,11 +119,13 @@ Each Content Connection chooses one publication-authorship mode:
 The Authors tab shows identities actually observed from that connection and
 lets an administrator map each one to an existing Discourse user. One primary
 source author controls the topic owner; every reported source author is
-credited in the companion post. Mapping changes apply to future topics and do
-not silently reassign existing topics. The privileged operating identity
-remains separate from a non-privileged visible author. A retry with the same external
-identity and URL returns the same resource and topic without rewriting its
-first-published snapshot; conflicting identity claims fail closed.
+credited in the companion post. Mapping changes apply to future topics and,
+when an adapter explicitly submits a new source-publication revision, its
+managed topic. Legacy resolution and an exact revision retry do not reassign
+existing topics. The operating identity remains separate from the visible
+author. A legacy retry with the same external identity and URL returns the
+same resource and topic without rewriting its first-published snapshot;
+conflicting identity claims fail closed.
 
 The General tab also offers **Generate topic table of contents** per Content
 Connection. When enabled, a newly created To Discourse topic with at least two
@@ -135,24 +149,91 @@ GET /discussion-bridge/v1/bridge-records.json
 GET /discussion-bridge/v1/bridge-records/:resource_id.json
 ```
 
-For a From Discourse record, the response includes the first post's cooked HTML
-and a `source` object containing the exact forum origin, topic/post identity,
-post version, stable revision token, update timestamp, and visible author
-identity. Adapters use that revision to create or update native platform
-content idempotently; they must not infer change from mutable titles or URLs.
+Legacy From Discourse reads retain inline cooked HTML and the legacy
+`post:<id>:version:<n>` revision. The additive `source.edition` digest identifies
+the coherent current title, body, native dates and source identity, including
+grace-period edits that keep the same native post version. Upgraded adapters
+use `edition` for freshness and retain resource/topic/binding identity. A title
+edit may change the forum topic slug; it does not change the Bridge Record.
 The response never includes another connection's record.
+
+`source.created_at` and `source.updated_at` are the first post's actual native
+creation and modification timestamps in UTC with six fractional digits. Core
+title edits revise that first post. Replies and topic bumps do not change its
+published edition or source-modified date. The effective `source.forum_name`
+uses `DISCUSSIONBRIDGE_FORUM_NAME`, then `discussion_bridge_forum_name`, then
+the native forum title. A supplied name must be nonblank valid UTF-8, at most
+200 bytes, and free of control characters.
+
+### Negotiated complete-content transport
+
+Append `publication_contract=0.3.0-alpha.1` to inventory and single-record
+detail requests. Active From Discourse metadata has `content_html: null`,
+`source.status: "active"`, and `source.content` describing the complete cooked
+HTML: byte count, SHA-256, resource-relative chunk path and `chunk_bytes: 32768`.
+Metadata responses are bounded to 2 MiB. This is not a total publication limit.
+
+```http
+GET /discussion-bridge/v1/bridge-records/:resource_id/content.json?edition=<sha256>&offset=0
+```
+
+The same connection credentials and origin/direction/lane scope authorize
+chunks. Each response provides `resource_id`, `edition`, `offset`,
+`total_bytes`, `content_sha256`, `chunk_base64` and `next_offset` (null at EOF).
+Decode base64 into bytes, join those bytes in offset order, verify the full
+length and digest, then decode UTF-8; a multibyte character may cross chunks.
+A changed edition returns 409 without content. Refresh that record's detail
+and retry within the adapter's bounded retry policy. A changed inventory
+snapshot returns 400, including an edit during page serialization.
+
+Private categories, private messages, shared drafts, deleted/unavailable
+sources, login-required forums and known imported external-source first posts
+are ineligible for public export. Negotiated reads retain scoped record and
+binding IDs with generic withdrawal metadata: `source.status: "withdrawn"`,
+`reason: "source_unavailable"`, an opaque withdrawal edition and no body,
+source author or content descriptor. Legacy reads and chunks fail closed.
+Adapters use this explicit signal to withdraw their owned materialization and
+retain its mapping. Eligibility restoration reuses the existing identity.
+An absent inventory row does not authorize deletion.
+
+### Explicit To Discourse source updates
+
+Upgraded resolve requests may include `bridge_record.source_publication`:
+`revision`, `previous_revision`, `created_at`, `updated_at`, `content_sha256`,
+`content_bytes`, and `excerpted`. Revisions and digests are lowercase SHA-256;
+the previous revision is null for creation or exact legacy adoption. Both date
+keys are required but may be null when the source has no authoritative native
+date. Strings require timezone-qualified ISO dates; no synchronization clock
+is substituted. The ordinary HTML/request limits remain 48 KiB/64 KiB.
+
+Without this object, resolve remains an identity-only legacy operation. With
+it, exact retries compare the immutable source receipt and submitted title,
+HTML and author identities, check native drift, and do not rewrite content.
+A new revision requires the stored previous revision and an unchanged managed
+native title/raw/author. It uses Core's revision and ownership permissions,
+preserving the resource, topic, first post and binding. Human edits or a stale
+precondition return reconciliation-required; ordinary synchronization never
+overwrites them. Legacy adoption initializes a receipt only when the supplied
+source exactly matches the managed native title, decorated raw and owner.
+
+For an excerpt, the bounded HTML must include a canonical absolute **Read More**
+link; full-source byte count and digest still describe the complete source.
+Otherwise byte count and digest must match the submitted HTML. Responses add
+`source_revision` and `source_publication_outcome` (`created`, `adopted`,
+`updated`, `unchanged`) while retaining the existing resolve outcome.
 
 ## Forum-wide settings
 
 - `discussion_bridge_enabled`
 - `discussion_bridge_endpoint_enabled`
+- `discussion_bridge_forum_name`
 - `discussion_bridge_service_username`
 - `discussion_bridge_default_author_username`
 - `discussion_bridge_effective_category_id`
 - `discussion_bridge_effective_tags`
 - `discussion_bridge_lane_policies`
 - `discussion_bridge_default_visibility`
-- `discussion_bridge_comments_only_full_interactive`
+- `discussion_bridge_comments_only_interactive`
 
 The endpoint and plugin switches are independently default-disabled. The
 operating identity and forum-default author must be active, non-system Discourse
@@ -178,6 +259,13 @@ materialization** permits the selected adapter to create or update a genuine
 platform record at that URL. When it is off, the record is presentation-only
 and may be rendered inside an existing platform page; adapters must not infer
 permission to create content from retrieval access alone.
+
+The optional **Presentation mode** selector offers Simple, Full and Interactive.
+Its default uses the destination's existing selection. Omitting a mode when
+republishing preserves existing source guidance; explicit null clears that
+guidance, and an explicit canonical mode updates the same binding. Retrieval
+reports the actual nullable `binding.presentation_mode`; updates do not force
+Interactive or enable a rich-content template.
 
 ## Presentation boundary
 
@@ -230,6 +318,15 @@ After rebuild:
 
 ## Development verification
 
+The candidate migration adds nullable `source_publication` metadata and nullable
+binding `presentation_mode`. It performs no topic rewrite, backfill, enrollment,
+publication or default activation. Persistent mappings and native discussion
+data remain operator-owned when the plugin or connection is disabled or the
+plugin is removed. Do not drop tables/columns as a source rollback step. A
+rollback must coordinate matching consumer versions and preserve receipts and
+the forum recovery point; full install/upgrade/rollback qualification remains
+separate from the local author checks.
+
 The plugin specs run inside a compatible Discourse checkout:
 
 ```bash
@@ -240,6 +337,12 @@ LOAD_PLUGINS=1 RAILS_ENV=test bundle exec rspec \
 Generated plugin JavaScript must be rebuilt from current source before browser
 system specs. Historical Alpha manifests and one-consumer acceptance records
 are intentionally not part of this replacement product.
+
+This candidate covers existing-record source export and explicitly revisioned
+native updates. Operator Service enrollment/entitlements, automatic category
+enrollment, publisher work/lease/acknowledgement/public-verification machinery,
+topic-list delivery badges and end-to-end seven-profile qualification are not
+implemented by these routes and are not completion claims for the Work List.
 
 ## License
 

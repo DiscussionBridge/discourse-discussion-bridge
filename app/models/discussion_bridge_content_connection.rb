@@ -36,22 +36,24 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   validate :author_user_is_usable
   validate :default_category_is_available
 
+  before_update { DiscussionBridge::CmsAuthorityLifecycle.before_scope_save!(self) }
+
   def effective_author
-    default_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
-      SiteSetting.discussion_bridge_service_username.to_s
-    author_user || User.find_by(
-      username_lower: default_username.downcase,
-    )
+    default_username =
+      SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
+        SiteSetting.discussion_bridge_service_username.to_s
+    author_user || User.find_by(username_lower: default_username.downcase)
   end
 
   def self.issue!(attributes)
     secret = SecureRandom.urlsafe_base64(32, false)
-    connection = create!(
-      attributes.merge(
-        public_id: "dbc_#{SecureRandom.hex(12)}",
-        secret_digest: Digest::SHA256.hexdigest(secret),
-      ),
-    )
+    connection =
+      create!(
+        attributes.merge(
+          public_id: "dbc_#{SecureRandom.hex(12)}",
+          secret_digest: Digest::SHA256.hexdigest(secret),
+        ),
+      )
     [connection, secret]
   end
 
@@ -64,10 +66,7 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   def authenticate_secret?(secret)
     return false unless secret.is_a?(String) && secret.bytesize.between?(32, 256)
 
-    ActiveSupport::SecurityUtils.secure_compare(
-      secret_digest,
-      Digest::SHA256.hexdigest(secret),
-    )
+    ActiveSupport::SecurityUtils.secure_compare(secret_digest, Digest::SHA256.hexdigest(secret))
   end
 
   def allows_direction?(direction)
@@ -99,8 +98,10 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
 
   def author_user_is_usable
     return if author_user.nil?
-    return if author_user.active? && !author_user.staged? && !author_user.suspended? &&
-      !author_user.silenced? && author_user.id != Discourse::SYSTEM_USER_ID
+    if author_user.active? && !author_user.staged? && !author_user.suspended? &&
+         !author_user.silenced? && author_user.id != Discourse::SYSTEM_USER_ID
+      return
+    end
 
     errors.add(:author_user, "must be an active non-system Discourse user")
   end
@@ -108,20 +109,25 @@ class DiscussionBridgeContentConnection < ActiveRecord::Base
   def scopes_are_valid
     origins = Array(allowed_origins)
     normalized = origins.map { |origin| DiscussionBridge::CanonicalSource.origin(origin) }
-    errors.add(:allowed_origins, "must contain between 1 and #{MAX_ORIGINS} origins") unless
-      origins.length.between?(1, MAX_ORIGINS)
-    errors.add(:allowed_origins, "must be unique canonical origins") unless
-      normalized == origins && normalized.uniq == origins
+    unless origins.length.between?(1, MAX_ORIGINS)
+      errors.add(:allowed_origins, "must contain between 1 and #{MAX_ORIGINS} origins")
+    end
+    unless normalized == origins && normalized.uniq == origins
+      errors.add(:allowed_origins, "must be unique canonical origins")
+    end
   rescue ArgumentError
     errors.add(:allowed_origins, "contains an invalid origin")
   ensure
     directions = Array(allowed_directions)
-    errors.add(:allowed_directions, "is invalid") unless directions.any? &&
-      directions.uniq == directions && (directions - DIRECTIONS).empty?
+    unless directions.any? && directions.uniq == directions && (directions - DIRECTIONS).empty?
+      errors.add(:allowed_directions, "is invalid")
+    end
 
     lanes = Array(allowed_lanes)
-    errors.add(:allowed_lanes, "is invalid") unless lanes.length <= MAX_LANES && lanes.uniq == lanes &&
-      lanes.all? { |lane| DiscussionBridge::LanePolicies::LANE_PATTERN.match?(lane.to_s) }
+    unless lanes.length <= MAX_LANES && lanes.uniq == lanes &&
+             lanes.all? { |lane| DiscussionBridge::LanePolicies::LANE_PATTERN.match?(lane.to_s) }
+      errors.add(:allowed_lanes, "is invalid")
+    end
   end
 end
 

@@ -1,0 +1,19 @@
+{
+  "platform": "discourse",
+  "origin": "https://forum.example",
+  "forum_name": "A source forum — café",
+  "topic_id": 42,
+  "topic_url": "https://forum.example/t/coherent-source/42",
+  "title": "Coherent source <title>",
+  "topic_created_at": "2026-07-01T10:00:00.000000Z",
+  "post_id": 99,
+  "post_number": 1,
+  "post_version": 3,
+  "post_created_at": "2026-07-01T10:00:01.000000Z",
+  "post_updated_at": "2026-10-12T09:00:00.123456Z",
+  "raw": "A café source with \\LaTeX, ordinary text and a title.",
+  "cooked": "<p>A café source with <span class=\"math\">\\LaTeX</span>.</p>",
+  "author_username": "SourceAuthor",
+  "author_username_lower": "sourceauthor",
+  "effective_author_name": "A real source author"
+}

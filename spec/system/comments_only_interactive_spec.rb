@@ -11,7 +11,7 @@ describe "DiscussionBridge comments-only Interactive" do
 
   before do
     SiteSetting.discussion_bridge_enabled = true
-    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.discussion_bridge_comments_only_interactive = true
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
@@ -28,8 +28,10 @@ describe "DiscussionBridge comments-only Interactive" do
       effective_actor_id: topic.user_id,
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
+      requested_state: {
+      },
+      effective_state: {
+      },
     )
   end
 
@@ -41,7 +43,9 @@ describe "DiscussionBridge comments-only Interactive" do
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
     expect(page).to have_css("html[data-discussion-bridge-comments-only-attested] body.embed-mode")
     expect(page).to have_css("#post_1", visible: :hidden)
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).to eq("none")
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).to eq("none")
     expect(page).to have_css(".embed-topic-footer__first-reply")
     expect(
       page.evaluate_script(
@@ -51,7 +55,8 @@ describe "DiscussionBridge comments-only Interactive" do
 
     initial_height = page.evaluate_script("document.querySelector('#main').scrollHeight")
 
-    much_longer_topic = Fabricate(:topic, user: service_actor, category: topic.category, visible: false)
+    much_longer_topic =
+      Fabricate(:topic, user: service_actor, category: topic.category, visible: false)
     Fabricate(:post, topic: much_longer_topic, raw: ("Much longer companion content. " * 900))
     DiscussionBridgeConnection.create!(
       connection_id: "astro-much-longer",
@@ -63,8 +68,10 @@ describe "DiscussionBridge comments-only Interactive" do
       effective_actor_id: much_longer_topic.user_id,
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
+      requested_state: {
+      },
+      effective_state: {
+      },
     )
     visit("/embed/comments?topic_id=#{much_longer_topic.id}&full_app=true")
 
@@ -130,18 +137,19 @@ describe "DiscussionBridge comments-only Interactive" do
     find(".embed-mode-composer .docked-composer__submit-btn").click
 
     expect(page).to have_css(".topic-post", text: "A native in-frame reply")
-    expect(Post.exists?(topic_id: topic.id, user_id: interactive_user.id, raw: "A native in-frame reply")).to eq(true)
+    expect(
+      Post.exists?(
+        topic_id: topic.id,
+        user_id: interactive_user.id,
+        raw: "A native in-frame reply",
+      ),
+    ).to eq(true)
     expect(page.current_url).to include("embed_mode=true")
   end
 
   it "labels and completes an authorized edit inside the full-app embed" do
     editable_post =
-      Fabricate(
-        :post,
-        topic: topic,
-        user: interactive_user,
-        raw: "An editable in-frame reply",
-      )
+      Fabricate(:post, topic: topic, user: interactive_user, raw: "An editable in-frame reply")
     sign_in(interactive_user)
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
@@ -159,40 +167,50 @@ describe "DiscussionBridge comments-only Interactive" do
     find(".embed-mode-composer .d-editor-input").set("The edited in-frame reply")
     find(".embed-mode-composer .docked-composer__submit-btn").click
 
-    expect(page).to have_css("#post_#{editable_post.post_number}", text: "The edited in-frame reply")
+    expect(page).to have_css(
+      "#post_#{editable_post.post_number}",
+      text: "The edited in-frame reply",
+    )
     expect(editable_post.reload.raw).to eq("The edited in-frame reply")
     expect(page.current_url).to include("embed_mode=true")
   end
 
-  it "completes native reply and like actions without leaving embed mode" do
-    reply =
-      Fabricate(
-        :post,
-        topic: topic,
-        user: interaction_author,
-        raw: "A reply ready for interaction",
-      )
-    sign_in(interactive_user)
-    expect(Guardian.new(interactive_user).post_can_act?(reply, :like)).to eq(true)
-    visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
+  [false, true].each do |reactions_enabled|
+    context "with Reactions #{reactions_enabled ? "enabled" : "disabled"}" do
+      fab!(:interactive_reply) do
+        Fabricate(
+          :post,
+          topic: topic,
+          user: interaction_author,
+          raw: "A reply ready for interaction",
+        )
+      end
 
-    within("#post_#{reply.post_number}") do
-      find(".discourse-reactions-reaction-button[title='Like this post']").click
-      expect(page).to have_css(".discourse-reactions-reaction-button[title='Remove this like']")
-      find("button.reply").click
+      let(:embedded_topic) { PageObjects::Pages::DiscussionBridgeInteractive.new }
+      let(:post_menu) do
+        embedded_topic.post_menu(interactive_reply, reactions_enabled: reactions_enabled)
+      end
+
+      before { SiteSetting.discourse_reactions_enabled = reactions_enabled }
+
+      it "lets a user keep a native Like and post a reply without leaving embed mode" do
+        sign_in(interactive_user)
+        embedded_topic.visit_topic(topic)
+
+        post_menu.like
+        expect(post_menu).to have_liked
+
+        page.refresh
+        expect(post_menu).to have_liked
+
+        post_menu.reply
+        expect(embedded_topic).to have_reply_composer
+
+        embedded_topic.reply_with("Replying inside the embedded page")
+        expect(embedded_topic).to have_reply("Replying inside the embedded page")
+        expect(embedded_topic).to be_in_embed_mode
+      end
     end
-    expect(
-      PostAction.exists?(
-        post_id: reply.id,
-        user_id: interactive_user.id,
-        post_action_type_id: PostActionType.types[:like],
-      ),
-    ).to eq(true)
-    expect(page).to have_css(".embed-mode-composer .d-editor-input")
-    find(".embed-mode-composer .d-editor-input").set("Replying inside the embedded page")
-    find(".embed-mode-composer .docked-composer__submit-btn").click
-    expect(page).to have_css(".topic-post", text: "Replying inside the embedded page")
-    expect(page.current_url).to include("embed_mode=true")
   end
 
   it "completes a native quote reply without leaving embed mode" do
@@ -215,7 +233,10 @@ describe "DiscussionBridge comments-only Interactive" do
 
     expect(page).to have_css(".topic-post blockquote", text: "Words selected")
     expect(
-      Post.where(topic_id: topic.id, user_id: interactive_user.id).where.not(id: quoted_post.id).exists?,
+      Post
+        .where(topic_id: topic.id, user_id: interactive_user.id)
+        .where.not(id: quoted_post.id)
+        .exists?,
     ).to eq(true)
     expect(page.current_url).to include("embed_mode=true")
   end
@@ -258,7 +279,9 @@ describe "DiscussionBridge comments-only Interactive" do
 
       find(".dialog-container__logout-refresh .dialog-footer button.btn-primary").click
       expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
-      expect(URI.parse(page.evaluate_script("window.location.href")).request_uri).to eq(mapped_route)
+      expect(URI.parse(page.evaluate_script("window.location.href")).request_uri).to eq(
+        mapped_route,
+      )
 
       page.execute_script(<<~JS)
         window.__discussionBridgeGenericRefreshReached = false;
@@ -317,9 +340,9 @@ describe "DiscussionBridge comments-only Interactive" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 
     expect(page).to have_css("html[data-discussion-bridge-comments-only-attested]")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).to eq(
-      "none",
-    )
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).to eq("none")
 
     page.execute_script(<<~JS)
       const composer = document.createElement("div");
@@ -353,15 +376,14 @@ describe "DiscussionBridge comments-only Interactive" do
     JS
 
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
-      "none",
-    )
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).not_to eq("none")
     expect(page).to have_css(
       "#lifecycle-submit-control.core-reparented-submit-control[data-discussion-bridge-submit-label='Core newer marker'][aria-label='Core newer submit']:not([title])[data-discussion-bridge-original-aria-label='Caller-owned value']",
       text: "Core action",
     )
   end
-
 
   it "releases an owned control that becomes ineligible on the same qualified route" do
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
@@ -430,7 +452,6 @@ describe "DiscussionBridge comments-only Interactive" do
     )
   end
 
-
   it "restores a detached owned control before later non-mapped reinsertion" do
     another_topic = Fabricate(:topic)
     Fabricate(:post, topic: another_topic, raw: "Another topic source post")
@@ -455,7 +476,9 @@ describe "DiscussionBridge comments-only Interactive" do
       "Core detached",
     )
     expect(
-      page.evaluate_script("window.__detachedBridgeButton.hasAttribute('data-discussion-bridge-submit-label')"),
+      page.evaluate_script(
+        "window.__detachedBridgeButton.hasAttribute('data-discussion-bridge-submit-label')",
+      ),
     ).to eq(false)
 
     page.execute_script(<<~JS)
@@ -619,14 +642,17 @@ describe "DiscussionBridge comments-only Interactive" do
     DiscussionBridgeConnection.create!(
       connection_id: "astro-second",
       canonical_source_url: "https://example.com/second-article",
-      source_identity_digest: Digest::SHA256.hexdigest("astro-second\nhttps://example.com/second-article"),
+      source_identity_digest:
+        Digest::SHA256.hexdigest("astro-second\nhttps://example.com/second-article"),
       state: "complete",
       topic_id: second_topic.id,
       effective_actor_id: second_topic.user_id,
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
+      requested_state: {
+      },
+      effective_state: {
+      },
     )
     ordinary_topic = Fabricate(:topic)
     Fabricate(:post, topic: ordinary_topic, raw: "Ordinary Core topic")
@@ -687,7 +713,9 @@ describe "DiscussionBridge comments-only Interactive" do
 
     expect(page).to have_no_css("html.discussion-bridge-comments-only")
     expect(page).to have_css("#post_1", text: "Long companion content.")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq("none")
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).not_to eq("none")
   end
 
   it "does not hide post 1 for a forged direct mapped-topic route" do
@@ -695,8 +723,7 @@ describe "DiscussionBridge comments-only Interactive" do
     forged_url = URI.parse(page.current_url)
     query = Rack::Utils.parse_nested_query(forged_url.query)
     query["discussion_bridge_embed_token"] = "forged"
-    query["class_name"] =
-      "discussion-bridge-comments-only discussion-bridge-comments-only-attested"
+    query["class_name"] = "discussion-bridge-comments-only discussion-bridge-comments-only-attested"
     forged_url.query = query.to_query
 
     visit(forged_url.to_s)
@@ -704,9 +731,9 @@ describe "DiscussionBridge comments-only Interactive" do
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
     expect(page).to have_css("#post_1", text: "Companion source post")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
-      "none",
-    )
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).not_to eq("none")
   end
 
   it "does not hide post 1 for an ordinary topic carrying another mapping's token" do
@@ -721,9 +748,9 @@ describe "DiscussionBridge comments-only Interactive" do
     expect(page).to have_css("html.discussion-bridge-comments-only body.embed-mode")
     expect(page).to have_no_css("html[data-discussion-bridge-comments-only-attested]")
     expect(page).to have_css("#post_1", text: "Ordinary topic first post")
-    expect(page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display")).not_to eq(
-      "none",
-    )
+    expect(
+      page.evaluate_script("getComputedStyle(document.querySelector('#post_1')).display"),
+    ).not_to eq("none")
   end
 
   it "fails explicitly after an authentic attested mapping is invalidated" do
@@ -739,7 +766,7 @@ describe "DiscussionBridge comments-only Interactive" do
   end
 
   it "fails explicitly when the mapped capability is disabled" do
-    SiteSetting.discussion_bridge_comments_only_full_interactive = false
+    SiteSetting.discussion_bridge_comments_only_interactive = false
 
     visit("/embed/comments?topic_id=#{topic.id}&full_app=true")
 

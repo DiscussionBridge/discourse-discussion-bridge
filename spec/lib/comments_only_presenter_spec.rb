@@ -14,14 +14,16 @@ describe DiscussionBridge::CommentsOnlyPresenter do
       effective_actor_id: topic.user_id,
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
+      requested_state: {
+      },
+      effective_state: {
+      },
     )
   end
 
   before do
     SiteSetting.discussion_bridge_enabled = true
-    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.discussion_bridge_comments_only_interactive = true
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
   end
@@ -80,7 +82,7 @@ describe DiscussionBridge::CommentsOnlyPresenter do
   end
 
   it "is independently operator-disabled" do
-    SiteSetting.discussion_bridge_comments_only_full_interactive = false
+    SiteSetting.discussion_bridge_comments_only_interactive = false
 
     expect(described_class.class_name(topic_id: topic.id, embed_mode: true)).to be_nil
   end
@@ -94,7 +96,7 @@ describe DiscussionBridge::CommentsOnlyPresenter do
       ),
     ).to eq("operator-theme discussion-bridge-comments-only")
 
-    SiteSetting.discussion_bridge_comments_only_full_interactive = false
+    SiteSetting.discussion_bridge_comments_only_interactive = false
 
     expect(
       described_class.redirect_class_name(

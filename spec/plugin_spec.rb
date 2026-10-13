@@ -6,6 +6,7 @@ describe DiscussionBridge do
   it "is disabled and inert by default" do
     expect(SiteSetting.discussion_bridge_enabled).to eq(false)
     expect(SiteSetting.discussion_bridge_endpoint_enabled).to eq(false)
+    expect(SiteSetting.discussion_bridge_comments_only_interactive).to eq(false)
     expect(SiteSetting.discussion_bridge_default_visibility).to eq("unlisted")
   end
 
@@ -19,7 +20,7 @@ describe DiscussionBridge do
       discussion_bridge_effective_tags
       discussion_bridge_lane_policies
       discussion_bridge_default_visibility
-      discussion_bridge_comments_only_full_interactive
+      discussion_bridge_comments_only_interactive
       discussion_bridge_publisher_enabled
     ]
 
@@ -32,16 +33,30 @@ describe DiscussionBridge do
   end
 
   it "uses the settled DiscussionBridge brand for the admin plugin title" do
-    locale = File.read(
-      File.expand_path("../config/locales/client.en.yml", __dir__),
-      encoding: "UTF-8",
-    )
+    locale =
+      File.read(File.expand_path("../config/locales/client.en.yml", __dir__), encoding: "UTF-8")
 
     expect(locale).to include('discourse_discussion_bridge: "DiscussionBridge"')
   end
 
   it "keeps publishing in the same default-disabled product" do
-    expect(DiscussionBridge::VERSION).to eq("0.2.0.alpha.30")
+    expect(DiscussionBridge::VERSION).to eq("0.3.0.alpha.1")
     expect(SiteSetting.discussion_bridge_publisher_enabled).to eq(false)
+  end
+
+  it "keeps interforum setup out of the core API" do
+    [
+      %w[GET /workspace],
+      %w[GET /v2/network/identity],
+      %w[POST /v2/network/identity],
+      %w[POST /v2/network/peers],
+      %w[GET /v2/workspace/configuration],
+      %w[POST /v2/workspace/configuration],
+      %w[GET /v2/workspace/descriptor],
+    ].each do |method, path|
+      expect {
+        DiscussionBridge::Engine.routes.recognize_path(path, method: method)
+      }.to raise_error(ActionController::RoutingError)
+    end
   end
 end

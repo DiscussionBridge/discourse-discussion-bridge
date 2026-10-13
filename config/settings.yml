@@ -5,6 +5,9 @@ plugins:
   discussion_bridge_endpoint_enabled:
     default: false
     client: false
+  discussion_bridge_forum_name:
+    default: ""
+    client: false
   discussion_bridge_service_username:
     default: ""
     type: username
@@ -37,7 +40,7 @@ plugins:
     choices:
       - unlisted
     client: false
-  discussion_bridge_comments_only_full_interactive:
+  discussion_bridge_comments_only_interactive:
     default: false
     client: false
   discussion_bridge_publisher_enabled:

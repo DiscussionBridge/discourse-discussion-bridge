@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-describe "DiscussionBridge comments-only Interactive redirect" do
+RSpec.describe EmbedController do
   fab!(:service_actor, :admin)
   fab!(:topic) { Fabricate(:topic, user: service_actor) }
   fab!(:post) { Fabricate(:post, topic: topic) }
@@ -10,7 +10,7 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   before do
     topic.update!(visible: false)
     SiteSetting.discussion_bridge_enabled = true
-    SiteSetting.discussion_bridge_comments_only_full_interactive = true
+    SiteSetting.discussion_bridge_comments_only_interactive = true
     SiteSetting.embed_full_app = true
     SiteSetting.embed_full_app_signin_flow = true
     SiteSetting.embed_any_origin = true
@@ -27,8 +27,10 @@ describe "DiscussionBridge comments-only Interactive redirect" do
       effective_actor_id: topic.user_id,
       requested_visibility: "unlisted",
       effective_visibility: "unlisted",
-      requested_state: {},
-      effective_state: {},
+      requested_state: {
+      },
+      effective_state: {
+      },
     )
   end
 
@@ -45,9 +47,7 @@ describe "DiscussionBridge comments-only Interactive redirect" do
     expect(query["discussion_bridge_embed_token"]).to be_present
 
     follow_redirect!
-    expect(response.body).to match(
-      /<html[^>]+class="[^"]*discussion-bridge-comments-only[^"]*"/,
-    )
+    expect(response.body).to match(/<html[^>]+class="[^"]*discussion-bridge-comments-only[^"]*"/)
     expect(response.body).to include(
       %(<meta name="discussion-bridge-completed-mapping" content="#{topic.id}">),
     )
@@ -56,16 +56,17 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   it "attests an explicit From Discourse source presentation without changing ordinary embeds" do
     source_topic = Fabricate(:topic, user: service_actor, visible: true)
     Fabricate(:post, topic: source_topic, raw: "Forum-owned source article")
-    source_record = DiscussionBridgeBridgeRecord.create!(
-      resource_id: SecureRandom.uuid,
-      direction: "from_discourse",
-      state: "healthy",
-      title: source_topic.title,
-      topic_id: source_topic.id,
-      effective_actor_id: source_topic.user_id,
-      requested_visibility: "listed",
-      effective_visibility: "listed",
-    )
+    source_record =
+      DiscussionBridgeBridgeRecord.create!(
+        resource_id: SecureRandom.uuid,
+        direction: "from_discourse",
+        state: "healthy",
+        title: source_topic.title,
+        topic_id: source_topic.id,
+        effective_actor_id: source_topic.user_id,
+        requested_visibility: "listed",
+        effective_visibility: "listed",
+      )
 
     get "/embed/comments",
         params: {
@@ -80,9 +81,8 @@ describe "DiscussionBridge comments-only Interactive redirect" do
       "embed_mode" => "true",
       "class_name" => "discussion-bridge-comments-only",
     )
-    attestation = DiscussionBridge::EmbedRouteAttestation.verify(
-      query.fetch("discussion_bridge_embed_token"),
-    )
+    attestation =
+      DiscussionBridge::EmbedRouteAttestation.verify(query.fetch("discussion_bridge_embed_token"))
     expect(attestation[:mapping]).to eq(source_record)
 
     get "/embed/comments", params: { topic_id: source_topic.id, full_app: "true" }
@@ -103,9 +103,10 @@ describe "DiscussionBridge comments-only Interactive redirect" do
 
   it "does not attest an ordinary topic with another mapping's valid token" do
     get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
-    token = Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
-      "discussion_bridge_embed_token",
-    )
+    token =
+      Rack::Utils.parse_nested_query(URI.parse(response.location).query).fetch(
+        "discussion_bridge_embed_token",
+      )
     ordinary_topic = Fabricate(:topic)
     Fabricate(:post, topic: ordinary_topic)
 
@@ -144,7 +145,7 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   it "fails closed when Core sign-in flow or Bridge readiness is disabled" do
     {
       embed_full_app_signin_flow: "embed_full_app_signin_flow_disabled",
-      discussion_bridge_comments_only_full_interactive: "comments_only_full_interactive_disabled",
+      discussion_bridge_comments_only_interactive: "comments_only_interactive_disabled",
       discussion_bridge_enabled: "plugin_disabled",
     }.each do |setting, reason|
       SiteSetting.public_send("#{setting}=", false)
@@ -241,38 +242,32 @@ describe "DiscussionBridge comments-only Interactive redirect" do
   end
 
   {
-    "listed visibility" => lambda { |example|
-      example.__send__(:topic).update!(visible: true)
-    },
-    "persisted effective visibility" => lambda { |example|
-      DiscussionBridgeConnection
-        .find_by!(topic_id: example.__send__(:topic).id)
-        .update!(effective_visibility: "listed")
-    },
-    "actor" => lambda { |example|
-      example.__send__(:topic).update!(user_id: Fabricate(:user).id)
-    },
-    "category" => lambda { |example|
-      example.__send__(:topic).update!(category: Fabricate(:category))
-    },
-    "tags" => lambda { |example|
-      example.__send__(:topic).tags = [Fabricate(:tag)]
-    },
-    "lane policy" => lambda { |_example|
-      SiteSetting.stubs(:discussion_bridge_lane_policies).returns("{")
-    },
-    "closed topic" => lambda { |example|
-      example.__send__(:topic).update!(closed: true)
-    },
-    "archived topic" => lambda { |example|
-      example.__send__(:topic).update!(archived: true)
-    },
-    "nonregular archetype" => lambda { |example|
-      example.__send__(:topic).update_columns(archetype: Archetype.private_message, category_id: nil)
-    },
-    "missing first post" => lambda { |example|
-      example.__send__(:topic).first_post.update_column(:deleted_at, Time.zone.now)
-    },
+    "listed visibility" => lambda { |example| example.__send__(:topic).update!(visible: true) },
+    "persisted effective visibility" =>
+      lambda do |example|
+        DiscussionBridgeConnection.find_by!(topic_id: example.__send__(:topic).id).update!(
+          effective_visibility: "listed",
+        )
+      end,
+    "actor" => lambda { |example| example.__send__(:topic).update!(user_id: Fabricate(:user).id) },
+    "category" =>
+      lambda { |example| example.__send__(:topic).update!(category: Fabricate(:category)) },
+    "tags" => lambda { |example| example.__send__(:topic).tags = [Fabricate(:tag)] },
+    "lane policy" =>
+      lambda { |_example| SiteSetting.stubs(:discussion_bridge_lane_policies).returns("{") },
+    "closed topic" => lambda { |example| example.__send__(:topic).update!(closed: true) },
+    "archived topic" => lambda { |example| example.__send__(:topic).update!(archived: true) },
+    "nonregular archetype" =>
+      lambda do |example|
+        example.__send__(:topic).update_columns(
+          archetype: Archetype.private_message,
+          category_id: nil,
+        )
+      end,
+    "missing first post" =>
+      lambda do |example|
+        example.__send__(:topic).first_post.update_column(:deleted_at, Time.zone.now)
+      end,
   }.each do |boundary, mutate|
     it "fails closed when #{boundary} changes after attestation issuance" do
       get "/embed/comments", params: { topic_id: topic.id, full_app: "true" }
@@ -299,7 +294,11 @@ describe "DiscussionBridge comments-only Interactive redirect" do
 
   it "preserves a valid operator class and appends the comments-only class" do
     get "/embed/comments",
-        params: { topic_id: topic.id, full_app: "true", class_name: "operator-theme" }
+        params: {
+          topic_id: topic.id,
+          full_app: "true",
+          class_name: "operator-theme",
+        }
 
     location = URI.parse(response.location)
     query = Rack::Utils.parse_nested_query(location.query)
@@ -309,9 +308,8 @@ describe "DiscussionBridge comments-only Interactive redirect" do
 
   it "accepts absent, blank, and valid bounded mapped class names" do
     reserved = DiscussionBridge::CommentsOnlyPresenter::CSS_CLASS
-    maximum_operator = "a" * (
-      DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES - reserved.bytesize - 1
-    )
+    maximum_operator =
+      "a" * (DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES - reserved.bytesize - 1)
     [
       nil,
       "",
@@ -329,16 +327,16 @@ describe "DiscussionBridge comments-only Interactive redirect" do
       query = Rack::Utils.parse_nested_query(URI.parse(response.location).query)
       expect(query.fetch("class_name").split).to include("discussion-bridge-comments-only")
       expect(query.fetch("class_name").split.count(reserved)).to eq(1)
-      expect(query.fetch("class_name").bytesize).to be <= DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES
+      expect(query.fetch("class_name").bytesize).to be <=
+        DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES
       expect(query["discussion_bridge_embed_token"]).to be_present
     end
   end
 
   it "rejects invalid mapped class-name shapes without redirect or attestation" do
     reserved = DiscussionBridge::CommentsOnlyPresenter::CSS_CLASS
-    one_over_composed = "a" * (
-      DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES - reserved.bytesize
-    )
+    one_over_composed =
+      "a" * (DiscussionBridge::CommentsOnlyPresenter::MAX_CLASS_NAME_BYTES - reserved.bytesize)
     [
       "bad<class",
       one_over_composed,
@@ -350,7 +348,11 @@ describe "DiscussionBridge comments-only Interactive redirect" do
       { name: "operator-theme" },
     ].each do |class_name|
       get "/embed/comments",
-          params: { topic_id: topic.id, full_app: "true", class_name: class_name }
+          params: {
+            topic_id: topic.id,
+            full_app: "true",
+            class_name: class_name,
+          }
 
       expect(response).to have_http_status(:unprocessable_entity)
       expect(response.body).to include("valid bounded class_name")
@@ -375,7 +377,11 @@ describe "DiscussionBridge comments-only Interactive redirect" do
     Fabricate(:post, topic: ordinary_topic)
 
     get "/embed/comments",
-        params: { topic_id: ordinary_topic.id, full_app: "true", class_name: "bad<class" }
+        params: {
+          topic_id: ordinary_topic.id,
+          full_app: "true",
+          class_name: "bad<class",
+        }
 
     expect(response.body).not_to include("valid bounded class_name")
   end
@@ -389,6 +395,5 @@ describe "DiscussionBridge comments-only Interactive redirect" do
           class_name: "discussion-bridge-comments-only",
         }
     expect(response).to redirect_to("#{topic.url}?embed_mode=true")
-
   end
 end
