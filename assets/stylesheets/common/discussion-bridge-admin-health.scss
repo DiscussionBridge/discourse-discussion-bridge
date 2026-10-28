@@ -156,88 +156,9 @@
   }
 }
 
-.discussion-bridge-operations {
-  &__sort {
-    appearance: none;
-    padding: 0;
-    border: 0;
-    color: inherit;
-    background: transparent;
-    font: inherit;
-    font-weight: 600;
-    text-align: start;
-    cursor: pointer;
-
-    &:hover,
-    &:focus-visible {
-      color: var(--tertiary);
-      text-decoration: underline;
-    }
-
-    span {
-      display: inline-block;
-      min-width: 0.75rem;
-      margin-inline-start: 0.15rem;
-      color: var(--tertiary);
-      font-size: var(--font-down-1);
-    }
-  }
-
-  &__source-url-form {
-    display: grid;
-    gap: 0.75rem;
-    margin-block: 1.5rem;
-    padding: 1rem;
-    border: 1px solid var(--primary-low);
-    border-radius: var(--d-border-radius);
-    background: var(--secondary);
-
-    h4,
-    p {
-      margin: 0;
-    }
-
-    code {
-      overflow-wrap: anywhere;
-    }
-
-    label {
-      display: grid;
-      gap: 0.35rem;
-      max-width: 40rem;
-      font-weight: 600;
-    }
-
-    input {
-      box-sizing: border-box;
-      width: 100%;
-    }
-
-    .discussion-bridge-operations__confirmation {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-      max-width: none;
-      font-weight: normal;
-
-      input {
-        width: auto;
-        margin-block-start: 0.2rem;
-      }
-    }
-  }
-
-  &__notice {
-    padding: 0.75rem 1rem;
-    border-inline-start: 0.25rem solid var(--success);
-    background: var(--success-low, var(--primary-very-low));
-  }
-}
-
 .discussion-bridge-status,
 .discussion-bridge-direction,
-.discussion-bridge-platform,
-.discussion-bridge-publication {
+.discussion-bridge-platform {
   display: inline-flex;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -247,41 +168,7 @@
   text-transform: capitalize;
 }
 
-.discussion-bridge-publication[data-state="published"],
-.discussion-bridge-publication[data-state="in_discourse"] {
-  color: var(--success);
-  background: var(--success-low, var(--primary-low));
-}
-
-.discussion-bridge-publication[data-state="not_published"] {
-  color: var(--primary-high);
-  background: var(--primary-low);
-}
-
-.discussion-bridge-publication[data-state="pending_publication"],
-.discussion-bridge-publication[data-state="pending_removal"] {
-  color: var(--tertiary);
-  background: var(--tertiary-low, var(--primary-low));
-}
-
-.discussion-bridge-publication[data-state="needs_attention"] {
-  color: var(--danger);
-  background: var(--danger-low, var(--primary-low));
-}
-
-.discussion-bridge-status[data-state="healthy"],
-.discussion-bridge-status[data-state="current"],
-.discussion-bridge-status[data-state="unpublished"] {
-  color: var(--success);
-  background: var(--success-low, var(--primary-low));
-}
-
-.discussion-bridge-direction[data-direction="to_discourse"] {
-  color: var(--tertiary);
-  background: var(--tertiary-low, var(--primary-low));
-}
-
-.discussion-bridge-direction[data-direction="from_discourse"] {
+.discussion-bridge-status[data-state="healthy"] {
   color: var(--success);
   background: var(--success-low, var(--primary-low));
 }
@@ -290,14 +177,6 @@
 .discussion-bridge-status[data-state="failed"] {
   color: var(--danger);
   background: var(--danger-low, var(--primary-low));
-}
-
-.discussion-bridge-status[data-state="queued"],
-.discussion-bridge-status[data-state="claimed"],
-.discussion-bridge-status[data-state="retrying"],
-.discussion-bridge-status[data-state="held"] {
-  color: var(--tertiary);
-  background: var(--tertiary-low, var(--primary-low));
 }
 
 .discussion-bridge-direction-cards,
@@ -317,69 +196,17 @@
   }
 }
 
-.discussion-bridge-connections__header {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-
-  .d-page-subheader {
-    flex: 1 1 auto;
-  }
-
-  > .btn {
-    flex: 0 0 auto;
-  }
-}
-
-.discussion-bridge-connection-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .discussion-bridge-direction-cards > section {
-  border-inline-start: 0.3rem solid var(--tertiary);
-
-  &[data-direction="from_discourse"] {
-    border-inline-start-color: var(--success);
-  }
-
-  h3 {
-    margin-block-start: 0;
-  }
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.35rem 0.75rem;
+  align-items: center;
 
   p {
+    grid-column: 1 / -1;
     margin-block-end: 0;
     color: var(--primary-medium);
   }
-}
-
-.discussion-bridge-direction-cards__flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.75rem;
-  align-items: center;
-
-  > div {
-    min-width: 0;
-    padding: 0.75rem;
-    border-radius: var(--d-border-radius);
-    background: var(--primary-very-low);
-  }
-
-  span,
-  strong {
-    display: block;
-  }
-
-  span {
-    color: var(--primary-medium);
-    font-size: var(--font-down-1);
-  }
-}
-
-.discussion-bridge-direction-cards__arrow {
-  color: var(--primary-medium);
-  font-size: var(--font-up-2);
 }
 
 .discussion-bridge-connection-card {
@@ -406,43 +233,15 @@
   }
 
   dd code,
-  dd > span:not(.discussion-bridge-direction) {
+  dd span {
     display: block;
   }
-
-  .discussion-bridge-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-
-    .btn {
-      justify-content: center;
-      width: 100%;
-    }
-
-    &__credential {
-      margin-inline-start: 0;
-    }
-  }
-}
-
-.discussion-bridge-connection-card__directions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
 }
 
 .discussion-bridge-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  align-items: center;
-  padding-block-start: 0.85rem;
-  margin-block-start: 0.85rem;
-  border-top: 1px solid var(--primary-low);
-
-  &__credential {
-    margin-inline-start: auto;
-  }
 }
 
 .discussion-bridge-secret,
@@ -479,18 +278,11 @@
 .discussion-bridge-direction-options {
   display: grid;
   gap: 0.5rem;
-  min-width: 0;
-  padding: 0.85rem 1rem 1rem;
-  border: 1px solid var(--primary-low);
-  border-radius: var(--d-border-radius);
-  background: var(--secondary);
 
   label {
     display: flex;
     align-items: center;
     gap: 0.55rem;
-    width: fit-content;
-    margin: 0;
   }
 
   input {
@@ -515,11 +307,6 @@
   textarea {
     box-sizing: border-box;
     width: 100%;
-  }
-
-  input[type="checkbox"] {
-    width: auto;
-    min-height: 0;
   }
 
   input,
@@ -652,10 +439,6 @@
     gap: 0.25rem;
   }
 
-  &__search .btn-primary {
-    min-width: 6rem;
-  }
-
   &__summary {
     color: var(--primary-medium);
   }
@@ -786,24 +569,9 @@
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--primary-low);
-  border-radius: var(--d-border-radius);
-  background: var(--secondary);
 
   input {
-    flex: 0 0 auto;
-    width: auto;
-    min-height: 0;
     margin-block-start: 0.2rem;
-  }
-
-  span {
-    flex: 1 1 auto;
-    min-width: 0;
   }
 
   span,
@@ -822,55 +590,10 @@
   align-items: center;
   gap: 0.55rem;
 
-  > label {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    width: 100%;
-    margin: 0;
-  }
-
   input {
     flex: 0 0 auto;
-    width: auto;
-    min-height: 0;
     margin: 0;
   }
-}
-
-.discussion-bridge-add-connection__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  padding-block-start: 0.25rem;
-}
-
-.discussion-bridge-publication-url-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: baseline;
-  margin: 0;
-  padding: 0.75rem;
-  border-inline-start: 0.25rem solid var(--tertiary);
-  background: var(--primary-very-low);
-
-  code {
-    overflow-wrap: anywhere;
-  }
-}
-
-.discussion-bridge-origin-readiness {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
-  margin-block: 0.2rem;
-}
-
-.discussion-bridge-create-from__topic-id {
-  max-width: 14rem;
 }
 
 .discussion-bridge-authors-table {
@@ -890,23 +613,6 @@
 }
 
 @media (width <= 50rem) {
-  .discussion-bridge-connections__header {
-    align-items: stretch;
-    flex-direction: column;
-
-    > .btn {
-      align-self: flex-start;
-    }
-  }
-
-  .discussion-bridge-connection-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .discussion-bridge-connection-card .discussion-bridge-actions {
-    grid-template-columns: 1fr;
-  }
-
   .discussion-bridge-secret__row {
     grid-template-columns: 1fr;
   }
@@ -918,19 +624,6 @@
     dd + dt {
       margin-block-start: 0.65rem;
     }
-  }
-
-  .discussion-bridge-direction-cards__flow {
-    grid-template-columns: 1fr;
-  }
-
-  .discussion-bridge-direction-cards__arrow {
-    transform: rotate(90deg);
-    justify-self: center;
-  }
-
-  .discussion-bridge-actions__credential {
-    margin-inline-start: 0;
   }
 
   .discussion-bridge-operations {

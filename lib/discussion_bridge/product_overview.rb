@@ -6,42 +6,62 @@ module DiscussionBridge
       connections = DiscussionBridgeContentConnection.all
       records = DiscussionBridgeBridgeRecord.all
       issue_summary = BridgeReconciliationIndex.summary
-      work_counts = DiscussionBridgePublicationWorkItem.group(:state).count
-      publication_attention = work_counts.slice(*DiscussionBridgePublicationWorkItem::ATTENTION_STATES).values.sum
-      actor = User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase)
-      default_author_username = SiteSetting.discussion_bridge_default_author_username.to_s.presence ||
-        SiteSetting.discussion_bridge_service_username.to_s
+      actor =
+        User.find_by(username_lower: SiteSetting.discussion_bridge_service_username.to_s.downcase)
+      default_author_username = SiteSetting.discussion_bridge_default_author_username.to_s
       default_author = User.find_by(username_lower: default_author_username.downcase)
       blockers = []
       blockers << "plugin_disabled" unless SiteSetting.discussion_bridge_enabled
       blockers << "endpoint_disabled" unless SiteSetting.discussion_bridge_endpoint_enabled
       blockers << "operating_identity_missing" unless actor
       blockers << "default_author_missing" unless default_author
-      blockers << "forum_category_missing" unless Category.exists?(id: SiteSetting.discussion_bridge_effective_category_id)
+      unless Category.exists?(id: SiteSetting.discussion_bridge_effective_category_id)
+        blockers << "forum_category_missing"
+      end
       blockers << "content_connections_missing" unless connections.exists?
-      blockers << "content_connections_unverified" if connections.where(enabled: true, last_seen_at: nil).exists?
+      if connections.where(enabled: true, last_seen_at: nil).exists?
+        blockers << "content_connections_unverified"
+      end
       unresolved_authors = DiscussionBridgeSourceAuthor.where(discourse_user_id: nil)
-      held_unmapped_authors = unresolved_authors.joins(:content_connection).where(
-        discussion_bridge_content_connections: {
-          enabled: true,
-          authorship_mode: "mapped",
-          unmapped_author_policy: "hold",
-        },
-      )
+      held_unmapped_authors =
+        unresolved_authors.joins(:content_connection).where(
+          discussion_bridge_content_connections: {
+            enabled: true,
+            authorship_mode: "mapped",
+            unmapped_author_policy: "hold",
+          },
+        )
       blockers << "source_authors_unmapped" if held_unmapped_authors.exists?
-      interactive_connection_status = connections.select do |connection|
-        connection.enabled && connection.allows_direction?("to_discourse")
-      end.map do |connection|
-        {
-          id: connection.id,
-          name: connection.name,
-          origins: EmbeddableOriginStatus.for_connection(connection),
-        }
-      end
-      interactive_blockers = DiscussionBridge::FullInteractiveReadiness.blockers
-      missing_embeddable_origin = interactive_connection_status.any? do |connection|
-        connection[:origins].any? { |origin| !origin[:embeddable] }
-      end
+      embeddable_hosts = EmbeddableHost.pluck(:host)
+      interactive_connection_status =
+        connections
+          .select do |connection|
+            connection.enabled && connection.allows_direction?("to_discourse")
+          end
+          .map do |connection|
+            {
+              id: connection.id,
+              name: connection.name,
+              origins:
+                connection.allowed_origins.map do |origin|
+                  host = URI.parse(origin).host
+                  embeddable =
+                    embeddable_hosts.any? do |candidate|
+                      candidate == host ||
+                        (
+                          candidate.start_with?("*.") &&
+                            host.end_with?(candidate.delete_prefix("*"))
+                        )
+                    end
+                  { origin: origin, embeddable: embeddable }
+                end,
+            }
+          end
+      interactive_blockers = DiscussionBridge::InteractiveReadiness.blockers
+      missing_embeddable_origin =
+        interactive_connection_status.any? do |connection|
+          connection[:origins].any? { |origin| !origin[:embeddable] }
+        end
       if missing_embeddable_origin
         interactive_blockers << "content_connection_origin_not_embeddable"
       end
@@ -50,16 +70,12 @@ module DiscussionBridge
         product: {
           name: "DiscussionBridge",
           version: DiscussionBridge::VERSION,
-          health: blockers.empty? && issue_summary[:total].zero? && publication_attention.zero? ? "healthy" : "attention",
+          health: blockers.empty? && issue_summary[:total].zero? ? "healthy" : "attention",
         },
         metrics: {
           content_connections: connections.count,
           bridge_records: records.count,
-          needs_attention: issue_summary[:total] + publication_attention,
-          reconciliation_issues: issue_summary[:total],
-          publication_work: DiscussionBridgePublicationWorkItem::STATES.index_with do |state|
-            work_counts.fetch(state, 0)
-          end,
+          needs_attention: issue_summary[:total],
           source_authors: DiscussionBridgeSourceAuthor.count,
           unmapped_source_authors: unresolved_authors.count,
         },
@@ -73,29 +89,38 @@ module DiscussionBridge
           plugin_enabled: SiteSetting.discussion_bridge_enabled,
           endpoint_enabled: SiteSetting.discussion_bridge_endpoint_enabled,
           operating_identity: actor && { id: actor.id, username: actor.username },
-          default_author: default_author && { id: default_author.id, username: default_author.username },
+          default_author:
+            default_author && { id: default_author.id, username: default_author.username },
         },
         interactive_readiness: {
           ready: interactive_blockers.empty?,
           blockers: interactive_blockers,
           connections: interactive_connection_status,
         },
-        connections: connections.order(:name).limit(10).map do |connection|
-          {
-            id: connection.id,
-            public_id: connection.public_id,
-            name: connection.name,
-            platform: connection.platform,
-            authorship_mode: connection.authorship_mode,
-            include_source_in_published_url: connection.include_source_in_published_url,
-            publication_source_path: connection.publication_source_path,
-            source_author_count: connection.source_authors.count,
-            unmapped_source_author_count: connection.source_authors.where(discourse_user_id: nil).count,
-            enabled: connection.enabled,
-            bridge_record_count: connection.content_bindings.where(state: "active").distinct.count(:bridge_record_id),
-            last_seen_at: connection.last_seen_at,
-          }
-        end,
+        connections:
+          connections
+            .order(:name)
+            .limit(10)
+            .map do |connection|
+              {
+                id: connection.id,
+                public_id: connection.public_id,
+                name: connection.name,
+                platform: connection.platform,
+                authorship_mode: connection.authorship_mode,
+                source_author_count: connection.source_authors.count,
+                unmapped_source_author_count:
+                  connection.source_authors.where(discourse_user_id: nil).count,
+                enabled: connection.enabled,
+                bridge_record_count:
+                  connection
+                    .content_bindings
+                    .where(state: "active")
+                    .distinct
+                    .count(:bridge_record_id),
+                last_seen_at: connection.last_seen_at,
+              }
+            end,
       }
     end
   end

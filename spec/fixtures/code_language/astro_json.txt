@@ -1,0 +1,5 @@
+{
+  "localTestArticle": "0002",
+  "text": "<portable>& content",
+  "unicode": "café 日本語 😀"
+}

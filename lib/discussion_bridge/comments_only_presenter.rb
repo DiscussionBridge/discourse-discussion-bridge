@@ -25,23 +25,22 @@ module DiscussionBridge
 
     def self.mapped_topic?(topic_id:)
       id = Integer(topic_id, exception: false)
-      id&.positive? && (
+      id&.positive? &&
         DiscussionBridgeBridgeRecord.exists?(
           topic_id: id,
           state: "healthy",
           direction: "to_discourse",
-        ) ||
-          DiscussionBridgeConnection.exists?(topic_id: id, state: "complete")
-      )
+        )
     end
 
     def self.source_presentation_topic?(topic_id:)
       id = Integer(topic_id, exception: false)
-      id&.positive? && DiscussionBridgeBridgeRecord.exists?(
-        topic_id: id,
-        state: "healthy",
-        direction: "from_discourse",
-      )
+      id&.positive? &&
+        DiscussionBridgeBridgeRecord.exists?(
+          topic_id: id,
+          state: "healthy",
+          direction: "from_discourse",
+        )
     end
 
     def self.source_presentation_requested?(class_name)
@@ -50,10 +49,11 @@ module DiscussionBridge
     end
 
     def self.requested_for?(topic_id:, source_presentation: false)
-      FullInteractiveReadiness.ready? && (
-        mapped_topic?(topic_id: topic_id) ||
-          (source_presentation && source_presentation_topic?(topic_id: topic_id))
-      )
+      InteractiveReadiness.ready? &&
+        (
+          mapped_topic?(topic_id: topic_id) ||
+            (source_presentation && source_presentation_topic?(topic_id: topic_id))
+        )
     end
 
     def self.class_name(topic_id:, embed_mode:, source_presentation: false)
@@ -70,11 +70,9 @@ module DiscussionBridge
 
       classes = existing_class_name.to_s.split.reject { |name| name == CSS_CLASS }
       source_presentation = classes.delete(SOURCE_PRESENTATION_CLASS).present?
-      classes << CSS_CLASS if class_name(
-        topic_id: topic_id,
-        embed_mode: true,
-        source_presentation: source_presentation,
-      )
+      if class_name(topic_id: topic_id, embed_mode: true, source_presentation: source_presentation)
+        classes << CSS_CLASS
+      end
       result = classes.join(" ").presence
       if classes.include?(CSS_CLASS)
         result if valid_final_class_name?(result)

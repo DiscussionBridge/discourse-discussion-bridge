@@ -1,285 +1,181 @@
-# The Bridge — DiscussionBridge for Discourse
+# DiscussionBridge for Discourse — V4 development candidate
 
-DiscussionBridge Operator service is documented in
-[`OPERATOR_SERVICE.md`](OPERATOR_SERVICE.md). It is an administrator-opted-in,
-payment-controlled, separately scoped support role; it never replaces ordinary
-forum administration or automatic publishing synchronization.
+Working package `0.4.0-alpha.1`, wire `v4`, candidate
+`discussionbridge-v4-core-20261025-r6`, release version null. This is an unpublished
+implementation candidate, not an exact-approved or frozen release. Native
+Discourse, PostgreSQL migration and browser qualification remain incomplete.
 
-DiscussionBridge is a generic Discourse plugin for durable discussions shared
-with publishing platforms. One forum can have any number of independent
-Content Connections. Each connection represents one configured installation
-of WordPress, Ghost, Statamic, Astro, publishing Discourse, or another future
-adapter and manages many Bridge Records.
+One generic plugin artifact serves every installation. Installation-specific
+runtime patches and per-forum product forks are prohibited. Supported native
+configuration controls independent Content Connections, origins, directions,
+lanes, author mappings and publication policy. The plugin is disabled by default.
+Discourse remains authoritative for native users, topics, posts, discussions,
+moderation, sessions and Guardian permissions.
 
-The plugin is default-disabled. Discourse remains authoritative for users,
-topics, categories, tags, visibility, moderation, sessions, and replies.
+The single shared API is the 36 declared `/discussion-bridge/v4/` routes. Its
+pinned normative source and derived schema are packaged in
+`lib/discussion_bridge/cms_contract.json` and `cms_protocol_types.json`. There are
+no earlier development wire routes, version selectors, receiptless initialization,
+old record conversion or MappingAdopt interface. Native Core TopicEmbed association
+and Simple, Full and Interactive discussion presentation are retained functions.
 
-The same downloadable plugin can receive connected-platform content, publish
-explicitly selected Discourse topics to another DiscussionBridge forum, or do
-both. Its role is configuration, not a separate receiver or publisher package.
+Native publishing uses `/admin/publishing` and its topic/publication actions.
+Protected CMS configuration, delivery, preview and stored catalog controls use
+`/admin/content-connections/:id/cms-*`. Native session, CSRF, XHR, staff/admin and
+Guardian requirements remain distinct from Content Connection credentials.
+Only an explicit administrator create/rotate response can transiently display and
+copy the newly issued secret; later reads and public/support output exclude it.
 
-## Product model
+Native publication status reports `presentation_mode` as the validated current
+desired selection, matching Mapping and preview. `initial_presentation_mode` is
+the binding's creation-time selection. Neither field proves the mode was applied;
+delivery status and its retained policy revision remain separate evidence. An
+unavailable current configuration yields a null current mode rather than falling
+back to the historical selection. Status reads never rewrite the binding.
 
-- **Content Connection** — one publishing-platform installation with its own
-  credential, allowed origins, directions, lanes, adapter identity, and enabled
-  state.
-- **Bridge Record** — a stable plugin-issued resource identity linked to one
-  Discourse topic.
-- **Binding** — the current or historical external identity and canonical URL
-  for one side of a Bridge Record.
+Current To publication carries complete source hash/count with either full HTML
+or the explicit owned generated excerpt. Generated Read More follows a verified
+new canonical URL through a fresh revision and atomic owned native-segment edit;
+article content, historical attribution footer, native/resource/topic identities
+and prior receipts remain intact. The exact source-public proof mechanism and
+SourceHTML execution/URI/provider/fallback/default/true-absence rules remain
+unresolved; typed reported fields alone are not native/public execution evidence. Current From snapshots
+retain complete native cooked content and bounded internal transport pagination.
+The narrow math converter preserves mixed links/media/captions on the native HTML
+path. Actual downstream rich media/provider rendering still needs qualification.
 
-Direction belongs to each Bridge Record, not to the connection:
+Preparation preserves the complete article meaning and the native original.
+Copied relative navigation/media references use the captured source article URL.
+To complete prepared-source evidence is measured after this resolution and before
+excerpt selection. From transport integrity covers the exact immutable cooked
+source input: a recipient verifies the complete count/hash first, then prepares
+the copy against the edition-captured `Source.topic_url` before native-output
+evidence or excerpting. Source integrity and native-output fingerprints differ.
+Accepted editions, exact pending requests and history are not reprepared using a
+later URL. Canonical-only moves retain article bytes except the owned Read More.
 
-- **To Discourse**: an authoritatively published external item creates or
-  resolves one forum-governed discussion.
-- **From Discourse**: an existing Discourse topic and first post are exposed to
-  an authorized connection for external presentation. A platform that renders
-  that first post may explicitly attach the same topic's Interactive
-  replies; the attested comments-only frame omits the duplicate first post.
+Unformatted text and nontext are valid source content. Missing supported cooked
+output is reported as a Bridge preparation limitation/attention, not source
+ineligibility. The current native converter supports ordinary HTML link/media
+attributes and responsive image URL tokens; it reports unsupported relative CSS,
+CSS escape/import, document-base overrides, unknown relative element reference
+contexts and URI syntax rather than silently changing their targets. This is
+converter capability, not a content/safety/provider allowlist. Native components,
+embeds and active functionality require actual native qualification; retaining
+the original does not prove an equivalent working copy. A specific unsupported
+function must be reported for operator choice, not silently removed or treated
+as equivalent to a link/caption.
 
-A To Discourse migration prepares a replacement source binding, preserves the
-resource and topic, then makes the old binding historical when an administrator
-applies it. A native From Discourse publication URL move instead verifies a
-permanent redirect and changes the same presentation binding in place; see
-[Publication URL change](PUBLICATION_URL_MIGRATION.md). A one-item To
-Discourse slug or path change also requires a verified redirect, but keeps
-the same source binding; see [Source URL change](SOURCE_URL_MIGRATION.md).
+New native publication/revision compares the source's parsed facilities and
+nonempty data with the actual cooked post inside the existing transaction before
+acceptance. Observed script/data, handler, form/control/disclosure and media
+structure/target losses, or unavailable required native rendered-article evidence,
+stop acceptance with Phil's approved `content_preservation_unavailable` code
+(HTTP422, nonretryable). This applies to To resolve and the owned Read More native
+edit before its receipt/reservation commit; metadata failures keep their existing
+meaning. This is structural evidence, not browser-function equivalence or a
+ban/permission based on content type. Escaped displayed code remains content;
+actually retained native players, disclosures and component data are compared
+without an assumed Core-default rejection. Exact accepted replay is not recooked.
 
-## Native administration
+Specific item diagnostics use the existing native `Rails.logger.warn` facility,
+JSON event `discussion_bridge_native_content_loss`. An authorized server operator
+can read/search that event in the installation's configured Rails/Discourse server
+log through existing protected operational access. It records connection ID,
+external ID, source revision, supplied correlation ID, mutation ID, diagnostic kind
+(`article_unavailable` versus `observed_content_loss`) and structural loss names/
+counts. Move diagnostics include the actual resource ID and no fabricated request
+correlation. It never includes program/data bodies, values/hashes, URLs,
+credentials or request trees. No log file path, native administrator log-screen
+availability, retention/durability or deployment access is asserted here. The wire
+response and browser popup remain the closed code. Unknown equivalent component
+transforms and later native cooking/jobs/browser changes require actual native
+qualification; a stored original or raw fingerprint does not establish them.
 
-Administrators use four pages under **Admin → Plugins → DiscussionBridge**:
+Native presentation correction records a private pending intention. The old URL
+remains authoritative until the actual native move and public proof settle it.
+Only an eligible explicit administrator request may create the separate audited
+publication cycle; it preserves the previous verified work, source and policy.
+A saved intention is not a CMS mutation or successful publication. Global disable
+retains a private same-intent hold so restoring gates cannot automatically recreate
+that cancelled intent. Protected native attention recovery uses two explicit actions: Check native state,
+then Retry ready selected (or an individual Retry). Factual native reports only
+classify retained observations; neither their completion nor restored selected
+metadata automatically restarts attention. Closed capability attention-recovery-1
+and V4-32 through V4-36 provide inspection/report and exact positive successor
+handoff. General claims cannot take recovery successors. Native actions require
+the current administrator, Guardian access, current connection/source/policy/
+selected IDs and an unchanged bound context. Independent selected outcomes are
+bounded to25. Exact native action UUID/body receipts are retained; the panel reuses
+an uncertain action's UUID on an explicit repeat while the panel remains mounted.
+A later explicit repeat is also protected by unique predecessor lineage.
 
-- **Overview** — product health, connection and Bridge Record totals, both
-  directions, readiness blockers, and a redacted support bundle.
-- **Connections** — create, enable or disable independent connections and
-  rotate a secret. The selected connection has a **General** tab and an
-  **Authors** tab. A new secret is shown once and is never returned by later
-  reads. From Discourse publication URLs default to the platform-native root;
-  a connection may explicitly include an operator-named source path.
-- **Bridge Records** — search and filter records, inspect bindings, create a
-  From Discourse record, and perform a controlled To Discourse migration.
-- **Reconciliation** — inspect operational inconsistencies and export a
-  redacted report.
+An admitted retry appends fresh UUID/cycle attempt0 Work, supersedes the old
+attention and protects its encrypted pretransition snapshot/history. It retains
+the fence floor; the exact successor claim raises mapping authority monotonically.
+The exact same-Work static preparation may be settled only by the named Settle
+restored baseline and retry action after actual native AND public baseline proof.
+An older preparation owned by another Work/source/policy is Not ready/context_changed
+before inspection creation; it is preserved for a separate recovery decision.
+Applied prepared-static candidates, missing verified baselines, applied URL
+rebinding and cancelled same-intent holds are not admitted by this mechanism.
+Known VERIFIED withdrawn baselines retain their actual prior native ownership
+receipt source revision, which can remain the earlier published source while
+receiver synchronized/public revisions are null. Retained native objects require
+current revision/managed-content and owned manifest readback. Only Hugo currently
+supplies a qualified complete owned-all-absent native manifest; deleting a known
+Astro or Statamic draft remains a conflict. Static recovery requires both the
+retained prior verified absence proof and a new exact-URL anonymous absence read.
+Dynamic proof remains optional where applicable and exact when supplied. No
+cross-host clock threshold or TTL is invented. A known current dynamic candidate
+after withdrawal can bind that exact prior verified withdrawal receipt and prior
+absence proof while retaining all current candidate/source/content checks; it
+is not relabelled as an unchanged baseline or an applied static adoption.
 
-The native Discourse Settings tab remains the editor for forum-wide policy.
+Receiver native IDs remain their last acknowledged values; a known applied
+first-create candidate carries its observed ID in the positive native baseline,
+which its native owner must retain instead of creating another object.
 
-On an individual topic, staff can open the native topic wrench menu and choose
-**DiscussionBridge Status**. The modal shows every enabled forum-publication
-Content Connection, the inherited category/tag rule, any explicit topic
-override, the effective decision, current queue state, and the bound platform
-publication. Staff may **Publish**, **Stop publishing**, or return the topic to
-**Use connection rules** independently for each connection. An explicit topic
-override survives later category and tag edits; it never overrides private,
-staff-only, deleted, unlisted-without-authorization, or category-definition
-safety exclusions.
+Actual attention occurrences create durable, deduplicated native bell deliveries
+for current active nonstaged nonsuspended administrators, rechecked at delivery.
+The bell contains only a generic label and the protected native connections panel
+link, uses Core's supported no-email flag, and leaves normal read/unread behavior.
+Notification transport failures retain pending outbox rows and bounded diagnostics;
+they do not restart Work. There is no restoration/completion bell or SMS. Native
+DB/migration/Sidekiq/Ember/browser qualification of this new mechanism remains a
+separate unexecuted gate. Support-access mechanisms remain unresolved.
 
-Stopping publication queues an adapter-owned unpublish while retaining the
-Discourse topic, Bridge Record, binding history, and audit identity. The same
-modal reuses the verified one-publication URL-change operation for an existing
-native publication. That operation is distinct from stopping publication and
-from a future site/platform-wide migration workflow: it requires the same
-native platform item plus a verified permanent redirect and changes the
-existing binding in place.
+## New-baseline upgrades and recovery
 
-## Adapter API
+The initial migration creates a fresh transactional V4 baseline. It performs no
+conversion of earlier development deployments. Future V4 upgrades must preserve
+native/resource/topic/discussion IDs, ownership/configuration, schema data,
+exact pending request trees and CAS, leases/fences, encrypted receipt keys,
+immutable history, URL reservations and tombstones. Local encryption format 1 is
+a durable private format, not an earlier wire API.
 
-All adapter requests use HTTPS and JSON. Authentication is connection-scoped:
+Before an upgrade or rollback, establish protected, matching database,
+configuration/key and upload recovery points and record the actual restore
+evidence for that installation. Coordinate receiver and consumer artifact/runtime
+state and stop conflicting workers. A source/plugin rollback that retains schema
+and durable state differs from destructive Rails schema down. This baseline
+refuses automatic down/data deletion. Recover only from a protected matching
+state whose real restore has been established; do not invent backup paths or
+claim installation qualification from these instructions. Package copying,
+syntax/value checks and prose do not establish migration or recovery acceptance.
 
-```text
-X-DiscussionBridge-Connection: dbc_...
-X-DiscussionBridge-Secret: ...
-```
+## Available author checks
 
-### Create or resolve a To Discourse record
-
-```http
-POST /discussion-bridge/v1/bridge-records/resolve.json
-Content-Type: application/json
-```
-
-```json
-{
-  "bridge_record": {
-    "direction": "to_discourse",
-    "external_id": "post-482",
-    "canonical_url": "https://publisher.example/articles/community-guide/",
-    "title": "Community guide discussion",
-    "content_html": "<h2>Community guide</h2><p>The published article body.</p>",
-    "published": true,
-    "visibility": "unlisted",
-    "lane": "articles",
-    "adapter_id": "publisher-adapter",
-    "correlation_id": "delivery-1"
-  }
-}
-```
-
-Only exact boolean `published: true` is accepted. An adapter may also report a
-bounded `source_authors` array and one `primary_source_author_id`. Every source
-author has a stable platform identity, display name, and optional profile URL
-on the connection's allowed origin. `content_html` is a required,
-nonblank published-content snapshot bounded to 48 KiB inside the 64 KiB request
-envelope. Discourse's ordinary post pipeline cooks and sanitizes it, and the
-plugin adds canonical source attribution after the content. The connection
-must authorize the direction, canonical origin, and lane. Forum policy selects
-the visible author, category, tags, and visibility.
-
-Each Content Connection chooses one publication-authorship mode:
-
-- **Fixed Discourse author** uses the connection author, or the forum default
-  when no connection override is present.
-- **Mapped source author** maps the reported primary platform author to an
-  active Discourse user. An unmapped primary author either falls back to the
-  fixed author or holds publication before topic creation, according to that
-  connection's policy.
-
-The Authors tab shows identities actually observed from that connection and
-lets an administrator map each one to an existing Discourse user. One primary
-source author controls the topic owner; every reported source author is
-credited in the companion post. Mapping changes apply to future topics and do
-not silently reassign existing topics. The privileged operating identity
-remains separate from a non-privileged visible author. A retry with the same external
-identity and URL returns the same resource and topic without rewriting its
-first-published snapshot; conflicting identity claims fail closed.
-
-The General tab also offers **Generate topic table of contents** per Content
-Connection. When enabled, a newly created To Discourse topic with at least two
-source headings receives the official DiscoTOC marker. The forum must have the
-DiscoTOC theme component installed; this setting does not install it. Platform
-page navigation remains independent, and existing topics are not silently
-rewritten when the setting changes.
-
-An adapter may include `existing_topic_id` only while adopting a standalone
-Discourse Core embed. The plugin creates a Bridge Record around that topic
-without creating a replacement only when Core already attests the exact
-canonical source URL, the topic is an available unlisted embed, and it has no
-prior DiscussionBridge mapping. This is the automatic upgrade path from a
-standard Core `full` embed. It is not authority to claim a manually selected
-topic; those remain standalone until a forum operator explicitly adopts them.
-
-### Read records visible to a connection
-
-```http
-GET /discussion-bridge/v1/bridge-records.json
-GET /discussion-bridge/v1/bridge-records/:resource_id.json
-```
-
-For a From Discourse record, the response includes the first post's cooked HTML
-and a `source` object containing the exact forum origin, topic/post identity,
-post version, stable revision token, update timestamp, and visible author
-identity. Adapters use that revision to create or update native platform
-content idempotently; they must not infer change from mutable titles or URLs.
-The response never includes another connection's record.
-
-## Forum-wide settings
-
-- `discussion_bridge_enabled`
-- `discussion_bridge_endpoint_enabled`
-- `discussion_bridge_service_username`
-- `discussion_bridge_default_author_username`
-- `discussion_bridge_effective_category_id`
-- `discussion_bridge_effective_tags`
-- `discussion_bridge_lane_policies`
-- `discussion_bridge_default_visibility`
-- `discussion_bridge_comments_only_full_interactive`
-
-The endpoint and plugin switches are independently default-disabled. The
-operating identity and forum-default author must be active, non-system Discourse
-users. During upgrade, a blank default-author setting temporarily falls back to
-the operating identity. A Content
-Connection may select another active user without granting that author the
-operating identity's privileges. Configured category and tags must already
-exist. Optional lane policy is forum-owned and fails
-closed for missing or unknown lanes once configured.
-
-## Publish Discourse content to a connected platform
-
-The native Publishing page creates a local From Discourse Bridge Record for an
-existing topic and a selected Content Connection. The operator supplies the
-platform's stable content identity and exact presentation URL. Exact retries
-resolve the same record. One local topic may be published independently through
-more than one platform connection. The authorized platform adapter retrieves
-the record from this forum; no second receiving forum or outbound forum secret
-is part of ordinary publishing.
-
-The connection's **Include source in published URL** setting is off by default.
-The Publishing page then suggests a root URL from the connection origin and
-Platform content ID. When enabled, the bounded relative **Source path** is
-inserted before that content ID and shown in an immediate preview. The
-suggestion remains editable for native platform permalink rules. Changing the
-canonical URL of an existing native publication requires the dedicated
-redirect-backed [migration procedure](PUBLICATION_URL_MIGRATION.md). Adapters
-must preserve the existing Bridge Record and fail closed until the receiver
-accepts the new URL. Presentation-only records retain the correction action.
-
-Publishing authority is explicit per binding. **Authorize native
-materialization** permits the selected adapter to create or update a genuine
-platform record at that URL. When it is off, the record is presentation-only
-and may be rendered inside an existing platform page; adapters must not infer
-permission to create content from retrieval access alone.
-
-## Presentation boundary
-
-DiscussionBridge can qualify a healthy mapped topic for Discourse Core's
-full-app embed. Core owns the iframe application, dynamic height,
-authentication, composer, reply, quote, edit, Like, moderation, and session
-behavior. The plugin only attests the exact Bridge Record/topic route and omits
-companion post 1 from the mapped embed layout. The ordinary topic remains
-unchanged.
-
-No external publishing-platform adapter is implemented inside this repository.
-An adapter translates its platform lifecycle into the generic connection API and
-renders or links the returned discussion using platform-native code and
-Discourse Core presentation.
-
-## Install
-
-Pin the plugin in the Discourse container configuration and rebuild the one
-intended container:
-
-```yaml
-hooks:
-  after_code:
-    - exec:
-        cd: $home/plugins
-        cmd:
-          - git clone https://github.com/DiscussionBridge/discourse-discussion-bridge.git
-          - cd discourse-discussion-bridge && git checkout <immutable-commit>
-```
-
-```bash
-cd /var/discourse
-./launcher rebuild app
-```
-
-Before installing, preserve the protected configuration and a whole-server or
-database/uploads recovery point. A launcher rebuild reuses persistent Discourse
-data and is not a clean installation.
-
-After rebuild:
-
-1. verify the installed plugin commit and pending migrations;
-2. verify PostgreSQL, Redis, application processes, and HTTPS;
-3. enable and configure forum policy;
-4. create each Content Connection in native administration;
-5. copy each one-time secret directly into its adapter's server-side secret
-   store;
-6. exercise both permitted directions and reconciliation before relying on the
-   installation.
-
-## Development verification
-
-The plugin specs run inside a compatible Discourse checkout:
-
-```bash
-LOAD_PLUGINS=1 RAILS_ENV=test bundle exec rspec \
-  plugins/discourse-discussion-bridge/spec
-```
-
-Generated plugin JavaScript must be rebuilt from current source before browser
-system specs. Historical Alpha manifests and one-consumer acceptance records
-are intentionally not part of this replacement product.
-
-## License
-
-See [LICENSE](LICENSE).
+`spec/scripts/v4_codec_checks.rb` exercises current value/codec rules and reference
+parity. `spec/scripts/v4_package_checks.rb` checks pinned artifacts, declared route
+assembly, loader members and Ruby syntax. Native examples cover source eligibility,
+mixed-content preservation and publishing transactions. These author checks are
+not native build, rendering, authentication, database, formal review or release
+qualification. The focused attention scripts are attention_recovery_checks.rb,
+attention_notifications_checks.rb, attention_withdrawn_baseline_checks.rb,
+attention_admin_controls_checks.mjs and
+attention_notification_renderer_checks.mjs. They exercise actual method paths
+with declared synthetic persistence/framework/transport seams. The retained native
+Discourse runtime has historical qualification for earlier scopes; no native
+Rails/PostgreSQL/Ember execution of this new attention feature is asserted by
+these local scripts or those prior results.

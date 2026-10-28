@@ -1,0 +1,3794 @@
+{
+  "provenance": [
+    {
+      "path": "C:/CodeProjects/Products/DiscussionBridge/planning/v4-attention-recovery-fixes-20261025/HUGO_WITHDRAWN_CORE_INTEROP.json",
+      "sha256": "49df0d715ba47717428c065ec73df818fdc14f1a832cfbe43329dc7c2041a2fc",
+      "kind": "Frozen exported synthetic collector outputs supplied by native owner; not installed/runtime/public qualification"
+    },
+    {
+      "path": "C:/CodeProjects/Products/DiscussionBridge/planning/v4-attention-recovery-fixes-20261025/ASTRO_CORE_INTEROP.json",
+      "sha256": "bbe5ff55d1b245337c74fa05441bffd3b8a9de78e5869adb02246d6e9f953985",
+      "kind": "Frozen exported synthetic collector outputs supplied by native owner; not installed/runtime/public qualification"
+    },
+    {
+      "path": "C:/CodeProjects/Products/DiscussionBridge/planning/v4-attention-recovery-fixes-20261025/STATAMIC_WITHDRAWN_CORE_INTEROP.json",
+      "sha256": "5ba9944bea7b796f1aacb3a5262b292dae6cfdec70ba0a7e41633dbf4e7b034a",
+      "kind": "Frozen exported synthetic collector outputs supplied by native owner; not installed/runtime/public qualification"
+    },
+    {
+      "path": "C:/CodeProjects/Products/DiscussionBridge/planning/v4-attention-recovery-fixes-20261025/GHOST_CORE_INTEROP.json",
+      "sha256": "10da30822ddd896069e46eb05ddcb107c4b2acf74d7a84620fb4343f341eec54",
+      "kind": "Frozen exported synthetic collector outputs supplied by native owner; not installed/runtime/public qualification"
+    },
+    {
+      "path": "C:/CodeProjects/Products/DiscussionBridge/planning/v4-attention-recovery-fixes-20261025/WORDPRESS_CORE_INTEROP.json",
+      "sha256": "d40d2f8d1d853e28ae4560b8c1f30757c9f4f70e6c8c2b6a596caa9b8041de00",
+      "kind": "Frozen exported synthetic collector outputs supplied by native owner; not installed/runtime/public qualification"
+    }
+  ],
+  "cases": [
+    {
+      "id": "hugo-verified-withdrawal-baseline",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "ddf176fb-6bc8-4f2c-9afb-d8d2e149a005",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "3859815f-a169-424d-9579-10b79719cb93",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": null,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:11.877Z",
+        "native_state": "baseline",
+        "object_exists": false,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": {
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "external_id": "hugo-source-a",
+          "native_id": "content/source.md",
+          "canonical_url": "https://hugo.example/source/",
+          "source_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T21:48:14.411Z",
+          "http_status": 404
+        },
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "65128c6b9214cb9c00557ed8b53a3417ebb5af1c2f9a63ee16229f58b575a1df",
+        "baseline_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "candidate_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "current_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "hugo-restored-verified-withdrawal",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "99af5a5f-ef6c-4189-9386-20f7da1f3141",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "9d188f44-5c66-4490-a1c1-cee9377b9dd0",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": "revision-2",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "revision-2",
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": "revision-2",
+          "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "8fc12f67-9f38-4cc5-b1fa-ae27bdf456ff",
+          "work_id": "9d188f44-5c66-4490-a1c1-cee9377b9dd0",
+          "lease_generation": 2,
+          "action": "publish_revision",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "content/source.md",
+            "external_id": "hugo-source-a",
+            "canonical_url": "https://hugo.example/source/",
+            "native_revision": "revision-2",
+            "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+            }
+          },
+          "prepared_at": "2026-10-25T01:00:00.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:14.616Z",
+        "native_state": "restored_baseline",
+        "object_exists": false,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": {
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "external_id": "hugo-source-a",
+          "native_id": "content/source.md",
+          "canonical_url": "https://hugo.example/source/",
+          "source_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T21:48:16.711Z",
+          "http_status": 404
+        },
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "8fc12f67-9f38-4cc5-b1fa-ae27bdf456ff",
+        "journal_sha256": "1a2b6090f115595555f9ca6f763a7922c564d31c2839102c06b4d22aff39be97",
+        "baseline_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "candidate_sha256": "3c31dcd8b4c59e7171f83ec2e3faac16c117729511acd9ac20af2708fe2469d6",
+        "current_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "hugo-withdrawn-native-still-present",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "2b61b69f-e060-494a-b3f8-3590e149400b",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "21d2c1df-97e1-4af9-807f-e5c05ea47438",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": "revision-2",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "revision-2",
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": "revision-2",
+          "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "8aa18294-1073-4b97-ad9d-c14d0a408e3d",
+          "work_id": "21d2c1df-97e1-4af9-807f-e5c05ea47438",
+          "lease_generation": 2,
+          "action": "publish_revision",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "content/source.md",
+            "external_id": "hugo-source-a",
+            "canonical_url": "https://hugo.example/source/",
+            "native_revision": "revision-2",
+            "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+            }
+          },
+          "prepared_at": "2026-10-25T01:00:00.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:18.499Z",
+        "native_state": "unknown",
+        "object_exists": null,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "8aa18294-1073-4b97-ad9d-c14d0a408e3d",
+        "journal_sha256": "bbfe787ce9b316e6c9426da8769c6c9ba9b4597ae4896c3eb02d681daa3a91f2",
+        "baseline_sha256": null,
+        "candidate_sha256": "3c31dcd8b4c59e7171f83ec2e3faac16c117729511acd9ac20af2708fe2469d6",
+        "current_sha256": "afd559081be5e1212b20c8917f31e79e0077ed7273195e10c1a414bc9a0bb8b5",
+        "restoration_operation_id": null,
+        "issue": "partial_files"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "hugo-forged-withdrawn-manifest",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "9adff841-8089-42d2-be06-2d7867faa1c5",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "cd387c43-a976-4f3d-8c38-09f559cfddfc",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": null,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:21.071Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "a7548a239879201930865e8aefa31b443a24d07b7653a35651744215695afcb4",
+        "baseline_sha256": "86142b8603c6211123da8a083acc899bbbf092cced607b9ab61cfbb4d159ef4d",
+        "candidate_sha256": "86142b8603c6211123da8a083acc899bbbf092cced607b9ab61cfbb4d159ef4d",
+        "current_sha256": "86142b8603c6211123da8a083acc899bbbf092cced607b9ab61cfbb4d159ef4d",
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "hugo-withdrawn-public-not-absent",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "ac0ae7a3-20e2-4d94-8ddc-abfbbe096985",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "58215a2b-1008-4689-aa44-4747177027ff",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": "revision-2",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "revision-2",
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": "revision-2",
+          "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "b635b4eb-5dd4-4779-bd09-17f7458003ba",
+          "work_id": "58215a2b-1008-4689-aa44-4747177027ff",
+          "lease_generation": 2,
+          "action": "publish_revision",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "content/source.md",
+            "external_id": "hugo-source-a",
+            "canonical_url": "https://hugo.example/source/",
+            "native_revision": "revision-2",
+            "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+            }
+          },
+          "prepared_at": "2026-10-25T01:00:00.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:23.917Z",
+        "native_state": "unknown",
+        "object_exists": null,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "b635b4eb-5dd4-4779-bd09-17f7458003ba",
+        "journal_sha256": "abbcd176fe150f6869e482d3615ad2db7ad322391f692127d5ce115233d26cbe",
+        "baseline_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "candidate_sha256": "3c31dcd8b4c59e7171f83ec2e3faac16c117729511acd9ac20af2708fe2469d6",
+        "current_sha256": "6f727692c77883fecfd62ddb1df8cf51c1cbe92099428b0d978331c184208ec0",
+        "restoration_operation_id": null,
+        "issue": "public_proof_unavailable"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "hugo-withdrawn-unknown-command",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "fa625856-318c-4c3c-948b-24e3bda31a6f",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "26cc8be7-d63f-4214-be64-99a3479d3a7d",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": "revision-2",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "revision-2",
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": "revision-2",
+          "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "cfa1bf26-9e8a-4050-b278-53951824186b",
+          "work_id": "26cc8be7-d63f-4214-be64-99a3479d3a7d",
+          "lease_generation": 2,
+          "action": "publish_revision",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "content/source.md",
+            "external_id": "hugo-source-a",
+            "canonical_url": "https://hugo.example/source/",
+            "native_revision": "revision-2",
+            "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+            }
+          },
+          "prepared_at": "2026-10-25T01:00:00.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:25.138Z",
+        "native_state": "unknown",
+        "object_exists": null,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "uncertain",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "cfa1bf26-9e8a-4050-b278-53951824186b",
+        "journal_sha256": "ebcfdc4e16ecc8f324b517e0dc731112d3effabe2de44c203aa82cde90f9b56a",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "uncertain_command"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "hugo-withdrawn-unknown-mutation",
+      "profile": "hugo",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "131ab0db-5f52-4d3e-814d-be7f10f7009a",
+        "context_sha256": "ea7792a26f405e2ae9c6f49ca93bbe6076ceac0a1fc53d83426c7d7f2d9377e4",
+        "work": {
+          "work_id": "24473848-4f61-4f07-a84f-0af6bf9d4341",
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "55555555-5555-4555-8555-555555555555",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-111111111111",
+          "resource_id": "22222222-2222-4222-8222-222222222222",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "source-a",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "mapping_revision": "map-2",
+          "destination_native_id": "content/source.md",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "interactive",
+          "desired_source_revision": "revision-2",
+          "synchronized_source_revision": "revision-2",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "revision-2",
+          "source_created_at": null,
+          "source_updated_at": null,
+          "synchronized_at": "2026-10-25T01:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-a",
+          "source_revision": "revision-2",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "source",
+          "content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4",
+          "content_bytes": 15,
+          "source_created_at": null,
+          "source_updated_at": null,
+          "source_authors": []
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": "revision-2",
+          "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "content/source.md",
+          "external_id": "hugo-source-a",
+          "canonical_url": "https://hugo.example/source/",
+          "native_revision": null,
+          "ownership_receipt_sha256": "7cf1e91ecff86191a387ccd05ccb63f7cae1a854ced83259cbfe29c140063498"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://hugo.example/source/",
+          "native_id": "content/source.md",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "114f9070-9870-4211-b847-4845a74fccf1",
+          "work_id": "24473848-4f61-4f07-a84f-0af6bf9d4341",
+          "lease_generation": 2,
+          "action": "publish_revision",
+          "source_revision": "revision-2",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "content/source.md",
+            "external_id": "hugo-source-a",
+            "canonical_url": "https://hugo.example/source/",
+            "native_revision": "revision-2",
+            "ownership_receipt_sha256": "dbe96b677d0c895c9210bb1e6242ea01f24d8caed7cd190533cb57bee41011fa",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "961a607542156ccf7dd6719ad17d29aefa69b87865ee6eb80de40bf7506216d4"
+            }
+          },
+          "prepared_at": "2026-10-25T01:00:00.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T01:00:00.000Z"
+      },
+      "observation": {
+        "profile": "hugo-static-1",
+        "observed_at": "2026-10-25T21:48:26.715Z",
+        "native_state": "unknown",
+        "object_exists": null,
+        "native_id": "content/source.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "uncertain",
+        "prepared_transaction_id": "114f9070-9870-4211-b847-4845a74fccf1",
+        "journal_sha256": "945feecfc8cf45a4663c4069aff7b0fcbd3727140b8f762ba11434d3ece5a5ac",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "uncertain_mutation"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "actual_owned_withdrawn_baseline",
+      "profile": "astro",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000642",
+        "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "mapping": {
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "topic:53",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "retired_url_count": 0,
+          "mapping_state": "withdrawn",
+          "presentation_mode": "simple",
+          "desired_source_revision": "revision-11",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T08:00:00.000Z",
+          "synchronized_at": "2026-10-25T21:51:05.125Z",
+          "publicly_verified_at": "2026-10-25T21:51:05.153Z"
+        },
+        "source": {
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "Continuing renamed source",
+          "content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348",
+          "content_bytes": 57,
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T09:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "author:1",
+              "name": "Source author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:05.153Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T21:51:05.513Z"
+      },
+      "observation": {
+        "profile": "astro-static-1",
+        "observed_at": "2026-10-25T21:51:05.925Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+        "ownership": {
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:05.936Z",
+          "http_status": 404
+        },
+        "source_revision": "revision-1",
+        "managed_content_sha256": "24467402fad4a8aa86b1cc13d0624d07d3ed2582366f9fe32f18d393e8af7354",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b28f9464eaf95343fca5b23c1fce9523600e18aa111d120c7991ee7ba604bcec",
+        "baseline_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "candidate_sha256": null,
+        "current_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "actual_owned_withdrawn_baseline_gone",
+      "profile": "astro",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000642",
+        "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "mapping": {
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "topic:53",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "retired_url_count": 0,
+          "mapping_state": "withdrawn",
+          "presentation_mode": "simple",
+          "desired_source_revision": "revision-11",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T08:00:00.000Z",
+          "synchronized_at": "2026-10-25T21:51:05.125Z",
+          "publicly_verified_at": "2026-10-25T21:51:05.153Z"
+        },
+        "source": {
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "Continuing renamed source",
+          "content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348",
+          "content_bytes": 57,
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T09:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "author:1",
+              "name": "Source author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:05.153Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T21:51:05.513Z"
+      },
+      "observation": {
+        "profile": "astro-static-1",
+        "observed_at": "2026-10-25T21:51:06.052Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+        "ownership": {
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:06.094Z",
+          "http_status": 410
+        },
+        "source_revision": "revision-1",
+        "managed_content_sha256": "24467402fad4a8aa86b1cc13d0624d07d3ed2582366f9fe32f18d393e8af7354",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b28f9464eaf95343fca5b23c1fce9523600e18aa111d120c7991ee7ba604bcec",
+        "baseline_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "candidate_sha256": null,
+        "current_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "actual_restored_owned_withdrawn_baseline",
+      "profile": "astro",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000643",
+        "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "mapping": {
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "topic:53",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "retired_url_count": 0,
+          "mapping_state": "withdrawn",
+          "presentation_mode": "simple",
+          "desired_source_revision": "revision-11",
+          "synchronized_source_revision": "revision-11",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "9cf89fa971ad9ad7d96187ff2a9065fc36d376281d4425aed988b489ebe683b6",
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T08:00:00.000Z",
+          "synchronized_at": "2026-10-25T21:51:07.105Z",
+          "publicly_verified_at": "2026-10-25T21:51:06.826Z"
+        },
+        "source": {
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "Continuing renamed source",
+          "content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348",
+          "content_bytes": 57,
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T09:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "author:1",
+              "name": "Source author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "9cf89fa971ad9ad7d96187ff2a9065fc36d376281d4425aed988b489ebe683b6",
+          "ownership_receipt_sha256": "35678df923d7139b6978ee23c33ccb22f30ae7f0e6175bf097d8e4586c212303",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:06.826Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "ade98119-6457-4e05-a028-2d37ca27e52b",
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "lease_generation": 3,
+          "action": "publish_revision",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+            "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+            "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+            "native_revision": "9cf89fa971ad9ad7d96187ff2a9065fc36d376281d4425aed988b489ebe683b6",
+            "ownership_receipt_sha256": "35678df923d7139b6978ee23c33ccb22f30ae7f0e6175bf097d8e4586c212303",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348"
+            }
+          },
+          "prepared_at": "2026-10-25T21:51:07.105Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T21:51:07.138Z"
+      },
+      "observation": {
+        "profile": "astro-static-1",
+        "observed_at": "2026-10-25T21:51:07.323Z",
+        "native_state": "restored_baseline",
+        "object_exists": true,
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+        "ownership": {
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:07.330Z",
+          "http_status": 404
+        },
+        "source_revision": "revision-1",
+        "managed_content_sha256": "24467402fad4a8aa86b1cc13d0624d07d3ed2582366f9fe32f18d393e8af7354",
+        "native_command": "none",
+        "pending_mutation": "settled",
+        "prepared_transaction_id": "ade98119-6457-4e05-a028-2d37ca27e52b",
+        "journal_sha256": "432d2d245cec86bdf5342f311acac8805c8117202d4260db7af0387d22aa28f8",
+        "baseline_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "candidate_sha256": "956dac5743d32b66191014f29a05da09904f14ea109e459390785bd7dad8a64c",
+        "current_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "restoration_operation_id": "79cd5a03-4cf7-4261-8168-2e77192a7bc2",
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "withdrawn_baseline_without_current_absence",
+      "profile": "astro",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000642",
+        "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "mapping": {
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "topic:53",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "retired_url_count": 0,
+          "mapping_state": "withdrawn",
+          "presentation_mode": "simple",
+          "desired_source_revision": "revision-11",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T08:00:00.000Z",
+          "synchronized_at": "2026-10-25T21:51:08.086Z",
+          "publicly_verified_at": "2026-10-25T21:51:08.108Z"
+        },
+        "source": {
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "Continuing renamed source",
+          "content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348",
+          "content_bytes": 57,
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T09:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "author:1",
+              "name": "Source author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:08.108Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T21:51:08.261Z"
+      },
+      "observation": {
+        "profile": "astro-static-1",
+        "observed_at": "2026-10-25T21:51:08.311Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+        "ownership": {
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": null,
+        "source_revision": "revision-1",
+        "managed_content_sha256": "24467402fad4a8aa86b1cc13d0624d07d3ed2582366f9fe32f18d393e8af7354",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "c26f65a7511f32d2d7c436cc0064c283e82feacd5a860e0f34166545f7edd346",
+        "baseline_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "candidate_sha256": null,
+        "current_sha256": "2c4a4fa4c8194da42789e50350cc4216323ef35a27a68ffab99e756b7911106f",
+        "restoration_operation_id": null,
+        "issue": "public_proof_unavailable"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "withdrawn_known_native_file_deleted",
+      "profile": "astro",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000642",
+        "context_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000023",
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "mapping": {
+          "mapping_id": "00000000-0000-4000-8000-000000000002",
+          "resource_id": "00000000-0000-4000-8000-000000000004",
+          "connection_id": "dbc_0123456789abcdef01234567",
+          "source_id": "topic:53",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "retired_url_count": 0,
+          "mapping_state": "withdrawn",
+          "presentation_mode": "simple",
+          "desired_source_revision": "revision-11",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T08:00:00.000Z",
+          "synchronized_at": "2026-10-25T21:51:08.086Z",
+          "publicly_verified_at": "2026-10-25T21:51:08.108Z"
+        },
+        "source": {
+          "source_id": "topic:53",
+          "source_revision": "revision-11",
+          "topic_id": "53",
+          "topic_url": "https://forum.example/t/source/53",
+          "title": "Continuing renamed source",
+          "content_sha256": "283f2915c4a6b67342cd054b4ab00f5d61099725c7981a18d4d4517dc640e348",
+          "content_bytes": 57,
+          "source_created_at": "2026-10-01T08:00:00.000Z",
+          "source_updated_at": "2026-10-14T09:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "author:1",
+              "name": "Source author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "6f2e38ec78980b2f8dcca6bdc9a1f5492509659a426c9d6ca7e48c70f244b8bd",
+          "ownership_receipt_sha256": "8f50f7f5ab859ac7af3cf0160accaa06cbf64c7b0d9f410dcc55284a84791b04"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "checked_at": "2026-10-25T21:51:08.108Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T21:51:08.261Z"
+      },
+      "observation": {
+        "profile": "astro-static-1",
+        "observed_at": "2026-10-25T21:51:08.381Z",
+        "native_state": "unknown",
+        "object_exists": false,
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "c26f65a7511f32d2d7c436cc0064c283e82feacd5a860e0f34166545f7edd346",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": "b9a1410e612a7e17177e9e86ffdbfe3ebc40ed1587f5f400ae91dc12f4c59927",
+        "restoration_operation_id": null,
+        "issue": "baseline_missing"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-baseline",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.195Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T22:03:02.198Z",
+          "http_status": 404
+        },
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-restored",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": "source-r1",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "candidate-r2",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "candidate-r2",
+          "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "11111111-1111-4111-8111-000000000084",
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_generation": 4,
+          "action": "publish_revision",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "withdrawn-entry",
+            "external_id": "page:site-7:roadmap",
+            "canonical_url": "https://publisher.example/owned",
+            "native_revision": "candidate-r2",
+            "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+            }
+          },
+          "prepared_at": "2026-10-25T22:02:32.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.198Z",
+        "native_state": "restored_baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T22:03:02.209Z",
+          "http_status": 404
+        },
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "11111111-1111-4111-8111-000000000084",
+        "journal_sha256": "fe9268a77fb2789ebc378f23f4b37ea94e89a2a9d57730fc64fb39d97b513dec",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-no-public-proof",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": "source-r1",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "candidate-r2",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "candidate-r2",
+          "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "11111111-1111-4111-8111-000000000084",
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_generation": 4,
+          "action": "publish_revision",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "withdrawn-entry",
+            "external_id": "page:site-7:roadmap",
+            "canonical_url": "https://publisher.example/owned",
+            "native_revision": "candidate-r2",
+            "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+            }
+          },
+          "prepared_at": "2026-10-25T22:02:32.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.209Z",
+        "native_state": "unknown",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": null,
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "11111111-1111-4111-8111-000000000084",
+        "journal_sha256": "fe9268a77fb2789ebc378f23f4b37ea94e89a2a9d57730fc64fb39d97b513dec",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "public_proof_unavailable"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-foreign",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": "source-r1",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "candidate-r2",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "candidate-r2",
+          "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "11111111-1111-4111-8111-000000000084",
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_generation": 4,
+          "action": "publish_revision",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "withdrawn-entry",
+            "external_id": "page:site-7:roadmap",
+            "canonical_url": "https://publisher.example/owned",
+            "native_revision": "candidate-r2",
+            "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+            }
+          },
+          "prepared_at": "2026-10-25T22:02:32.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.229Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "11111111-1111-4111-8111-000000000084",
+        "journal_sha256": "fe9268a77fb2789ebc378f23f4b37ea94e89a2a9d57730fc64fb39d97b513dec",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-deleted",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": "source-r1",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "candidate-r2",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "candidate-r2",
+          "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "11111111-1111-4111-8111-000000000084",
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_generation": 4,
+          "action": "publish_revision",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "withdrawn-entry",
+            "external_id": "page:site-7:roadmap",
+            "canonical_url": "https://publisher.example/owned",
+            "native_revision": "candidate-r2",
+            "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+            }
+          },
+          "prepared_at": "2026-10-25T22:02:32.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.232Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "11111111-1111-4111-8111-000000000084",
+        "journal_sha256": "fe9268a77fb2789ebc378f23f4b37ea94e89a2a9d57730fc64fb39d97b513dec",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic_flat-withdrawn-baseline",
+      "profile": "statamic_flat",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-flat-1",
+        "observed_at": "2026-10-25T22:03:02.236Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T22:03:02.240Z",
+          "http_status": 404
+        },
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic_flat-withdrawn-optional-proof-unavailable",
+      "profile": "statamic_flat",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-flat-1",
+        "observed_at": "2026-10-25T22:03:02.240Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": null,
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic_flat-withdrawn-foreign",
+      "profile": "statamic_flat",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-flat-1",
+        "observed_at": "2026-10-25T22:03:02.245Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic_flat-withdrawn-deleted",
+      "profile": "statamic_flat",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-flat-1",
+        "observed_at": "2026-10-25T22:03:02.248Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic_db-withdrawn-baseline",
+      "profile": "statamic_db",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-db-1",
+        "observed_at": "2026-10-25T22:03:02.251Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T22:03:02.256Z",
+          "http_status": 404
+        },
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic_db-withdrawn-optional-proof-unavailable",
+      "profile": "statamic_db",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-db-1",
+        "observed_at": "2026-10-25T22:03:02.256Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": null,
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "statamic_db-withdrawn-foreign",
+      "profile": "statamic_db",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-db-1",
+        "observed_at": "2026-10-25T22:03:02.263Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic_db-withdrawn-deleted",
+      "profile": "statamic_db",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T22:02:42.000Z"
+      },
+      "observation": {
+        "profile": "statamic-db-1",
+        "observed_at": "2026-10-25T22:03:02.265Z",
+        "native_state": "conflict",
+        "object_exists": null,
+        "native_id": null,
+        "native_revision": null,
+        "ownership": null,
+        "native_result": null,
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": null,
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "b3ba43e034f59879e9116179dd1dff7c1a193c78c4237c8b97833d5c5f7faabb",
+        "baseline_sha256": null,
+        "candidate_sha256": null,
+        "current_sha256": null,
+        "restoration_operation_id": null,
+        "issue": "native_conflict"
+      },
+      "expected_status": "not_ready"
+    },
+    {
+      "id": "statamic-ssg-withdrawn-native-clock-behind",
+      "profile": "statamic_ssg",
+      "publication_kind": "static",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "11111111-1111-4111-8111-000000000086",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 3,
+          "lease_generation": 4,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_111111111111111111111111",
+          "source_id": "topic:8",
+          "external_id": "page:site-7:roadmap",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": "source-r1",
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "candidate-r2",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": null,
+          "publicly_verified_at": null
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/8",
+          "title": "Roadmap",
+          "content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592",
+          "content_bytes": 42,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "candidate-r2",
+          "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+          }
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T21:03:02.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": {
+          "transaction_id": "11111111-1111-4111-8111-000000000084",
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_generation": 4,
+          "action": "publish_revision",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "native_result": {
+            "kind": "publish_revision",
+            "native_id": "withdrawn-entry",
+            "external_id": "page:site-7:roadmap",
+            "canonical_url": "https://publisher.example/owned",
+            "native_revision": "candidate-r2",
+            "ownership_receipt_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "representation": {
+              "kind": "full",
+              "source_content_sha256": "cba3b026ff572e6f26299f0677b9e95f3982dc834b5ce66f603ebbad31ec8592"
+            }
+          },
+          "prepared_at": "2026-10-25T22:02:32.000Z",
+          "deployment_id": null,
+          "deployed_at": null
+        },
+        "created_at": "2026-10-25T22:04:02.000Z"
+      },
+      "observation": {
+        "profile": "statamic-ssg-1",
+        "observed_at": "2026-10-25T22:03:02.268Z",
+        "native_state": "restored_baseline",
+        "object_exists": true,
+        "native_id": "withdrawn-entry",
+        "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "page:site-7:roadmap",
+          "native_id": "withdrawn-entry",
+          "canonical_url": "https://publisher.example/owned",
+          "source_revision": "prior-published-r1",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "withdrawn-entry",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/owned",
+          "native_revision": "sha256:cc85663e1526b4c6d3621f864d02d92c1cbae775b4bc34108117ab966fd7a731",
+          "ownership_receipt_sha256": "1086090ba8b4f328676c905655079f5c73b1b8dbdf9682d0632bd883a1e5fd53"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://publisher.example/owned",
+          "native_id": "withdrawn-entry",
+          "checked_at": "2026-10-25T22:03:02.281Z",
+          "http_status": 404
+        },
+        "source_revision": "prior-published-r1",
+        "managed_content_sha256": "171b60d3da05f4e318caaf7c692a16d80564a5115f4d26ea1f9a7ae664e3c348",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": "11111111-1111-4111-8111-000000000084",
+        "journal_sha256": "fe9268a77fb2789ebc378f23f4b37ea94e89a2a9d57730fc64fb39d97b513dec",
+        "baseline_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "candidate_sha256": null,
+        "current_sha256": "1d3c38659788f55e45d534b276c7e2081d7d47b88736ac551d3a4b2004590c4d",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "ghost-verified-withdrawn-baseline",
+      "profile": "ghost",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "44444444-4444-4444-8444-444444444444",
+        "context_sha256": "bf4b6654a689b3a7c8b5fdf6f99603923c2646bc6eadd509fd0ec826b4f1d975",
+        "work": {
+          "work_id": "33333333-3333-4333-8333-333333333333",
+          "mapping_id": "22222222-2222-4222-8222-222222222222",
+          "source_id": "source-42",
+          "source_revision": "revision-after-withdrawal",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "33333333-3333-4333-8333-333333333333",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "22222222-2222-4222-8222-222222222222",
+          "resource_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-42",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "presentation_mode": "full",
+          "connection_id": "dbc_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "desired_source_revision": "revision-after-withdrawal",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "1970-01-01T00:00:03.000Z",
+          "source_created_at": "2026-01-01T00:00:00.000Z",
+          "source_updated_at": "2026-10-24T00:00:00.000Z",
+          "synchronized_at": "2026-10-25T00:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-42",
+          "source_revision": "revision-after-withdrawal",
+          "topic_id": "42",
+          "topic_url": "https://forum.example/t/source/42",
+          "title": "Source title",
+          "content_sha256": "a8750b978941110ed3d5aed3f162c90301fd898daf9813be8316e71cda4651eb",
+          "content_bytes": 22,
+          "source_created_at": "2026-01-01T00:00:00.000Z",
+          "source_updated_at": "2026-10-24T00:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "source-writer",
+              "name": "Source writer"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:03.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:03.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T00:00:00.000Z"
+      },
+      "observation": {
+        "profile": "ghost-dynamic-1",
+        "observed_at": "2026-10-25T00:00:00.000Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+        "native_revision": "1970-01-01T00:00:03.000Z",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-111111111111",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:03.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "source_revision": "revision-1",
+        "managed_content_sha256": "8f270e111efbfeb59e9a4e66935e7a866a5bcfb8c085af96c0f96064391e16a4",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "82094befc128a2c781deb8197744063a56d90b4f94fbb4b1d697a8c73e494ad4",
+        "baseline_sha256": "8f270e111efbfeb59e9a4e66935e7a866a5bcfb8c085af96c0f96064391e16a4",
+        "candidate_sha256": null,
+        "current_sha256": "8f270e111efbfeb59e9a4e66935e7a866a5bcfb8c085af96c0f96064391e16a4",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "ghost-known-candidate-after-verified-withdrawal",
+      "profile": "ghost",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "44444444-4444-4444-8444-444444444444",
+        "context_sha256": "bf4b6654a689b3a7c8b5fdf6f99603923c2646bc6eadd509fd0ec826b4f1d975",
+        "work": {
+          "work_id": "33333333-3333-4333-8333-333333333333",
+          "mapping_id": "22222222-2222-4222-8222-222222222222",
+          "source_id": "source-42",
+          "source_revision": "revision-after-withdrawal",
+          "policy_revision": "policy-1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "33333333-3333-4333-8333-333333333333",
+          "attempt": 3,
+          "lease_generation": 2,
+          "retry_at": null,
+          "last_failure_code": "public_verification_failed"
+        },
+        "mapping": {
+          "mapping_id": "22222222-2222-4222-8222-222222222222",
+          "resource_id": "11111111-1111-4111-8111-111111111111",
+          "source_id": "source-42",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "presentation_mode": "full",
+          "connection_id": "dbc_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "mapping_revision": "mapping-1",
+          "destination_native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "retired_url_count": 0,
+          "mapping_state": "attention",
+          "desired_source_revision": "revision-after-withdrawal",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "1970-01-01T00:00:03.000Z",
+          "source_created_at": "2026-01-01T00:00:00.000Z",
+          "source_updated_at": "2026-10-24T00:00:00.000Z",
+          "synchronized_at": "2026-10-25T00:00:00.000Z",
+          "publicly_verified_at": "2026-10-25T00:00:00.000Z"
+        },
+        "source": {
+          "source_id": "source-42",
+          "source_revision": "revision-after-withdrawal",
+          "topic_id": "42",
+          "topic_url": "https://forum.example/t/source/42",
+          "title": "Source title",
+          "content_sha256": "e5aac7d0c67e03518d3af8ba4043340ebaf9226b2ecc35fe55c2d1b3a75c5b35",
+          "content_bytes": 48,
+          "source_created_at": "2026-01-01T00:00:00.000Z",
+          "source_updated_at": "2026-10-24T00:00:00.000Z",
+          "source_authors": [
+            {
+              "id": "source-writer",
+              "name": "Source writer"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:03.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:03.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "http_status": 404
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T00:00:00.000Z"
+      },
+      "observation": {
+        "profile": "ghost-dynamic-1",
+        "observed_at": "2026-10-25T00:00:00.000Z",
+        "native_state": "candidate_applied",
+        "object_exists": true,
+        "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+        "native_revision": "1970-01-01T00:00:04.000Z",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-111111111111",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "source_revision": "revision-1",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84"
+        },
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "external_id": "ghost-source:fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4",
+          "canonical_url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_revision": "1970-01-01T00:00:04.000Z",
+          "ownership_receipt_sha256": "e09a9801fad53b7d30c68281fb87eb4c0316a9cc5a3dd2a508b27085557fdf84",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "e5aac7d0c67e03518d3af8ba4043340ebaf9226b2ecc35fe55c2d1b3a75c5b35"
+          }
+        },
+        "verification": {
+          "kind": "published",
+          "url": "https://ghost.example/discussionbridge-fb6efa5718ccc74acf74708395a0cd6ec78c102e2915fd621eceffe814b546a4/",
+          "native_id": "aaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_revision": "revision-after-withdrawal",
+          "source_content_sha256": "e5aac7d0c67e03518d3af8ba4043340ebaf9226b2ecc35fe55c2d1b3a75c5b35",
+          "native_publication_sha256": "bb7c47976e37987ec099ee340c525194c17400c97bbe08eb5e5ff7109b147cab",
+          "verification_profile": "ghost-owned-fragment-v1",
+          "checked_at": "2026-10-25T00:00:00.000Z",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "e5aac7d0c67e03518d3af8ba4043340ebaf9226b2ecc35fe55c2d1b3a75c5b35"
+          }
+        },
+        "source_revision": "revision-after-withdrawal",
+        "managed_content_sha256": "bb7c47976e37987ec099ee340c525194c17400c97bbe08eb5e5ff7109b147cab",
+        "native_command": "none",
+        "pending_mutation": "settled",
+        "prepared_transaction_id": null,
+        "journal_sha256": "c0e88043861ab7a36f189f550fc7899b8895a6ca3bd7fe1471500dd27060edd9",
+        "baseline_sha256": "8f270e111efbfeb59e9a4e66935e7a866a5bcfb8c085af96c0f96064391e16a4",
+        "candidate_sha256": "bb7c47976e37987ec099ee340c525194c17400c97bbe08eb5e5ff7109b147cab",
+        "current_sha256": "bb7c47976e37987ec099ee340c525194c17400c97bbe08eb5e5ff7109b147cab",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready"
+    },
+    {
+      "id": "verified-withdrawn-baseline",
+      "profile": "wordpress",
+      "publication_kind": "dynamic",
+      "inspection": {
+        "sequence": 1,
+        "inspection_id": "00000000-0000-4000-8000-000000000002",
+        "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "work": {
+          "work_id": "00000000-0000-4000-8000-000000000005",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "attention",
+          "attempt_cycle": "00000000-0000-4000-8000-000000000006",
+          "attempt": 1,
+          "lease_generation": 3,
+          "retry_at": null,
+          "last_failure_code": "metadata_unavailable"
+        },
+        "mapping": {
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "connection_id": "dbc_aaaaaaaaaaaaaaaaaaaaaaaa",
+          "source_id": "topic:8",
+          "external_id": "from:actual-site:topic:8",
+          "mapping_revision": "mapping-r1",
+          "destination_native_id": "100",
+          "canonical_url": "https://wordpress.example/from-source/",
+          "retired_url_count": 0,
+          "mapping_state": "pending",
+          "presentation_mode": "full",
+          "desired_source_revision": "source-r1",
+          "synchronized_source_revision": null,
+          "publicly_verified_source_revision": null,
+          "destination_native_revision": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "synchronized_at": "2026-10-25T21:56:20.000Z",
+          "publicly_verified_at": "2026-10-25T21:56:21.932Z"
+        },
+        "source": {
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "topic_id": "8",
+          "topic_url": "https://forum.example/t/roadmap/8",
+          "title": "Roadmap",
+          "content_sha256": "6fb511f4f15da010b239be0a2a5c08367e70824fa27b6ba557c1aedceca09e3c",
+          "content_bytes": 39,
+          "source_created_at": "2026-10-01T12:00:00.000Z",
+          "source_updated_at": "2026-10-09T17:58:00.000Z",
+          "source_authors": [
+            {
+              "id": "user:8",
+              "name": "Example Author"
+            }
+          ]
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "100",
+          "external_id": "from:actual-site:topic:8",
+          "canonical_url": "https://wordpress.example/from-source/",
+          "native_revision": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+          "ownership_receipt_sha256": "2160ed3b8638ac603646000cb3f096bbba641f99c536cedead72f93a23039d3f"
+        },
+        "verified_native_result": {
+          "kind": "withdraw",
+          "native_id": "100",
+          "external_id": "from:actual-site:topic:8",
+          "canonical_url": "https://wordpress.example/from-source/",
+          "native_revision": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+          "ownership_receipt_sha256": "2160ed3b8638ac603646000cb3f096bbba641f99c536cedead72f93a23039d3f"
+        },
+        "verification": {
+          "kind": "absent",
+          "url": "https://wordpress.example/from-source/",
+          "native_id": "100",
+          "checked_at": "2026-10-25T21:56:21.932Z",
+          "http_status": 410
+        },
+        "prepared_transaction": null,
+        "created_at": "2026-10-25T21:56:21.000Z"
+      },
+      "observation": {
+        "profile": "wordpress-dynamic-1",
+        "observed_at": "2026-10-25T21:56:21.933Z",
+        "native_state": "baseline",
+        "object_exists": true,
+        "native_id": "100",
+        "native_revision": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+        "ownership": {
+          "resource_id": "11111111-1111-4111-8111-000000000002",
+          "external_id": "from:actual-site:topic:8",
+          "native_id": "100",
+          "canonical_url": "https://wordpress.example/from-source/",
+          "source_revision": null,
+          "ownership_receipt_sha256": "2160ed3b8638ac603646000cb3f096bbba641f99c536cedead72f93a23039d3f"
+        },
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "100",
+          "external_id": "from:actual-site:topic:8",
+          "canonical_url": "https://wordpress.example/from-source/",
+          "native_revision": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+          "ownership_receipt_sha256": "2160ed3b8638ac603646000cb3f096bbba641f99c536cedead72f93a23039d3f"
+        },
+        "verification": null,
+        "source_revision": null,
+        "managed_content_sha256": "1f3c06e854ff3f889aa7b3785de562c4cbfcd816c69405fcb75cbd5569c33fe1",
+        "native_command": "none",
+        "pending_mutation": "none",
+        "prepared_transaction_id": null,
+        "journal_sha256": "eb18f920669c54bd5a13b235484c8f093e7b15761b625c9203993d6aade592a2",
+        "baseline_sha256": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+        "candidate_sha256": null,
+        "current_sha256": "06369db335429471c1122b70a15c13e8b54686e0c81b929e514b9a9f63a81279",
+        "restoration_operation_id": null,
+        "issue": "none"
+      },
+      "expected_status": "ready",
+      "expected_issue": "none"
+    }
+  ]
+}

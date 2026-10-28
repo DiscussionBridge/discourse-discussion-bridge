@@ -1,12 +1,17 @@
 {
   "family": {
     "name": "DiscussionBridge",
-    "version": "0.2.0-alpha.50"
+    "version": "0.4.0-alpha.1"
   },
   "component": {
     "name": "The Bridge — DiscussionBridge for Discourse",
-    "version": "0.2.0.alpha.50"
+    "version": "0.4.0-alpha.1"
   },
-  "bridgeCompatibility": "0.2",
+  "wire_version": "v4",
+  "candidate_id": "discussionbridge-v4-core-20261025-r6",
+  "release_version": null,
+  "status": "implementation_candidate_not_exact_approved_not_frozen",
+  "normative_sha256": "df31c5d2fc387a8b12b388438450eccd97966de34c82b1bf417634b21a36b495",
+  "schema_sha256": "8563a9b1346e3bf82635bd65a46bb1e25415a1003d7432f8fcb8c1c6e4f03c14",
   "repository": "https://github.com/DiscussionBridge/discourse-discussion-bridge"
 }

@@ -3,6 +3,6 @@ import { ajax } from "discourse/lib/ajax";
 
 export default class DiscussionBridgePublishingRoute extends Route {
   model() {
-    return ajax("/discussion-bridge/admin/publishing.json");
+    return ajax("/admin/publishing.json");
   }
 }

@@ -1,0 +1,169 @@
+<% workspace = @workspace.respond_to?(:with_indifferent_access) ? @workspace.with_indifferent_access : {} %>
+<% health = workspace[:health].is_a?(Hash) ? workspace[:health] : {} %>
+<% connections = Array(workspace[:connections]) %>
+<% records = Array(workspace[:records]) %>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%= csrf_meta_tags %>
+    <title>DiscussionBridge support workspace</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.5; }
+      body { margin: 0; background: Canvas; color: CanvasText; }
+      main { max-width: 72rem; margin: 0 auto; padding: 1.5rem; }
+      h1, h2, h3 { line-height: 1.2; }
+      h2 { margin-top: 2rem; }
+      a { color: LinkText; }
+      button { font: inherit; padding: .5rem .8rem; cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: .65; }
+      button:focus-visible, a:focus-visible { outline: 3px solid Highlight; outline-offset: 3px; }
+      .panel { border: 1px solid GrayText; border-radius: .4rem; padding: 1rem; margin: 1rem 0; }
+      .actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+      .notice { border-left: .3rem solid Highlight; padding: .6rem 1rem; }
+      .error { border: 2px solid currentColor; padding: .8rem; }
+      .muted { font-size: .95rem; }
+      dl { display: grid; grid-template-columns: minmax(9rem, auto) 1fr; gap: .3rem 1rem; }
+      dt { font-weight: 600; }
+      dd { margin: 0; overflow-wrap: anywhere; }
+      .action-help { margin: .4rem 0 1rem; }
+      label { display: block; margin: 1rem 0 .25rem; font-weight: 600; }
+      input:not([type=checkbox]), select { box-sizing: border-box; width: 100%; max-width: 32rem; padding: .6rem; font: inherit; color: CanvasText; background: Canvas; border: 1px solid GrayText; border-radius: .25rem; }
+      input[type=checkbox] { width: 1.1rem; height: 1.1rem; margin-right: .4rem; vertical-align: middle; }
+      input:focus-visible, select:focus-visible { outline: 3px solid Highlight; outline-offset: 3px; }
+      [hidden] { display: none !important; }
+      @media (max-width: 36rem) { main { padding: 1rem; } dl { grid-template-columns: 1fr; gap: .15rem; } dd { margin-bottom: .6rem; } }
+    </style>
+    <script src="/discussion-bridge/support/client.js" defer nonce="<%= csp_nonce_placeholder %>"></script>
+  </head>
+  <body data-support-page="workspace">
+    <main>
+      <header>
+        <h1>DiscussionBridge support workspace</h1>
+        <p>Provider: <strong><%= workspace[:provider].presence || "DiscussionBridge" %></strong></p>
+        <p>Use your assigned native support access to inspect redacted status and act on eligible topics. Your administrator manages support access.</p>
+        <p class="muted">DiscussionBridge is the initial support provider. Trusted partner selection is planned for a later stage.</p>
+        <button type="button" data-support-action="refresh" data-js-enable disabled>Refresh status</button>
+      </header>
+
+      <p id="support-announcement" class="notice" role="status" aria-live="polite" aria-atomic="true"></p>
+      <p id="support-error" class="error" role="alert" hidden></p>
+      <noscript><p class="notice">JavaScript is required for workspace actions. You can still read the status shown on this page.</p></noscript>
+
+      <section aria-labelledby="support-health-heading">
+        <h2 id="support-health-heading">Redacted health</h2>
+        <p>Health: <strong><%= health[:health].presence || "Not reported" %></strong></p>
+        <% blockers = Array(health[:blockers]) %>
+        <% if blockers.empty? %>
+          <p>No blockers were reported in this status response.</p>
+        <% else %>
+          <h3>Reported blockers</h3>
+          <ul>
+            <% blockers.each do |blocker| %>
+              <li><%= blocker.to_s %></li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+
+      <section aria-labelledby="support-connections-heading">
+        <h2 id="support-connections-heading">Connections</h2>
+        <% if connections.empty? %>
+          <p>No connections are visible in this workspace.</p>
+        <% else %>
+          <ul>
+            <% connections.each do |connection| %>
+              <li><strong><%= connection[:name].presence || "Connection #{connection[:id]}" %></strong> — <%= connection[:platform].presence || "Platform not reported" %> (ID <%= connection[:id] %>)</li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+
+      <section class="panel" aria-labelledby="support-topic-selection-heading">
+        <h2 id="support-topic-selection-heading">Select an existing forum topic</h2>
+        <p>Use a native topic ID to change selection even when the topic has no DiscussionBridge record yet. The forum checks current visibility and eligibility before saving.</p>
+        <form id="support-topic-selection-form">
+          <label for="support-topic-connection">Connection</label>
+          <select id="support-topic-connection" name="connection_id" required>
+            <option value="">Choose a connection</option>
+            <% connections.each do |connection| %>
+              <option value="<%= connection[:id] %>"><%= connection[:name].presence || "Connection #{connection[:id]}" %> (<%= connection[:platform].presence || "Platform not reported" %>)</option>
+            <% end %>
+          </select>
+          <label for="support-native-topic-id">Native topic ID</label>
+          <input id="support-native-topic-id" name="topic_id" type="text" inputmode="numeric" pattern="[1-9][0-9]*" required aria-describedby="support-native-topic-help">
+          <p id="support-native-topic-help" class="muted">Enter the positive topic ID from the forum topic URL.</p>
+          <label for="support-native-topic-selected"><input id="support-native-topic-selected" name="selected" type="checkbox" checked> Select this topic for the connection (uncheck to exclude)</label>
+          <div class="actions"><button type="submit" data-js-enable data-capability-unavailable="<%= connections.empty? %>" disabled aria-describedby="support-native-selection-help">Save topic selection</button></div>
+          <p id="support-native-selection-help" class="muted"><%= connections.empty? ? "No workspace connection is currently available for selection changes." : "This changes only the named topic selection; publication status is reported separately." %></p>
+        </form>
+      </section>
+
+      <section aria-labelledby="support-records-heading" data-support-workspace-records data-next-after-id="<%= workspace[:next_after_id] %>">
+        <h2 id="support-records-heading">Topic status and actions</h2>
+        <p class="notice">Queued means an action is recorded locally. It does not establish payment, grant support access or confirm public verification.</p>
+        <% if records.empty? %>
+          <p>No topic records are visible in this workspace.</p>
+        <% else %>
+          <% records.each_with_index do |record, index| %>
+            <% inspection = record[:inspection].is_a?(Hash) ? record[:inspection] : {} %>
+            <% check_metadata = record[:connection_id].present? && record[:work_id].present? && record[:mapping_revision].present? %>
+            <% retry_metadata = record[:connection_id].present? && inspection[:inspection_id].present? && inspection[:context_sha256].present? %>
+            <% topic_metadata = record[:connection_id].present? && record[:topic_id].present? %>
+            <% can_check = record[:can_check] == true && check_metadata %>
+            <% can_retry = record[:can_retry] == true && retry_metadata %>
+            <% can_reconcile_restored_baseline = record[:can_reconcile_restored_baseline] == true && retry_metadata && inspection[:status] == "ready" %>
+            <% can_select = record[:can_select_topic] == true && topic_metadata %>
+            <% can_synchronize = record[:can_synchronize] == true && topic_metadata %>
+            <% selected = record[:selected] == true %>
+            <% topic_url = record[:topic_url].to_s %>
+            <% safe_topic_url = topic_url.match?(/\A\/t\/[^\x00-\x20\\]*\z/) %>
+            <article class="panel" data-support-record="<%= record[:resource_id] %>" aria-labelledby="support-record-<%= index %>-heading">
+              <h3 id="support-record-<%= index %>-heading">
+                <% if safe_topic_url %>
+                  <a href="<%= topic_url %>"><%= record[:title].presence || "Topic #{record[:topic_id]}" %></a>
+                <% else %>
+                  <%= record[:title].presence || "Topic #{record[:topic_id]}" %>
+                <% end %>
+              </h3>
+              <dl>
+                <dt>Topic</dt><dd><%= record[:topic_id] %></dd>
+                <dt>Connection</dt><dd><%= record[:connection_id] %></dd>
+                <dt>Publication status</dt><dd><%= record[:publication_status].presence || "Not reported" %></dd>
+                <dt>Selection</dt><dd><%= selected ? "Selected" : "Not selected" %></dd>
+                <dt>Mapping</dt><dd><%= record[:mapping_id].presence || "Not reported" %></dd>
+                <dt>Mapping revision</dt><dd><%= record[:mapping_revision].presence || "Not reported" %></dd>
+                <dt>Inspection status</dt><dd><%= inspection[:status].presence || "Not reported" %></dd>
+              </dl>
+
+              <div class="actions">
+                <button type="button" data-support-action="check" data-connection-id="<%= record[:connection_id] %>" data-work-id="<%= record[:work_id] %>" data-mapping-revision="<%= record[:mapping_revision] %>" aria-describedby="support-check-<%= index %>-help" data-js-enable data-capability-unavailable="<%= !can_check %>" disabled>Check</button>
+                <button type="button" data-support-action="retry" data-connection-id="<%= record[:connection_id] %>" data-inspection-id="<%= inspection[:inspection_id] %>" data-context-sha256="<%= inspection[:context_sha256] %>" aria-describedby="support-retry-<%= index %>-help" data-js-enable data-capability-unavailable="<%= !can_retry %>" disabled>Retry</button>
+                <% if record[:can_reconcile_restored_baseline] == true %>
+                  <button type="button" data-support-action="reconcile-restored-baseline" data-connection-id="<%= record[:connection_id] %>" data-inspection-id="<%= inspection[:inspection_id] %>" data-context-sha256="<%= inspection[:context_sha256] %>" aria-describedby="support-reconcile-<%= index %>-help" data-js-enable data-capability-unavailable="<%= !can_reconcile_restored_baseline %>" disabled>Reconcile restored baseline and retry</button>
+                <% end %>
+              </div>
+              <p id="support-check-<%= index %>-help" class="muted action-help"><%= can_check ? "Check the current authorized mapping and work item." : (check_metadata ? "Check is unavailable for this record." : "Check requires current work and mapping metadata from the server.") %></p>
+              <p id="support-retry-<%= index %>-help" class="muted action-help"><%= can_retry ? "Retry using the current inspection context. Restoring an earlier baseline is not requested." : (retry_metadata ? "Retry is unavailable for this record." : "Retry requires a current inspection and context fingerprint from the server.") %></p>
+              <% if record[:can_reconcile_restored_baseline] == true %>
+                <p id="support-reconcile-<%= index %>-help" class="muted action-help"><%= can_reconcile_restored_baseline ? "Use the current inspection’s existing proof to reconcile the restored baseline and request a retry. This does not verify publication." : "Reconciliation requires a ready inspection and current inspection identity and context from the server. Refresh before trying again." %></p>
+              <% end %>
+
+              <div class="actions">
+                <button type="button" data-support-action="select-topic" data-connection-id="<%= record[:connection_id] %>" data-topic-id="<%= record[:topic_id] %>" data-selected="<%= selected ? "false" : "true" %>" aria-describedby="support-selection-<%= index %>-help" data-js-enable data-capability-unavailable="<%= !can_select %>" disabled><%= selected ? "Unselect topic" : "Select topic" %></button>
+                <button type="button" data-support-action="synchronize" data-connection-id="<%= record[:connection_id] %>" data-topic-id="<%= record[:topic_id] %>" aria-describedby="support-sync-<%= index %>-help" data-js-enable data-capability-unavailable="<%= !can_synchronize %>" disabled>Synchronize topic</button>
+              </div>
+              <p id="support-selection-<%= index %>-help" class="muted action-help"><%= can_select ? "Change the selection of this currently visible topic for this connection." : "The server has not enabled selection changes for this topic." %></p>
+              <p id="support-sync-<%= index %>-help" class="muted action-help"><%= can_synchronize ? "Synchronize this currently visible, eligible topic through the existing publication workflow." : "The server has not enabled synchronization for this topic." %></p>
+            </article>
+          <% end %>
+        <% end %>
+        <% if workspace[:next_after_id].present? %>
+          <p class="muted">Additional records are available. This page shows the current set supplied by the server.</p>
+        <% end %>
+      </section>
+      <footer><p class="muted">Workspace actions use your current native permissions. If support is disabled or your access is revoked, the server will refuse further actions.</p></footer>
+    </main>
+  </body>
+</html>

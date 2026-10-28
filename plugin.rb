@@ -3,24 +3,24 @@
 # name: discourse-discussion-bridge
 # about: Forum-governed companion discussions for publishing pages.
 # meta_topic_id: 0
-# version: 0.2.0.alpha.50
+# version: 0.4.0-alpha.1
 # authors: DiscussionBridge
 # url: https://discussionbridge.dev/
 # required_version: 3.3.0
 
 require_relative "lib/discussion_bridge/settings_validators"
+require_relative "lib/discussion_bridge/cms_json_transport_guard"
+Rails.application.config.middleware.insert_before(0, DiscussionBridge::CmsJsonTransportGuard)
 
 enabled_site_setting :discussion_bridge_enabled
-register_svg_icon "bridge"
+register_svg_icon "triangle-exclamation"
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
-register_asset "stylesheets/common/discussion-bridge-topic-status.scss"
-register_asset "stylesheets/common/discussion-bridge-operator-service.scss"
 
 register_html_builder("server:before-head-close") do |controller|
   next unless defined?(DiscussionBridge::EmbedRouteAttestation)
-  next unless DiscussionBridge::FullInteractiveReadiness.ready?
+  next unless DiscussionBridge::InteractiveReadiness.ready?
   next unless controller.params[:embed_mode].to_s == "true"
 
   topic = controller.instance_variable_get(:@topic_view)&.topic
@@ -31,12 +31,12 @@ register_html_builder("server:before-head-close") do |controller|
   next unless topic && attestation
   next unless attestation[:mapping].topic_id == topic.id
   next unless controller.params[:class_name].to_s == attestation[:class_name]
-  integrity = DiscussionBridge::ExistingMappingIntegrity.current(
-    mapping_id: attestation[:mapping].id,
-    expected_topic_id: topic.id,
-    expected_updated_at: attestation[:mapping].updated_at,
-    record_type: attestation[:mapping].is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
-  )
+  integrity =
+    DiscussionBridge::ExistingMappingIntegrity.current(
+      mapping_id: attestation[:mapping].id,
+      expected_topic_id: topic.id,
+      expected_updated_at: attestation[:mapping].updated_at,
+    )
   next unless integrity.usable?
 
   %(<meta name="discussion-bridge-completed-mapping" content="#{topic.id}">)
@@ -49,11 +49,12 @@ add_admin_route(
 )
 
 Rails.application.config.filter_parameters << /discussion.?bridge.?secret/i
+Rails.application.config.filter_parameters << /lease_token/i
 
 after_initialize do
   module ::DiscussionBridge
     PLUGIN_NAME = "discourse-discussion-bridge"
-    VERSION = "0.2.0.alpha.50"
+    VERSION = "0.4.0-alpha.1"
 
     class Engine < ::Rails::Engine
       engine_name PLUGIN_NAME
@@ -62,8 +63,8 @@ after_initialize do
   end
 
   require_relative "lib/discussion_bridge/canonical_source"
-  require_relative "lib/discussion_bridge/connection_request"
-  require_relative "lib/discussion_bridge/bridge_record_request"
+  require_relative "lib/discussion_bridge/native_constraints"
+  require_relative "lib/discussion_bridge/managed_native_publication"
   require_relative "lib/discussion_bridge/site_setting_label_formatter_extension"
   require_relative "lib/discussion_bridge/lane_policies"
   require_relative "lib/discussion_bridge/policy_evaluator"
@@ -72,121 +73,122 @@ after_initialize do
   require_relative "lib/discussion_bridge/audit_state"
   require_relative "lib/discussion_bridge/existing_mapping_integrity"
   require_relative "lib/discussion_bridge/portable_content"
+  require_relative "lib/discussion_bridge/native_content_preservation"
   require_relative "lib/discussion_bridge/topic_creator"
-  require_relative "lib/discussion_bridge/full_interactive_readiness"
+  require_relative "lib/discussion_bridge/interactive_readiness"
   require_relative "lib/discussion_bridge/comments_only_presenter"
   require_relative "lib/discussion_bridge/embed_route_attestation"
-  require_relative "lib/discussion_bridge/adapter_feed_snapshot"
-  require_relative "lib/discussion_bridge/publication_topic_scope"
-  require_relative "lib/discussion_bridge/source_topic_feed_snapshot"
-  require_relative "lib/discussion_bridge/platform_catalog"
-  require_relative "lib/discussion_bridge/destination_mapping"
-  require_relative "lib/discussion_bridge/topic_publication_state"
-  require_relative "lib/discussion_bridge/publication_status_access"
-  require_relative "lib/discussion_bridge/publication_summary"
-  require_relative "app/models/discussion_bridge_operator_service"
-  require_relative "app/models/discussion_bridge_operator_event"
-  require_relative "lib/discussion_bridge/operator_service_access"
-  require_relative "lib/discussion_bridge/operator_audit"
-  require_relative "lib/discussion_bridge/operator_entitlement_verifier"
-  require_relative "lib/discussion_bridge/content_connection_authenticator"
+  require_relative "lib/discussion_bridge/forum_name"
+  require_relative "lib/discussion_bridge/source_edition"
+  require_relative "lib/discussion_bridge/cms_protocol"
+  require_relative "lib/discussion_bridge/cms_generated_excerpt"
+  require_relative "lib/discussion_bridge/cms_configuration"
+  require_relative "lib/discussion_bridge/cms_receipt_cipher"
+  require_relative "lib/discussion_bridge/cms_work_coordinator"
+  require_relative "lib/discussion_bridge/cms_attention_evidence"
+  require_relative "lib/discussion_bridge/cms_attention_recovery"
+  require_relative "lib/discussion_bridge/cms_attention_notifications"
+  require_relative "lib/discussion_bridge/cms_source_store"
+  require_relative "lib/discussion_bridge/cms_authority_store"
+  require_relative "lib/discussion_bridge/cms_mapping_projection"
+  require_relative "lib/discussion_bridge/cms_delivery_projection"
+  require_relative "lib/discussion_bridge/cms_url_reservation"
+  require_relative "lib/discussion_bridge/cms_mapping_service"
+  require_relative "lib/discussion_bridge/cms_mapping_read_store"
+  require_relative "lib/discussion_bridge/cms_to_publication"
+  require_relative "lib/discussion_bridge/cms_record_store"
+  require_relative "lib/discussion_bridge/cms_record_read_store"
+  require_relative "lib/discussion_bridge/cms_move_reservation"
+  require_relative "lib/discussion_bridge/cms_url_move_proof"
+  require_relative "lib/discussion_bridge/cms_presentation_move_store"
+  require_relative "lib/discussion_bridge/cms_source_move_store"
+  require_relative "lib/discussion_bridge/cms_source_lifecycle"
+  require_relative "lib/discussion_bridge/cms_catalog_store"
+  require_relative "lib/discussion_bridge/cms_admin_inspection_store"
+  require_relative "lib/discussion_bridge/cms_catalog_availability_lifecycle"
+  require_relative "lib/discussion_bridge/cms_authority_lifecycle"
+  require_relative "lib/discussion_bridge/cms_native_observer"
+  require_relative "lib/discussion_bridge/cms_global_gate_observer"
   require_relative "lib/discussion_bridge/source_authorship"
   require_relative "lib/discussion_bridge/bridge_record_resolver"
   require_relative "lib/discussion_bridge/from_discourse_record_creator"
   require_relative "lib/discussion_bridge/presentation_binding_corrector"
-  require_relative "lib/discussion_bridge/publication_redirect_verifier"
-  require_relative "lib/discussion_bridge/publication_url_migrator"
-  require_relative "lib/discussion_bridge/source_url_migrator"
-  require_relative "lib/discussion_bridge/source_url_proof"
-  require_relative "lib/discussion_bridge/embeddable_origin_status"
   require_relative "lib/discussion_bridge/product_overview"
-  require_relative "app/models/discussion_bridge_connection"
+  require_relative "lib/discussion_bridge/support_topic_selection"
+  require_relative "lib/discussion_bridge/support_access"
+  require_relative "lib/discussion_bridge/support_workflow"
+  require_relative "lib/discussion_bridge/support_operations"
+  require_relative "lib/discussion_bridge/support_controller_input"
+  require_relative "app/models/discussion_bridge_support_state"
+  require_relative "app/models/discussion_bridge_support_grant"
+  require_relative "app/models/discussion_bridge_support_request"
+  require_relative "app/mailers/discussion_bridge/support_mailer"
   require_relative "app/models/discussion_bridge_audit_event"
   require_relative "app/models/discussion_bridge_content_connection"
   require_relative "app/models/discussion_bridge_source_author"
   require_relative "app/models/discussion_bridge_bridge_record"
   require_relative "app/models/discussion_bridge_content_binding"
-  require_relative "app/models/discussion_bridge_presentation_url_history"
-  require_relative "app/models/discussion_bridge_source_url_history"
-  require_relative "app/models/discussion_bridge_publication_work_item"
-  require_relative "app/models/discussion_bridge_publication_override"
-  require_relative "lib/discussion_bridge/publication_work_queue"
-  require_relative "lib/discussion_bridge/publication_override_manager"
-  require_relative "lib/discussion_bridge/publication_attention_notifier"
-  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_topic"
-  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_connection"
-  require_relative "app/jobs/regular/discussion_bridge_reconcile_publication_category"
-  require_relative "app/mailers/discussion_bridge/operator_service_mailer"
-  require_relative "app/jobs/regular/discussion_bridge_operator_service_notification"
-  require_relative "app/controllers/discussion_bridge/adapter_bridge_records_controller"
-  require_relative "app/controllers/discussion_bridge/adapter_source_topics_controller"
-  require_relative "app/controllers/discussion_bridge/adapter_publication_work_controller"
-  require_relative "app/controllers/discussion_bridge/adapter_platform_catalog_controller"
+  require_relative "app/models/discussion_bridge_cms_mapping"
+  require_relative "app/models/discussion_bridge_cms_work"
+  require_relative "app/models/discussion_bridge_cms_attention_inspection"
+  require_relative "app/models/discussion_bridge_cms_attention_recovery"
+  require_relative "app/models/discussion_bridge_cms_attention_notice"
+  require_relative "app/models/discussion_bridge_cms_attention_delivery"
+  require_relative "app/models/discussion_bridge_cms_to_source_revision"
+  require_relative "app/models/discussion_bridge_cms_url_move"
+  require_relative "app/models/discussion_bridge_cms_mutation_receipt"
+  require_relative "app/models/discussion_bridge_cms_source_stream"
+  require_relative "app/models/discussion_bridge_cms_source_intent"
+  require_relative "app/models/discussion_bridge_cms_source_revision"
+  require_relative "app/models/discussion_bridge_cms_source_event"
+  require_relative "app/models/discussion_bridge_cms_source_cursor"
+  require_relative "app/models/discussion_bridge_cms_source_snapshot_item"
+  require_relative "app/models/discussion_bridge_cms_url_reservation"
+  require_relative "app/models/discussion_bridge_cms_url_history_entry"
+  require_relative "app/models/discussion_bridge_cms_read_snapshot"
+  require_relative "app/models/discussion_bridge_cms_read_snapshot_item"
+  require_relative "app/models/discussion_bridge_cms_read_cursor"
+  require_relative "app/models/discussion_bridge_cms_catalog_upload"
+  require_relative "app/models/discussion_bridge_cms_catalog_page"
+  require_relative "app/models/discussion_bridge_cms_catalog_entry"
+  require_relative "app/models/discussion_bridge_cms_catalog_snapshot"
+  require_relative "app/models/discussion_bridge_cms_catalog_cursor"
+  require_relative "app/models/discussion_bridge_cms_scope_event"
   require_relative "app/controllers/discussion_bridge/admin_content_connections_controller"
   require_relative "app/controllers/discussion_bridge/admin_bridge_records_controller"
   require_relative "app/controllers/discussion_bridge/health_controller"
+  require_relative "app/controllers/discussion_bridge/support_admin_controller"
+  require_relative "app/controllers/discussion_bridge/support_workspace_controller"
   require_relative "app/controllers/discussion_bridge/reconciliation_controller"
   require_relative "app/controllers/discussion_bridge/publisher_controller"
-  require_relative "app/controllers/discussion_bridge/operator_service_controller"
-  require_relative "app/controllers/discussion_bridge/operator_entitlements_controller"
-
-  Topic.has_many(
-    :discussion_bridge_publication_work_items,
-    class_name: "DiscussionBridgePublicationWorkItem",
-    foreign_key: :topic_id,
-  )
-  Topic.has_many(
-    :discussion_bridge_bridge_records,
-    class_name: "DiscussionBridgeBridgeRecord",
-    foreign_key: :topic_id,
-  )
-  Topic.has_many(
-    :discussion_bridge_content_bindings,
-    through: :discussion_bridge_bridge_records,
-    source: :content_bindings,
-  )
-
-  register_topic_preloader_associations(
-    [
-      :discussion_bridge_publication_work_items,
-      :discussion_bridge_bridge_records,
-      :discussion_bridge_content_bindings,
-    ],
-  ) do
-    SiteSetting.discussion_bridge_enabled && SiteSetting.discussion_bridge_publisher_enabled
+  require_relative "app/controllers/discussion_bridge/cms_work_controller"
+  require_relative "app/controllers/discussion_bridge/cms_attention_controller"
+  require_relative "app/controllers/discussion_bridge/cms_admin_attention_controller"
+  require_relative "app/controllers/discussion_bridge/cms_sources_controller"
+  require_relative "app/controllers/discussion_bridge/cms_connection_controller"
+  require_relative "app/controllers/discussion_bridge/cms_admin_configuration_controller"
+  require_relative "app/controllers/discussion_bridge/cms_admin_delivery_controller"
+  require_relative "app/controllers/discussion_bridge/cms_admin_inspection_controller"
+  require_relative "app/controllers/discussion_bridge/cms_mappings_controller"
+  require_relative "app/controllers/discussion_bridge/cms_records_controller"
+  require_relative "app/controllers/discussion_bridge/cms_presentation_moves_controller"
+  require_relative "app/controllers/discussion_bridge/cms_source_moves_controller"
+  require_relative "app/controllers/discussion_bridge/cms_catalog_controller"
+  require_relative "jobs/regular/discussion_bridge_cms_source_batch"
+  require_relative "jobs/regular/discussion_bridge_cms_attention_notifications"
+  require_relative "jobs/regular/discussion_bridge_support_request"
+  require_relative "jobs/scheduled/discussion_bridge_cms_lifecycle_maintenance"
+  DiscussionBridge::CmsAuthorityLifecycle.catalog_invalidator = ->(connection, clock:) do
+    DiscussionBridge::CmsCatalogStore.invalidate_scope!(connection, clock: clock)
   end
-
-  publication_summary_condition = lambda do
-    DiscussionBridge::PublicationStatusAccess.allowed?(scope.user) && SiteSetting.discussion_bridge_enabled &&
-      SiteSetting.discussion_bridge_publisher_enabled
+  DiscussionBridge::CmsNativeObserver.register(self)
+  DiscussionBridge::CmsGlobalGateObserver.register
+  unless SiteSettings::LabelFormatter.singleton_class <
+           DiscussionBridge::SiteSettingLabelFormatterExtension
+    SiteSettings::LabelFormatter.singleton_class.prepend(
+      DiscussionBridge::SiteSettingLabelFormatterExtension,
+    )
   end
-  add_to_serializer(
-    :topic_list_item,
-    :discussion_bridge_publication_summary,
-    include_condition: publication_summary_condition,
-  ) { DiscussionBridge::PublicationSummary.call(object) }
-  add_to_serializer(
-    :suggested_topic,
-    :discussion_bridge_publication_summary,
-    include_condition: publication_summary_condition,
-  ) { DiscussionBridge::PublicationSummary.call(object) }
-  add_to_serializer(
-    :topic_view,
-    :discussion_bridge_publication_summary,
-    include_condition: publication_summary_condition,
-  ) { DiscussionBridge::PublicationSummary.call(object.topic) }
-
-  add_to_serializer(:current_user, :discussion_bridge_operator_can_view) do
-    DiscussionBridge::OperatorServiceAccess.view?(object)
-  end
-  add_to_serializer(:current_user, :discussion_bridge_operator_can_mutate) do
-    DiscussionBridge::OperatorServiceAccess.mutate?(object)
-  end
-
-  SiteSettings::LabelFormatter.singleton_class.prepend(
-    DiscussionBridge::SiteSettingLabelFormatterExtension,
-  ) unless SiteSettings::LabelFormatter.singleton_class <
-    DiscussionBridge::SiteSettingLabelFormatterExtension
 
   module ::DiscussionBridge
     module EmbedControllerExtension
@@ -203,15 +205,15 @@ after_initialize do
           end
 
         mapped_topic = CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id)
-        source_presentation = CommentsOnlyPresenter.source_presentation_requested?(
-          params[:class_name],
-        ) && CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
+        source_presentation =
+          CommentsOnlyPresenter.source_presentation_requested?(params[:class_name]) &&
+            CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
         protected_topic = mapped_topic || source_presentation
         full_app_supplied = params.key?(:full_app)
         full_app_requested = params[:full_app].is_a?(String) && params[:full_app] == "true"
 
         if protected_topic && full_app_supplied && !full_app_requested
-          render plain: I18n.t("discussion_bridge.full_interactive_invalid_request"),
+          render plain: I18n.t("discussion_bridge.interactive_invalid_request"),
                  status: :unprocessable_entity
           return
         end
@@ -220,7 +222,7 @@ after_initialize do
 
         if mapped_full_app
           unless CommentsOnlyPresenter.valid_existing_class_name?(params[:class_name])
-            render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+            render plain: I18n.t("discussion_bridge.interactive_invalid_class"),
                    status: :unprocessable_entity
             return
           end
@@ -229,61 +231,65 @@ after_initialize do
             raise Discourse::InvalidAccess.new("invalid embed host")
           end
 
-          blockers = FullInteractiveReadiness.blockers
+          blockers = InteractiveReadiness.blockers
           if blockers.any?
-            render plain: I18n.t(
-                     "discussion_bridge.full_interactive_unavailable",
-                     reasons: blockers.join(", "),
-                   ),
+            render plain:
+                     I18n.t(
+                       "discussion_bridge.interactive_unavailable",
+                       reasons: blockers.join(", "),
+                     ),
                    status: :service_unavailable
             return
           end
 
-          mapping = if source_presentation
-            DiscussionBridgeBridgeRecord.find_by(
-              topic_id: topic_id,
-              state: "healthy",
-              direction: "from_discourse",
-            )
-          else
-            DiscussionBridgeBridgeRecord.find_by(
-              topic_id: topic_id,
-              state: "healthy",
-              direction: "to_discourse",
-            ) ||
-              DiscussionBridgeConnection.find_by(topic_id: topic_id, state: "complete")
-          end
+          mapping =
+            if source_presentation
+              DiscussionBridgeBridgeRecord.find_by(
+                topic_id: topic_id,
+                state: "healthy",
+                direction: "from_discourse",
+              )
+            else
+              DiscussionBridgeBridgeRecord.find_by(
+                topic_id: topic_id,
+                state: "healthy",
+                direction: "to_discourse",
+              )
+            end
           unless mapping
-            render plain: I18n.t(
-                     "discussion_bridge.full_interactive_unavailable",
-                     reasons: "mapping_changed",
-                   ),
+            render plain:
+                     I18n.t(
+                       "discussion_bridge.interactive_unavailable",
+                       reasons: "mapping_changed",
+                     ),
                    status: :service_unavailable
             return
           end
-          integrity = ExistingMappingIntegrity.current(
-            mapping_id: mapping.id,
-            expected_topic_id: topic_id.to_i,
-            expected_updated_at: mapping.updated_at,
-            record_type: mapping.is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
-          )
+          integrity =
+            ExistingMappingIntegrity.current(
+              mapping_id: mapping.id,
+              expected_topic_id: topic_id.to_i,
+              expected_updated_at: mapping.updated_at,
+            )
           unless integrity.usable? && guardian.can_see?(integrity.topic)
-            render plain: I18n.t(
-                     "discussion_bridge.full_interactive_unavailable",
-                     reasons: integrity.reason || "topic_denied",
-                   ),
+            render plain:
+                     I18n.t(
+                       "discussion_bridge.interactive_unavailable",
+                       reasons: integrity.reason || "topic_denied",
+                     ),
                    status: :service_unavailable
             return
           end
           topic = integrity.topic
 
-          bridge_class = CommentsOnlyPresenter.redirect_class_name(
-            topic_id: topic_id,
-            full_app: true,
-            existing_class_name: params[:class_name],
-          )
+          bridge_class =
+            CommentsOnlyPresenter.redirect_class_name(
+              topic_id: topic_id,
+              full_app: true,
+              existing_class_name: params[:class_name],
+            )
           unless CommentsOnlyPresenter.valid_final_class_name?(bridge_class)
-            render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+            render plain: I18n.t("discussion_bridge.interactive_invalid_class"),
                    status: :unprocessable_entity
             return
           end
@@ -300,11 +306,12 @@ after_initialize do
         end
 
         if full_app_requested
-          bridge_class = CommentsOnlyPresenter.redirect_class_name(
-            topic_id: topic_id,
-            full_app: true,
-            existing_class_name: params[:class_name],
-          )
+          bridge_class =
+            CommentsOnlyPresenter.redirect_class_name(
+              topic_id: topic_id,
+              full_app: true,
+              existing_class_name: params[:class_name],
+            )
           bridge_class.present? ? params[:class_name] = bridge_class : params.delete(:class_name)
         end
 
@@ -320,33 +327,36 @@ after_initialize do
           elsif params[:embed_url].present? && EmbeddableHost.url_allowed?(params[:embed_url])
             TopicEmbed.topic_id_for_embed(params[:embed_url])
           end
-        protected_topic = CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id) || (
-          CommentsOnlyPresenter.source_presentation_requested?(params[:class_name]) &&
-            CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
-        )
+        protected_topic =
+          CommentsOnlyPresenter.mapped_topic?(topic_id: topic_id) ||
+            (
+              CommentsOnlyPresenter.source_presentation_requested?(params[:class_name]) &&
+                CommentsOnlyPresenter.source_presentation_topic?(topic_id: topic_id)
+            )
         return unless protected_topic
         return unless params.key?(:full_app)
 
         unless params[:full_app].is_a?(String) && params[:full_app] == "true"
-          render plain: I18n.t("discussion_bridge.full_interactive_invalid_request"),
+          render plain: I18n.t("discussion_bridge.interactive_invalid_request"),
                  status: :unprocessable_entity
           return
         end
         return if CommentsOnlyPresenter.valid_existing_class_name?(params[:class_name])
 
-        render plain: I18n.t("discussion_bridge.full_interactive_invalid_class"),
+        render plain: I18n.t("discussion_bridge.interactive_invalid_class"),
                status: :unprocessable_entity
       end
     end
   end
 
-  EmbedController.prepend(DiscussionBridge::EmbedControllerExtension) unless
-    EmbedController < DiscussionBridge::EmbedControllerExtension
+  unless EmbedController < DiscussionBridge::EmbedControllerExtension
+    EmbedController.prepend(DiscussionBridge::EmbedControllerExtension)
+  end
 
   module ::DiscussionBridge
-    module TopicControllerFullInteractiveGuard
+    module TopicControllerInteractiveGuard
       def show
-        guard_discussion_bridge_full_interactive_destination
+        guard_discussion_bridge_interactive_destination
         return if performed?
 
         super
@@ -354,7 +364,7 @@ after_initialize do
 
       private
 
-      def guard_discussion_bridge_full_interactive_destination
+      def guard_discussion_bridge_interactive_destination
         token = params[:discussion_bridge_embed_token]
         payload = EmbedRouteAttestation.authenticated_payload(token)
         return unless payload
@@ -364,116 +374,111 @@ after_initialize do
 
         attestation = EmbedRouteAttestation.verify(token)
         class_name = params[:class_name].to_s
-        integrity = attestation && ExistingMappingIntegrity.current(
-          mapping_id: attestation[:mapping].id,
-          expected_topic_id: requested_topic_id,
-          expected_updated_at: attestation[:mapping].updated_at,
-          record_type: attestation[:mapping].is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
-        )
-        valid = FullInteractiveReadiness.ready? &&
-          params[:embed_mode].to_s == "true" &&
+        integrity =
           attestation &&
-          attestation[:mapping].topic_id == requested_topic_id &&
-          class_name == attestation[:class_name] &&
-          integrity&.usable? && guardian.can_see?(integrity.topic)
+            ExistingMappingIntegrity.current(
+              mapping_id: attestation[:mapping].id,
+              expected_topic_id: requested_topic_id,
+              expected_updated_at: attestation[:mapping].updated_at,
+            )
+        valid =
+          InteractiveReadiness.ready? && params[:embed_mode].to_s == "true" && attestation &&
+            attestation[:mapping].topic_id == requested_topic_id &&
+            class_name == attestation[:class_name] && integrity&.usable? &&
+            guardian.can_see?(integrity.topic)
         return if valid
 
-        render plain: I18n.t(
-                 "discussion_bridge.full_interactive_unavailable",
-                 reasons: "stale_or_unready_route",
-               ),
+        render plain:
+                 I18n.t(
+                   "discussion_bridge.interactive_unavailable",
+                   reasons: "stale_or_unready_route",
+                 ),
                status: :service_unavailable
       end
-
     end
   end
 
-  TopicsController.prepend(DiscussionBridge::TopicControllerFullInteractiveGuard) unless
-    TopicsController < DiscussionBridge::TopicControllerFullInteractiveGuard
-
-  queue_publication_topic = lambda do |topic_id|
-    Jobs.enqueue(:discussion_bridge_reconcile_publication_topic, topic_id: topic_id) if
-      topic_id.present?
-  end
-  on(:topic_created) { |topic, *| queue_publication_topic.call(topic.id) }
-  on(:post_edited) do |post, *|
-    queue_publication_topic.call(post.topic_id) if post.post_number == 1
-  end
-  on(:topic_tags_changed) { |topic, *| queue_publication_topic.call(topic.id) }
-  on(:topic_status_updated) { |topic, *| queue_publication_topic.call(topic.id) }
-  on(:topic_trashed) { |topic, *| queue_publication_topic.call(topic.id) }
-  on(:topic_recovered) { |topic, *| queue_publication_topic.call(topic.id) }
-  on(:post_destroyed) do |post, *|
-    queue_publication_topic.call(post.topic_id) if post.post_number == 1
-  end
-  on(:post_recovered) do |post, *|
-    queue_publication_topic.call(post.topic_id) if post.post_number == 1
-  end
-  on(:user_created) do |user|
-    service = DiscussionBridgeOperatorService.instance
-    service.reconcile_operator_user! if service.enabled? &&
-      service.operator_email.present? && user.email.casecmp?(service.operator_email)
-  end
-  on(:category_updated) do |category|
-    if category.is_a?(Category)
-      Jobs.enqueue(:discussion_bridge_reconcile_publication_category, category_id: category.id)
-    end
+  unless TopicsController < DiscussionBridge::TopicControllerInteractiveGuard
+    TopicsController.prepend(DiscussionBridge::TopicControllerInteractiveGuard)
   end
 
   DiscussionBridge::Engine.routes.draw do
-    post "/v1/bridge-records/resolve" => "adapter_bridge_records#create"
-    get "/v1/bridge-records" => "adapter_bridge_records#index"
-    get "/v1/bridge-records/:resource_id" => "adapter_bridge_records#show"
-    get "/v1/bridge-records/:resource_id/source-url-proof" => "adapter_bridge_records#source_url_proof"
-    put "/v1/bridge-records/:resource_id/acknowledgement" => "adapter_bridge_records#acknowledge"
-    get "/v1/source-topics" => "adapter_source_topics#index"
-    get "/v1/source-revocations" => "adapter_source_topics#revocations"
-    get "/v1/source-revocations/:resource_id" => "adapter_source_topics#revocation"
-    get "/v1/source-topics/:topic_id" => "adapter_source_topics#show"
-    post "/v1/source-topics/:topic_id/resolve" => "adapter_source_topics#resolve"
-    post "/v1/publication-work/claim" => "adapter_publication_work#claim"
-    put "/v1/publication-work/failure" => "adapter_publication_work#fail"
-    get "/v1/platform-catalog" => "adapter_platform_catalog#show"
-    put "/v1/platform-catalog" => "adapter_platform_catalog#update"
+    get "/v4/connection" => "cms_connection#show"
+    post "/v4/bridge-records/resolve" => "cms_records#resolve"
+    get "/v4/bridge-records" => "cms_records#index"
+    get "/v4/bridge-records/:resource_id" => "cms_records#show"
+    post "/v4/bridge-records/:resource_id/withdraw" => "cms_records#withdraw"
+    get "/v4/sources" => "cms_sources#index"
+    get "/v4/sources/:source_id/revisions/:source_revision/content" => "cms_sources#content"
+    get "/v4/policy" => "cms_connection#policy"
+    post "/v4/mappings/prepare" => "cms_mappings#prepare"
+    get "/v4/mappings" => "cms_mappings#index"
+    get "/v4/mappings/:mapping_id" => "cms_mappings#show"
+    get "/v4/mappings/:mapping_id/url-history" => "cms_mappings#url_history"
+    post "/v4/work/claim" => "cms_work#claim"
+    get "/v4/work/recoveries" => "cms_attention#recoveries"
+    get "/v4/work/:work_id" => "cms_work#show"
+    post "/v4/work/:work_id/renew" => "cms_work#renew"
+    post "/v4/work/:work_id/acknowledge" => "cms_work#acknowledge"
+    post "/v4/work/:work_id/fail" => "cms_work#fail"
+    post "/v4/work/:work_id/prepare" => "cms_work#prepare"
+    post "/v4/work/:work_id/finalize" => "cms_work#finalize"
+    post "/v4/work/:work_id/abort" => "cms_work#abort"
+    post "/v4/mappings/:mapping_id/url-moves" => "cms_presentation_moves#prepare"
+    post "/v4/mappings/:mapping_id/url-moves/:move_id/finalize" => "cms_presentation_moves#finalize"
+    post "/v4/mappings/:mapping_id/url-moves/:move_id/abort" => "cms_presentation_moves#abort"
+    post "/v4/catalog/uploads" => "cms_catalog#begin_upload"
+    post "/v4/catalog/uploads/:upload_id/pages" => "cms_catalog#append_page"
+    post "/v4/catalog/uploads/:upload_id/finalize" => "cms_catalog#finalize"
+    get "/v4/catalog" => "cms_catalog#index"
+    post "/v4/bridge-records/:resource_id/source-url-moves" => "cms_source_moves#prepare"
+    post "/v4/bridge-records/:resource_id/source-url-moves/:move_id/finalize" => "cms_source_moves#finalize"
+    post "/v4/bridge-records/:resource_id/source-url-moves/:move_id/abort" => "cms_source_moves#abort"
+    get "/v4/bridge-records/:resource_id/url-history" => "cms_source_moves#url_history"
+    get "/v4/attention-recovery" => "cms_attention#capability"
+    get "/v4/attention-inspections" => "cms_attention#inspections"
+    post "/v4/attention-inspections/:inspection_id/report" => "cms_attention#report"
+    post "/v4/work/recoveries/:recovery_id/claim" => "cms_attention#recovery_claim"
     get "/admin/health" => "health#show"
     get "/admin/support-bundle" => "health#support_bundle"
+    get "/admin/support" => "support_admin#show"
+    put "/admin/support" => "support_admin#update"
+    post "/admin/support/requests" => "support_admin#request_assistance"
+    post "/admin/support/grants" => "support_admin#grant"
+    delete "/admin/support/grants/:id" => "support_admin#revoke"
+    get "/support/client.js" => "support_workspace#client"
+    get "/support" => "support_workspace#show"
+    get "/support/workspace" => "support_workspace#show"
+    post "/support/connections/:id/check" => "support_workspace#check"
+    post "/support/connections/:id/retry" => "support_workspace#retry_selected"
+    post "/support/connections/:id/select-topic" => "support_workspace#select_topic"
+    post "/support/connections/:id/synchronize" => "support_workspace#synchronize"
     get "/admin/content-connections" => "admin_content_connections#index"
     post "/admin/content-connections" => "admin_content_connections#create"
     put "/admin/content-connections/:id" => "admin_content_connections#update"
     post "/admin/content-connections/:id/rotate-secret" => "admin_content_connections#rotate_secret"
-    post "/admin/content-connections/:id/request-catalog-refresh" => "admin_content_connections#request_catalog_refresh"
-    get "/admin/content-connections/:id/publication-preview" => "admin_content_connections#publication_preview"
-    get "/admin/publication-tags" => "admin_content_connections#search_tags"
     put "/admin/content-connections/:id/authors/:author_id" => "admin_content_connections#update_author"
     get "/admin/bridge-records" => "admin_bridge_records#index"
     post "/admin/bridge-records" => "admin_bridge_records#create"
     get "/admin/bridge-records/:id" => "admin_bridge_records#show"
-    post "/admin/bridge-records/:id/migrations" => "admin_bridge_records#prepare_migration"
-    post "/admin/bridge-records/:id/migrations/:binding_id/apply" => "admin_bridge_records#apply_migration"
-    put "/admin/bridge-records/:id/migrate-source-url" => "admin_bridge_records#migrate_source_url"
     get "/admin/reconciliation" => "reconciliation#index"
     get "/admin/reconciliation/report" => "reconciliation#report"
-    get "/admin/publishing" => "publisher#overview"
-    post "/admin/publishing/work/:id/retry" => "publisher#retry_publication_work"
-    get "/admin/operator-service" => "operator_service#show"
-    put "/admin/operator-service" => "operator_service#update"
-    post "/admin/operator-service/request" => "operator_service#request_service"
-    put "/v1/operator-entitlements/current" => "operator_entitlements#update"
-    post "/v1/publisher/topics/:topic_id/publish" => "publisher#publish_topic"
-    put "/v1/publisher/publications/:resource_id/presentation" => "publisher#correct_presentation"
-    put "/v1/publisher/publications/:resource_id/migrate-url" => "publisher#migrate_presentation_url"
-    get "/v1/publisher/topics/:topic_id/status" => "publisher#topic_status"
-    put "/v1/publisher/topics/:topic_id/connections/:connection_id/policy" =>
-      "publisher#update_topic_policy"
-    post "/v1/publisher/topics/:topic_id/connections/:connection_id/reconcile" =>
-      "publisher#reconcile_topic"
   end
 
   Discourse::Application.routes.append do
     mount ::DiscussionBridge::Engine, at: "/discussion-bridge"
-    get "/admin/plugins/discourse-discussion-bridge" => "admin/plugins#index",
-        constraints: StaffConstraint.new
-    get "/admin/plugins/discourse-discussion-bridge/*path" => "admin/plugins#index",
-        constraints: StaffConstraint.new
+    get "/admin/publishing" => "discussion_bridge/publisher#overview"
+    post "/admin/publishing/topics/:topic_id/publish" => "discussion_bridge/publisher#publish_topic"
+    put "/admin/publishing/publications/:resource_id/presentation" => "discussion_bridge/publisher#correct_presentation"
+    get "/admin/publishing/topics/:topic_id/status" => "discussion_bridge/publisher#topic_status"
+    get "/admin/content-connections/:id/cms-configuration" => "discussion_bridge/cms_admin_configuration#show"
+    put "/admin/content-connections/:id/cms-configuration" => "discussion_bridge/cms_admin_configuration#update"
+    get "/admin/content-connections/:id/cms-delivery" => "discussion_bridge/cms_admin_delivery#index"
+    post "/admin/content-connections/:id/cms-attention/check" => "discussion_bridge/cms_admin_attention#check"
+    post "/admin/content-connections/:id/cms-attention/retry" => "discussion_bridge/cms_admin_attention#retry_selected"
+    get "/admin/content-connections/:id/cms-preview" => "discussion_bridge/cms_admin_inspection#preview"
+    get "/admin/content-connections/:id/cms-catalog" => "discussion_bridge/cms_admin_inspection#catalog"
+    get "/admin/plugins/discourse-discussion-bridge" => "admin/plugins#index", :constraints => StaffConstraint.new
+    get "/admin/plugins/discourse-discussion-bridge/*path" => "admin/plugins#index", :constraints => StaffConstraint.new
   end
 end

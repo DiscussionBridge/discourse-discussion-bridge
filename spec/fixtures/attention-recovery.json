@@ -1,0 +1,271 @@
+{
+  "provenance": "Synthetic frozen native collector outputs from the authorized AR1/AR2/AR6 author regression batch; not live data or installed qualification",
+  "initial": {
+    "id": "actual_initial_native_absence",
+    "profile": "astro",
+    "publication_kind": "static",
+    "inspection": {
+      "sequence": 1,
+      "inspection_id": "00000000-0000-4000-8000-000000000600",
+      "context_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000001",
+        "mapping_id": "00000000-0000-4000-8000-000000000002",
+        "source_id": "topic:53",
+        "source_revision": "revision-1",
+        "policy_revision": "policy-1",
+        "action": "publish_revision",
+        "state": "attention",
+        "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+        "attempt": 1,
+        "lease_generation": 1,
+        "retry_at": null,
+        "last_failure_code": null
+      },
+      "mapping": {
+        "mapping_id": "00000000-0000-4000-8000-000000000002",
+        "resource_id": "00000000-0000-4000-8000-000000000004",
+        "connection_id": "dbc_0123456789abcdef01234567",
+        "source_id": "topic:53",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "mapping_revision": "mapping-1",
+        "destination_native_id": null,
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "retired_url_count": 0,
+        "mapping_state": "pending",
+        "presentation_mode": "simple",
+        "desired_source_revision": "revision-1",
+        "synchronized_source_revision": null,
+        "publicly_verified_source_revision": null,
+        "destination_native_revision": null,
+        "source_created_at": "2026-10-01T08:00:00.000Z",
+        "source_updated_at": "2026-10-14T08:00:00.000Z",
+        "synchronized_at": null,
+        "publicly_verified_at": null
+      },
+      "source": {
+        "source_id": "topic:53",
+        "source_revision": "revision-1",
+        "topic_id": "53",
+        "topic_url": "https://forum.example/t/source/53",
+        "title": "Native source",
+        "content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2",
+        "content_bytes": 30,
+        "source_created_at": "2026-10-01T08:00:00.000Z",
+        "source_updated_at": "2026-10-14T08:00:00.000Z",
+        "source_authors": [
+          {
+            "id": "author:1",
+            "name": "Source author"
+          }
+        ]
+      },
+      "native_result": null,
+      "verified_native_result": null,
+      "verification": null,
+      "prepared_transaction": null,
+      "created_at": "2026-10-25T21:08:48.720Z"
+    },
+    "observation": {
+      "profile": "astro-static-1",
+      "observed_at": "2026-10-25T21:08:49.339Z",
+      "native_state": "never_applied",
+      "object_exists": false,
+      "native_id": null,
+      "native_revision": null,
+      "ownership": null,
+      "native_result": null,
+      "verification": null,
+      "source_revision": null,
+      "managed_content_sha256": null,
+      "native_command": "none",
+      "pending_mutation": "none",
+      "prepared_transaction_id": null,
+      "journal_sha256": "ef5247a138e99bf90fd396d690febb3436818701ba121d768c525d4780329274",
+      "baseline_sha256": null,
+      "candidate_sha256": null,
+      "current_sha256": "b9a1410e612a7e17177e9e86ffdbfe3ebc40ed1587f5f400ae91dc12f4c59927",
+      "restoration_operation_id": null,
+      "issue": "none"
+    },
+    "expected_status": "ready"
+  },
+  "restored": {
+    "id": "actual_restored_baseline_public_proof",
+    "profile": "astro",
+    "publication_kind": "static",
+    "inspection": {
+      "sequence": 1,
+      "inspection_id": "00000000-0000-4000-8000-000000000612",
+      "context_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "work": {
+        "work_id": "00000000-0000-4000-8000-000000000022",
+        "mapping_id": "00000000-0000-4000-8000-000000000002",
+        "source_id": "topic:53",
+        "source_revision": "revision-11",
+        "policy_revision": "policy-1",
+        "action": "publish_revision",
+        "state": "attention",
+        "attempt_cycle": "00000000-0000-4000-8000-000000000003",
+        "attempt": 1,
+        "lease_generation": 2,
+        "retry_at": null,
+        "last_failure_code": null
+      },
+      "mapping": {
+        "mapping_id": "00000000-0000-4000-8000-000000000002",
+        "resource_id": "00000000-0000-4000-8000-000000000004",
+        "connection_id": "dbc_0123456789abcdef01234567",
+        "source_id": "topic:53",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "mapping_revision": "mapping-1",
+        "destination_native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "retired_url_count": 0,
+        "mapping_state": "pending",
+        "presentation_mode": "simple",
+        "desired_source_revision": "revision-11",
+        "synchronized_source_revision": "revision-11",
+        "publicly_verified_source_revision": "revision-1",
+        "destination_native_revision": "ca99ef3acd13cd5c79a9d20f682655a84da38f09c6bb6e3709e1d3d3fe1dfd9a",
+        "source_created_at": "2026-10-01T08:00:00.000Z",
+        "source_updated_at": "2026-10-14T08:00:00.000Z",
+        "synchronized_at": "2026-10-25T21:09:35.949Z",
+        "publicly_verified_at": "2026-10-25T21:09:27.825Z"
+      },
+      "source": {
+        "source_id": "topic:53",
+        "source_revision": "revision-11",
+        "topic_id": "53",
+        "topic_url": "https://forum.example/t/source/53",
+        "title": "Continuing renamed source",
+        "content_sha256": "394d48340325000d8f8b3582f0671ca2e7bcf77394d35c36703b8a17f1012019",
+        "content_bytes": 39,
+        "source_created_at": "2026-10-01T08:00:00.000Z",
+        "source_updated_at": "2026-10-14T09:00:00.000Z",
+        "source_authors": [
+          {
+            "id": "author:1",
+            "name": "Source author"
+          }
+        ]
+      },
+      "native_result": {
+        "kind": "publish_revision",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "native_revision": "ca99ef3acd13cd5c79a9d20f682655a84da38f09c6bb6e3709e1d3d3fe1dfd9a",
+        "ownership_receipt_sha256": "a669ecc72c580abc2ce6a06631fac7a13f5ddcac1d8353c5cd66d7958eae53e5",
+        "representation": {
+          "kind": "full",
+          "source_content_sha256": "394d48340325000d8f8b3582f0671ca2e7bcf77394d35c36703b8a17f1012019"
+        }
+      },
+      "verified_native_result": {
+        "kind": "publish_revision",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "native_revision": "4ecd78d498c1206725f0bd224090720116f5668a3154b9c2c0c9ac8045b1a740",
+        "ownership_receipt_sha256": "6146ff0cc9002b395891f9974a6aa264390a05ef18d28918f90bcef5600062f5",
+        "representation": {
+          "kind": "full",
+          "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2"
+        }
+      },
+      "verification": {
+        "kind": "published",
+        "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "source_revision": "revision-1",
+        "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2",
+        "native_publication_sha256": "3c3951cec7d9aabfb59c4c678598b782971a963e6bc7940c2d79dde17d6f6bb2",
+        "verification_profile": "discussionbridge-astro-static-html-1",
+        "checked_at": "2026-10-25T21:09:27.825Z",
+        "representation": {
+          "kind": "full",
+          "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2"
+        }
+      },
+      "prepared_transaction": {
+        "transaction_id": "4a26f005-12ca-4e10-bec9-fc7ac557ad60",
+        "work_id": "00000000-0000-4000-8000-000000000022",
+        "lease_generation": 2,
+        "action": "publish_revision",
+        "source_revision": "revision-11",
+        "policy_revision": "policy-1",
+        "native_result": {
+          "kind": "publish_revision",
+          "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+          "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+          "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+          "native_revision": "ca99ef3acd13cd5c79a9d20f682655a84da38f09c6bb6e3709e1d3d3fe1dfd9a",
+          "ownership_receipt_sha256": "a669ecc72c580abc2ce6a06631fac7a13f5ddcac1d8353c5cd66d7958eae53e5",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "394d48340325000d8f8b3582f0671ca2e7bcf77394d35c36703b8a17f1012019"
+          }
+        },
+        "prepared_at": "2026-10-25T21:09:35.949Z",
+        "deployment_id": null,
+        "deployed_at": null
+      },
+      "created_at": "2026-10-25T21:09:36.332Z"
+    },
+    "observation": {
+      "profile": "astro-static-1",
+      "observed_at": "2026-10-25T21:09:40.120Z",
+      "native_state": "restored_baseline",
+      "object_exists": true,
+      "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+      "native_revision": "4ecd78d498c1206725f0bd224090720116f5668a3154b9c2c0c9ac8045b1a740",
+      "ownership": {
+        "resource_id": "00000000-0000-4000-8000-000000000004",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "source_revision": "revision-1",
+        "ownership_receipt_sha256": "6146ff0cc9002b395891f9974a6aa264390a05ef18d28918f90bcef5600062f5"
+      },
+      "native_result": {
+        "kind": "publish_revision",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "external_id": "astro-page:a347c77735ec184ebf41c2f01cf3690be7df2dd23b88ea6d87f7740817003d34",
+        "canonical_url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "native_revision": "4ecd78d498c1206725f0bd224090720116f5668a3154b9c2c0c9ac8045b1a740",
+        "ownership_receipt_sha256": "6146ff0cc9002b395891f9974a6aa264390a05ef18d28918f90bcef5600062f5",
+        "representation": {
+          "kind": "full",
+          "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2"
+        }
+      },
+      "verification": {
+        "kind": "published",
+        "url": "https://astro.example/comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267/",
+        "native_id": "comments/source-83ff799e3c98c9a5a51118f9752c9057ee8d456024ef9c95e006376e2b56d267.md",
+        "source_revision": "revision-1",
+        "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2",
+        "native_publication_sha256": "3c3951cec7d9aabfb59c4c678598b782971a963e6bc7940c2d79dde17d6f6bb2",
+        "verification_profile": "discussionbridge-astro-static-html-1",
+        "checked_at": "2026-10-25T21:09:40.170Z",
+        "representation": {
+          "kind": "full",
+          "source_content_sha256": "48c59e353d239847d6378a7145413d79d50f7634d72ebbc70058872feff6f5e2"
+        }
+      },
+      "source_revision": "revision-1",
+      "managed_content_sha256": "24467402fad4a8aa86b1cc13d0624d07d3ed2582366f9fe32f18d393e8af7354",
+      "native_command": "none",
+      "pending_mutation": "settled",
+      "prepared_transaction_id": "4a26f005-12ca-4e10-bec9-fc7ac557ad60",
+      "journal_sha256": "e35b9464c8b3d81321754f7948a0129a577beb403a3480ca3a15c76ab26cd59a",
+      "baseline_sha256": "1c5d5219b04c369a1d093475f88bfa564a4ecf232f348b0204ca6fe18db34c63",
+      "candidate_sha256": "f7840ae150e6d231193530a72e461690542b9224a3cbc46bcfcd92575cc38cba",
+      "current_sha256": "1c5d5219b04c369a1d093475f88bfa564a4ecf232f348b0204ca6fe18db34c63",
+      "restoration_operation_id": "66977706-ec56-4b70-b144-4ad9a99fdcbe",
+      "issue": "none"
+    },
+    "expected_status": "ready"
+  }
+}

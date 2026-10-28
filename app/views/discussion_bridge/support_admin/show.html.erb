@@ -1,0 +1,154 @@
+<%
+  support_data = (@support || {}).with_indifferent_access
+  defaults = (support_data[:request_defaults] || {}).with_indifferent_access
+  support_enabled = support_data[:enabled] == true
+  destination_configured = support_data[:request_destination_configured] == true
+  request_available = support_enabled && destination_configured
+%>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%= csrf_meta_tags %>
+    <title>DiscussionBridge support administration</title>
+    <script src="/discussion-bridge/support/client.js" defer nonce="<%= csp_nonce_placeholder %>"></script>
+    <style>
+      body { margin: 0; background: #f5f6f8; color: #20242b; font: 16px/1.55 system-ui, sans-serif; }
+      main { max-width: 920px; margin: auto; padding: 2rem 1rem 4rem; }
+      h1, h2, h3 { line-height: 1.25; }
+      h1 { margin-bottom: .5rem; }
+      section { background: white; border: 1px solid #cfd4dc; border-radius: .5rem; margin: 1.5rem 0; padding: 1.5rem; }
+      label { display: block; margin: 1rem 0 .25rem; font-weight: 600; }
+      input:not([type=checkbox]), textarea { box-sizing: border-box; width: 100%; max-width: 100%; padding: .65rem; border: 1px solid #737c88; border-radius: .25rem; color: inherit; background: white; font: inherit; }
+      input[type=checkbox] { width: 1.1rem; height: 1.1rem; vertical-align: middle; margin-right: .4rem; }
+      input[readonly] { background: #f5f6f8; }
+      textarea { min-height: 9rem; }
+      button { padding: .6rem .9rem; border: 1px solid #235ea3; border-radius: .25rem; background: #235ea3; color: white; font: inherit; cursor: pointer; }
+      button:disabled { border-color: #bbc1c9; background: #e7e9ed; color: #555e69; cursor: not-allowed; }
+      button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #b16a00; outline-offset: 3px; }
+      a { color: #17558e; }
+      .hint { color: #4b5563; font-size: .94rem; }
+      .notice { background: #edf4fc; border-left: 4px solid #235ea3; padding: .8rem 1rem; }
+      .error { background: #fff0ef; border-left: 4px solid #a3261a; padding: .8rem 1rem; }
+      .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1rem; }
+      dl { margin: 1rem 0; }
+      dt { font-weight: 600; margin-top: .65rem; }
+      dd { margin-left: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .table-wrap { overflow-x: auto; }
+      table { width: 100%; border-collapse: collapse; text-align: left; }
+      th, td { border-bottom: 1px solid #dce0e6; padding: .7rem .5rem; vertical-align: top; overflow-wrap: anywhere; }
+      caption { text-align: left; font-weight: 600; padding: .6rem 0; }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body data-support-page="admin" data-support-enabled="<%= support_enabled %>" data-request-destination-configured="<%= destination_configured %>">
+    <main>
+      <header>
+        <h1>DiscussionBridge support</h1>
+        <p>Request paid assistance from DiscussionBridge and manage local access for a named support account.</p>
+        <p class="hint">DiscussionBridge is the initial provider. Trusted partner selection is planned for a later stage. Commercial arrangements are handled outside this plugin.</p>
+        <a href="/discussion-bridge/support/workspace">Open the support workspace</a>
+      </header>
+
+      <p id="support-announcement" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+      <p id="support-error" class="error" role="alert" hidden></p>
+      <noscript><p class="error">JavaScript is required to review requests and change support settings. No action has been sent.</p></noscript>
+
+      <section aria-labelledby="support-settings-heading">
+        <h2 id="support-settings-heading">Enable paid support</h2>
+        <p>Enabling this option records your local choice. Sending a request and granting access are separate actions.</p>
+        <form id="support-settings-form" action="/discussion-bridge/admin/support.json" method="post">
+          <label for="support-enabled"><input id="support-enabled" name="enabled" type="checkbox" <%= "checked" if support_enabled %>> Enable paid DiscussionBridge support</label>
+          <p id="support-setting-hint" class="hint">Disabling support immediately revokes local support privileges. Support access has no automatic payment, grace-period or expiry mechanism initially.</p>
+          <button type="submit" data-js-enable disabled aria-describedby="support-setting-hint">Save support setting</button>
+        </form>
+      </section>
+
+      <section aria-labelledby="support-request-heading">
+        <h2 id="support-request-heading">Request assistance</h2>
+        <% if destination_configured %>
+          <p>Request destination: <strong><%= support_data[:request_destination] %></strong></p>
+        <% else %>
+          <p class="notice" id="support-destination-notice">The support request email address has not been configured. Requests cannot be sent until the destination is configured.</p>
+        <% end %>
+        <p id="support-request-unavailable" class="hint" <%= "hidden" if request_available %>><%= support_enabled ? "Configure the request destination before reviewing or sending a request." : "Enable support and save the setting before reviewing or sending a request." %></p>
+        <p class="hint">Review the five fields below before sending. Do not put passwords, tokens, cookies, private content or support bundles in the problem description. A queued request does not establish payment, grant access or verify publication.</p>
+
+        <form id="support-request-form" action="/discussion-bridge/admin/support/requests.json" method="post" data-request-available="<%= request_available %>">
+          <label for="support-contact-email">Contact email address</label>
+          <input id="support-contact-email" name="contact_email" type="email" autocomplete="email" required maxlength="320">
+          <label for="support-forum-url">Forum URL</label>
+          <input id="support-forum-url" name="forum_url" type="url" value="<%= defaults[:forum_url] %>" required>
+          <label for="support-plugin-version">Plugin version</label>
+          <input id="support-plugin-version" name="plugin_version" type="text" value="<%= defaults[:plugin_version] %>" required>
+          <label for="support-request-id">Request ID</label>
+          <input id="support-request-id" name="request_id" type="text" value="<%= defaults[:request_id] %>" required readonly>
+          <label for="support-problem">Problem description</label>
+          <textarea id="support-problem" name="problem" required></textarea>
+          <div class="actions">
+            <button type="button" data-support-action="preview-request" data-js-enable disabled aria-controls="support-request-preview" aria-describedby="support-request-unavailable">Review request</button>
+          </div>
+
+          <div id="support-request-preview" hidden aria-labelledby="support-preview-heading">
+            <h3 id="support-preview-heading" tabindex="-1">Review before sending</h3>
+            <p>Only these five fields will be sent through this forum’s native mailer:</p>
+            <dl>
+              <dt>Contact email address</dt><dd data-preview-field="contact_email"></dd>
+              <dt>Forum URL</dt><dd data-preview-field="forum_url"></dd>
+              <dt>Plugin version</dt><dd data-preview-field="plugin_version"></dd>
+              <dt>Request ID</dt><dd data-preview-field="request_id"></dd>
+              <dt>Problem description</dt><dd data-preview-field="problem"></dd>
+            </dl>
+            <label for="support-request-reviewed"><input id="support-request-reviewed" name="reviewed" type="checkbox"> I have reviewed these fields and want to send this request.</label>
+            <p class="hint">Editing any request field clears this review. Sending a request does not create an account or grant support access.</p>
+            <div class="actions"><button type="submit" id="support-send-request" disabled>Send request</button></div>
+          </div>
+        </form>
+
+        <div class="table-wrap">
+          <table>
+            <caption>Request history</caption>
+            <thead><tr><th scope="col">Request ID</th><th scope="col">Native status</th><th scope="col">Created</th></tr></thead>
+            <tbody>
+              <% Array(support_data[:requests]).each do |item| %>
+                <% request_data = item.with_indifferent_access %>
+                <tr><td><%= request_data[:request_id] %></td><td><%= request_data[:status] %></td><td><%= request_data[:created_at] %></td></tr>
+              <% end %>
+              <% if Array(support_data[:requests]).empty? %><tr><td colspan="3">No support requests recorded.</td></tr><% end %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="support-access-heading">
+        <h2 id="support-access-heading">Grant or revoke local support access</h2>
+        <p>Arrange any native account invitation separately, then grant access to the agreed existing username. This plugin does not invite users or create accounts.</p>
+        <p class="hint">The scoped support role can read redacted status and health and use authorized topic selection, check, retry and synchronization actions. It cannot manage connections, secrets, global policy, access grants or URL migration. Native forum visibility still applies.</p>
+        <form id="support-grant-form" action="/discussion-bridge/admin/support/grants.json" method="post" data-grant-available="<%= support_enabled %>">
+          <label for="support-grant-username">Existing support account username</label>
+          <input id="support-grant-username" name="username" type="text" autocomplete="off" required>
+          <p id="support-grant-hint" class="hint"><%= support_enabled ? "Grant access only to the named native account you have agreed to use." : "Enable support and save the setting before granting access." %></p>
+          <button type="submit" data-js-enable disabled aria-describedby="support-grant-hint">Grant scoped access</button>
+        </form>
+        <div class="table-wrap">
+          <table>
+            <caption>Local support grants</caption>
+            <thead><tr><th scope="col">Account</th><th scope="col">Granted</th><th scope="col">Revoked</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+              <% Array(support_data[:grants]).each do |item| %>
+                <% grant = item.with_indifferent_access %>
+                <tr>
+                  <td><%= grant[:username] %></td><td><%= grant[:granted_at] %></td><td><%= grant[:revoked_at].presence || "Active" %></td>
+                  <td><% if grant[:revoked_at].blank? && grant[:id].present? %><button type="button" data-support-action="revoke-grant" data-grant-id="<%= grant[:id] %>" data-js-enable disabled aria-label="Revoke support access for <%= grant[:username] %>">Revoke now</button><% else %>No active grant<% end %></td>
+                </tr>
+              <% end %>
+              <% if Array(support_data[:grants]).empty? %><tr><td colspan="4">No support access granted.</td></tr><% end %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <button type="button" data-support-action="refresh" data-js-enable disabled>Refresh status</button>
+    </main>
+  </body>
+</html>

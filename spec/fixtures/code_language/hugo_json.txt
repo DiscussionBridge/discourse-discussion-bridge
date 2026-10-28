@@ -1,0 +1,5 @@
+{
+  "page": "0001",
+  "sample": "<portable>& content",
+  "unicode": "café — Ελληνικά — 日本語 — العربية — 😀"
+}

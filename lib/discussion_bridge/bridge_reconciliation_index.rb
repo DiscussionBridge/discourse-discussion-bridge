@@ -84,17 +84,14 @@ module DiscussionBridge
           )
         end
         active.each do |binding|
-          issues << issue(record, "connection_disabled", "high", "Enable or migrate the connection") unless binding.content_connection.enabled
-          issues << issue(record, "direction_outside_scope", "high", "Restore the direction or migrate the record") unless
+          issues << issue(record, "connection_disabled", "high", "Reconcile the disabled connection") unless binding.content_connection.enabled
+          issues << issue(record, "direction_outside_scope", "high", "Reconcile current direction authority") unless
             binding.content_connection.allows_direction?(record.direction)
-          issues << issue(record, "lane_outside_scope", "high", "Restore the lane or migrate the record") unless
+          issues << issue(record, "lane_outside_scope", "high", "Reconcile current lane authority") unless
             binding.content_connection.allows_lane?(record.lane)
           issues << issue(record, "origin_outside_scope", "high", "Correct the binding or connection origin scope") unless
             binding.content_connection.allows_origin?(binding.canonical_url)
         end
-        prepared = record.content_bindings.count { |binding| binding.state == "prepared" }
-        issues << issue(record, "migration_state_mismatch", "medium", "Complete or cancel the prepared migration") if
-          (record.state == "migration") != prepared.positive?
       end
       if truncated
         issues << {

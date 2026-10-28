@@ -1,6 +1,5 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -12,43 +11,25 @@ import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgePublishing extends Component {
+  publicationStatus(value) {
+    return i18n(`discussion_bridge.admin.cms.delivery_states.${value}`);
+  }
   @service router;
 
   @tracked topicId = "";
   @tracked connectionId = "";
   @tracked externalId = "";
   @tracked canonicalUrl = "";
-  @tracked canonicalUrlIsSuggested = true;
   @tracked lane = "";
-  @tracked nativeMaterialization = false;
+  @tracked presentationMode = "";
+  @tracked presentationModeSelected = false;
   @tracked notice = "";
   @tracked noticeContext = "";
   @tracked createdRecord = null;
   @tracked working = false;
   @tracked editingRecord = null;
-  @tracked migrationMode = false;
-  @tracked legacyNativeConfirmed = false;
-  @tracked legacyPlatformContentId = "";
   @tracked correctedCanonicalUrl = "";
   @tracked correctedPresentationUrls = {};
-  @tracked migratedNativeResourceIds = {};
-  @tracked publicationWork;
-  @tracked publicationWorkPagination;
-  @tracked publicationWorkFilter;
-
-  constructor() {
-    super(...arguments);
-    this.publicationWork = this.args.model.publication_work ?? [];
-    this.publicationWorkPagination =
-      this.args.model.publication_work_pagination ?? {
-        page: 1,
-        per_page: 50,
-        total: this.publicationWork.length,
-        pages: 1,
-        filter: "all",
-      };
-    this.publicationWorkFilter = this.publicationWorkPagination.filter ?? "all";
-  }
 
   @action
   updateTopicId(event) {
@@ -63,10 +44,6 @@ export default class DiscussionBridgePublishing extends Component {
       connection?.allowed_lanes?.length === 1
         ? connection.allowed_lanes[0]
         : "";
-    if (this.canonicalUrlIsSuggested || !this.canonicalUrl) {
-      this.canonicalUrl = this.suggestedCanonicalUrl;
-      this.canonicalUrlIsSuggested = true;
-    }
   }
 
   @action
@@ -77,53 +54,23 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   updateExternalId(event) {
     this.externalId = event.target.value;
-    if (this.canonicalUrlIsSuggested || !this.canonicalUrl) {
-      this.canonicalUrl = this.suggestedCanonicalUrl;
-      this.canonicalUrlIsSuggested = true;
-    }
   }
 
   @action
   updateCanonicalUrl(event) {
     this.canonicalUrl = event.target.value;
-    this.canonicalUrlIsSuggested = false;
   }
 
   @action
-  updateNativeMaterialization(event) {
-    this.nativeMaterialization = event.target.checked;
-  }
-
-  @action
-  cancelPublication() {
-    this.topicId = "";
-    this.connectionId = "";
-    this.externalId = "";
-    this.canonicalUrl = "";
-    this.canonicalUrlIsSuggested = true;
-    this.lane = "";
-    this.nativeMaterialization = false;
-    this.notice = "";
-    this.noticeContext = "";
-    this.createdRecord = null;
+  updatePresentationMode(event) {
+    this.presentationMode = event.target.value;
+    this.presentationModeSelected = true;
   }
 
   @action
   beginPresentationCorrection(record) {
     this.editingRecord = record;
-    this.migrationMode = false;
     this.correctedCanonicalUrl = this.presentationUrl(record);
-    this.notice = "";
-    this.noticeContext = "";
-  }
-
-  @action
-  beginPresentationMigration(record) {
-    this.editingRecord = record;
-    this.migrationMode = true;
-    this.legacyNativeConfirmed = false;
-    this.legacyPlatformContentId = "";
-    this.correctedCanonicalUrl = "";
     this.notice = "";
     this.noticeContext = "";
   }
@@ -131,9 +78,6 @@ export default class DiscussionBridgePublishing extends Component {
   @action
   cancelPresentationCorrection() {
     this.editingRecord = null;
-    this.migrationMode = false;
-    this.legacyNativeConfirmed = false;
-    this.legacyPlatformContentId = "";
     this.correctedCanonicalUrl = "";
   }
 
@@ -143,23 +87,13 @@ export default class DiscussionBridgePublishing extends Component {
   }
 
   @action
-  updateLegacyNativeConfirmed(event) {
-    this.legacyNativeConfirmed = event.target.checked;
-  }
-
-  @action
-  updateLegacyPlatformContentId(event) {
-    this.legacyPlatformContentId = event.target.value;
-  }
-
-  @action
   async correctPresentation(event) {
     event.preventDefault();
     this.working = true;
     this.notice = "";
     try {
       const result = await ajax(
-        `/discussion-bridge/v1/publisher/publications/${this.editingRecord.resource_id}/presentation.json`,
+        `/admin/publishing/publications/${this.editingRecord.resource_id}/presentation.json`,
         {
           type: "PUT",
           data: { publication: { canonical_url: this.correctedCanonicalUrl } },
@@ -171,49 +105,10 @@ export default class DiscussionBridgePublishing extends Component {
         [result.resource_id]: result.canonical_url,
       };
       this.notice = i18n(
-        "discussion_bridge.admin.publisher_presentation_corrected"
+        result.outcome === "presentation_pending"
+          ? "discussion_bridge.admin.publisher_presentation_pending"
+          : "discussion_bridge.admin.publisher_presentation_unchanged"
       );
-      this.noticeContext = "correction";
-      this.cancelPresentationCorrection();
-    } catch (error) {
-      popupAjaxError(error);
-    } finally {
-      this.working = false;
-    }
-  }
-
-  @action
-  async migratePresentation(event) {
-    event.preventDefault();
-    this.working = true;
-    this.notice = "";
-    try {
-      const result = await ajax(
-        `/discussion-bridge/v1/publisher/publications/${this.editingRecord.resource_id}/migrate-url.json`,
-        {
-          type: "PUT",
-          data: {
-            migration: {
-              old_url: this.presentationUrl(this.editingRecord),
-              new_url: this.correctedCanonicalUrl,
-              legacy_native_confirmation: this.legacyNativeConfirmed,
-              platform_content_id: this.legacyPlatformContentId,
-            },
-          },
-        }
-      );
-      this.createdRecord = result;
-      this.correctedPresentationUrls = {
-        ...this.correctedPresentationUrls,
-        [result.resource_id]: result.canonical_url,
-      };
-      if (result.native_materialization) {
-        this.migratedNativeResourceIds = {
-          ...this.migratedNativeResourceIds,
-          [result.resource_id]: true,
-        };
-      }
-      this.notice = i18n("discussion_bridge.admin.publisher_presentation_migrated");
       this.noticeContext = "correction";
       this.cancelPresentationCorrection();
     } catch (error) {
@@ -229,102 +124,8 @@ export default class DiscussionBridgePublishing extends Component {
     );
   }
 
-  get queueAttention() {
-    const work = this.args.model.metrics.publication_work || {};
-    return (work.attention || 0) + (work.failed || 0);
-  }
-
   get selectedLanes() {
     return this.selectedConnection?.allowed_lanes || [];
-  }
-
-  get suggestedCanonicalUrl() {
-    const connection = this.selectedConnection;
-    const slug = this.externalId.trim().toLowerCase();
-    if (
-      !connection?.allowed_origins?.length ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug)
-    ) {
-      return "";
-    }
-    try {
-      const sourcePath = connection.include_source_in_published_url
-        ? `${connection.publication_source_path}/`
-        : "";
-      return new URL(`/${sourcePath}${slug}/`, connection.allowed_origins[0])
-        .href;
-    } catch {
-      return "";
-    }
-  }
-
-  @action
-  async retryPublicationWork(item) {
-    this.working = true;
-    this.notice = "";
-    try {
-      await ajax(
-        `/discussion-bridge/admin/publishing/work/${item.id}/retry.json`,
-        { type: "POST" }
-      );
-      this.notice = i18n("discussion_bridge.admin.publication_retry_queued");
-      await this.loadPublicationWorkPage(this.publicationWorkPagination.page);
-    } catch (error) {
-      popupAjaxError(error);
-    } finally {
-      this.working = false;
-    }
-  }
-
-  @action
-  async loadPublicationWorkPage(page) {
-    this.working = true;
-    try {
-      const result = await ajax("/discussion-bridge/admin/publishing.json", {
-        data: {
-          publication_page: page,
-          publication_filter: this.publicationWorkFilter,
-        },
-      });
-      this.publicationWork = result.publication_work;
-      this.publicationWorkPagination = result.publication_work_pagination;
-    } catch (error) {
-      popupAjaxError(error);
-    } finally {
-      this.working = false;
-    }
-  }
-
-  @action
-  async updatePublicationWorkFilter(event) {
-    this.publicationWorkFilter = event.target.value;
-    await this.loadPublicationWorkPage(1);
-  }
-
-  get hasPreviousPublicationWorkPage() {
-    return this.publicationWorkPagination.page > 1;
-  }
-
-  get hasNextPublicationWorkPage() {
-    return (
-      this.publicationWorkPagination.page < this.publicationWorkPagination.pages
-    );
-  }
-
-  get previousPublicationWorkPage() {
-    return this.publicationWorkPagination.page - 1;
-  }
-
-  get nextPublicationWorkPage() {
-    return this.publicationWorkPagination.page + 1;
-  }
-
-  get previousPublicationWorkPageDisabled() {
-    return this.working || !this.hasPreviousPublicationWorkPage;
-  }
-
-  get nextPublicationWorkPageDisabled() {
-    return this.working || !this.hasNextPublicationWorkPage;
   }
 
   @action
@@ -335,22 +136,29 @@ export default class DiscussionBridgePublishing extends Component {
     this.noticeContext = "";
     try {
       const result = await ajax(
-        `/discussion-bridge/v1/publisher/topics/${this.topicId}/publish.json`,
+        `/admin/publishing/topics/${this.topicId}/publish.json`,
         {
           type: "POST",
-          data: {
+          contentType: "application/json",
+          data: JSON.stringify({
             publication: {
               content_connection_id: this.connectionId,
               external_id: this.externalId,
               canonical_url: this.canonicalUrl,
               lane: this.lane || null,
-              native_materialization: this.nativeMaterialization,
+              ...(this.presentationModeSelected
+                ? { presentation_mode: this.presentationMode || null }
+                : {}),
             },
-          },
+          }),
         }
       );
       this.createdRecord = result;
-      this.notice = this.publicationOutcomeLabel(result);
+      this.notice = i18n(
+        result.outcome === "created"
+          ? "discussion_bridge.admin.publisher_created"
+          : "discussion_bridge.admin.publisher_resolved"
+      );
       this.noticeContext = "publication";
       this.router.refresh();
     } catch (error) {
@@ -364,33 +172,10 @@ export default class DiscussionBridgePublishing extends Component {
     return value?.replaceAll("_", " ") || "—";
   }
 
-  publicationOutcomeLabel(result) {
-    const platform = [
-      "astro",
-      "ghost",
-      "hugo",
-      "statamic",
-      "wordpress",
-    ].includes(result.platform)
-      ? `_${result.platform}`
-      : "";
-    const outcome = result.outcome === "created" ? "created" : "resolved";
-
-    return i18n(`discussion_bridge.admin.publisher_${outcome}${platform}`);
-  }
-
   @action
   presentationUrl(record) {
     return (
       this.correctedPresentationUrls[record.resource_id] || record.canonical_url
-    );
-  }
-
-  @action
-  nativePublication(record) {
-    return (
-      this.migratedNativeResourceIds[record.resource_id] ||
-      record.native_materialization
     );
   }
 
@@ -402,7 +187,7 @@ export default class DiscussionBridgePublishing extends Component {
               }}</h2><p>{{i18n
                 "discussion_bridge.admin.publishing_description"
               }}</p></div></div>
-        <strong class={{if @model.product.ready "is-ready" "needs-attention"}}>{{if
+        <strong data-ready={{@model.product.ready}}>{{if
             @model.product.ready
             (i18n "discussion_bridge.admin.publisher_ready")
             (i18n "discussion_bridge.admin.needs_attention")
@@ -416,9 +201,9 @@ export default class DiscussionBridgePublishing extends Component {
 
       <div class="discussion-bridge-publishing__metrics">
         <article><span>{{i18n
-              "discussion_bridge.admin.publisher_published_topics"
+              "discussion_bridge.admin.publisher_tracked_topics"
             }}</span><strong
-          >{{@model.metrics.published_topics}}</strong></article>
+          >{{@model.metrics.tracked_topics}}</strong></article>
         <article><span>{{i18n
               "discussion_bridge.admin.publisher_presentations"
             }}</span><strong>{{@model.metrics.presentations}}</strong></article>
@@ -426,9 +211,6 @@ export default class DiscussionBridgePublishing extends Component {
               "discussion_bridge.admin.publisher_connected_platforms"
             }}</span><strong
           >{{@model.metrics.connected_platforms}}</strong></article>
-        <article><span>{{i18n
-              "discussion_bridge.admin.publisher_queue_attention"
-            }}</span><strong>{{this.queueAttention}}</strong></article>
       </div>
 
       {{#if @model.product.blockers.length}}
@@ -452,19 +234,13 @@ export default class DiscussionBridgePublishing extends Component {
             }}<input
               required
               min="1"
-              max="999999999999"
-              inputmode="numeric"
               type="number"
               value={{this.topicId}}
               {{on "input" this.updateTopicId}}
             /></label>
           <label>{{i18n "discussion_bridge.admin.publisher_connection"}}
             <select required {{on "change" this.updateConnectionId}}>
-              <option
-                value=""
-                selected={{eq this.connectionId ""}}
-                disabled
-              >{{i18n "discussion_bridge.admin.select_connection"}}</option>
+              <option value="">—</option>
               {{#each @model.connections as |connection|}}<option
                   value={{connection.id}}
                   selected={{eq connection.id this.connectionId}}
@@ -476,9 +252,7 @@ export default class DiscussionBridgePublishing extends Component {
           {{#if this.selectedLanes.length}}
             <label>{{i18n "discussion_bridge.admin.publisher_lane"}}
               <select required {{on "change" this.updateLane}}>
-                <option value="" selected={{eq this.lane ""}} disabled>{{i18n
-                    "discussion_bridge.admin.select_category_route"
-                  }}</option>
+                <option value="">—</option>
                 {{#each this.selectedLanes as |lane|}}<option
                     value={{lane}}
                     selected={{eq lane this.lane}}
@@ -499,26 +273,23 @@ export default class DiscussionBridgePublishing extends Component {
               type="url"
               value={{this.canonicalUrl}}
               {{on "input" this.updateCanonicalUrl}}
-            /><small>{{i18n
-                "discussion_bridge.admin.presentation_url_suggestion"
-              }}</small></label>
-          <label class="discussion-bridge-publishing__checkbox"><input
-              type="checkbox"
-              checked={{this.nativeMaterialization}}
-              {{on "change" this.updateNativeMaterialization}}
-            /><span>{{i18n
-                "discussion_bridge.admin.publisher_native_materialization"
-              }}</span></label>
+            /></label>
+
+          <label>{{i18n "discussion_bridge.admin.publisher_presentation_mode"}}
+            <select {{on "change" this.updatePresentationMode}}>
+              <option value="" selected={{eq this.presentationMode ""}}>{{i18n
+                  "discussion_bridge.admin.publisher_destination_mode"
+                }}</option>
+              <option value="simple" selected={{eq this.presentationMode "simple"}}>Simple</option>
+              <option value="full" selected={{eq this.presentationMode "full"}}>Full</option>
+              <option value="interactive" selected={{eq this.presentationMode "interactive"}}>Interactive</option>
+            </select>
+          </label>
           <DButton
             @type="submit"
             @label="discussion_bridge.admin.publisher_publish"
             @disabled={{this.working}}
             class="btn-primary"
-          />
-          <DButton
-            @label="discussion_bridge.admin.cancel"
-            @action={{this.cancelPublication}}
-            @disabled={{this.working}}
           />
           {{#if (eq this.noticeContext "publication")}}
             <p
@@ -532,11 +303,8 @@ export default class DiscussionBridgePublishing extends Component {
         </form>
       </div>
 
-      <section class="discussion-bridge-publishing__recent discussion-bridge-publishing__recent--records">
+      <section class="discussion-bridge-publishing__recent">
         <h3>{{i18n "discussion_bridge.admin.publisher_recent_activity"}}</h3>
-        <p><a href="/admin/plugins/discourse-discussion-bridge/bridge-records">{{i18n
-              "discussion_bridge.admin.publisher_all_records"
-            }}</a></p>
         {{#if (eq this.noticeContext "correction")}}
           <p class="discussion-bridge-publishing__notice" role="status"><strong
             >{{this.notice}}</strong>{{#if this.createdRecord}}
@@ -544,98 +312,49 @@ export default class DiscussionBridgePublishing extends Component {
               <a href={{this.createdRecord.topic_url}}>Open topic
                 {{this.createdRecord.topic_id}}</a>{{/if}}</p>
         {{/if}}
+        {{#if this.createdRecord.presentation_move_intent}}
+          <p>{{i18n "discussion_bridge.admin.publisher_presentation_requested"}}:
+            <a href={{this.createdRecord.presentation_move_intent.requested_url}}>{{this.createdRecord.presentation_move_intent.requested_url}}</a>
+            · {{i18n "discussion_bridge.admin.publisher_presentation_move_state"}}:
+            {{this.displayToken this.createdRecord.presentation_move_intent.state}}
+            {{#if this.createdRecord.presentation_move_intent.attention_code}}
+              <code>{{this.createdRecord.presentation_move_intent.attention_code}}</code>
+            {{/if}}
+          </p>
+        {{/if}}
         <table><thead><tr><th>{{i18n
                   "discussion_bridge.admin.publisher_local_topic"
                 }}</th><th>{{i18n "discussion_bridge.admin.platform"}}</th><th
               >{{i18n "discussion_bridge.admin.presentation"}}</th><th>{{i18n
-                  "discussion_bridge.admin.state"
+                  "discussion_bridge.admin.publisher_status"
                 }}</th><th>{{i18n
                   "discussion_bridge.admin.actions"
                 }}</th></tr></thead>
           <tbody>{{#each @model.recent_records as |record|}}
-              <tr><td><a href={{record.topic_url}}>Topic {{record.topic_id}} · {{record.title}}</a><small
+              <tr><td><a href={{record.topic_url}}>{{record.title}}</a><small
                   ><code>{{record.resource_id}}</code></small></td><td
                 >{{this.displayToken record.platform}}</td><td><a
                     href={{this.presentationUrl record}}
-                  >{{record.connection_name}}</a></td><td><span
-                    class="discussion-bridge-status"
-                    data-state={{record.delivery_state}}
-                  >{{this.displayToken record.delivery_state}}</span>{{#if
-                    record.delivery_reason
-                  }}<small>{{this.displayToken record.delivery_reason}}</small>{{/if}}</td><td>
-                  {{#if (this.nativePublication record)}}
-                    <DButton
-                      @label="discussion_bridge.admin.publisher_migrate_presentation"
-                      @action={{this.beginPresentationMigration}}
-                      @actionParam={{record}}
-                    />
-                  {{else}}
-                    <DButton
-                      @label="discussion_bridge.admin.publisher_edit_presentation"
-                      @action={{this.beginPresentationCorrection}}
-                      @actionParam={{record}}
-                    />
-                    <DButton
-                      @label="discussion_bridge.admin.publisher_migrate_legacy_presentation"
-                      @action={{this.beginPresentationMigration}}
-                      @actionParam={{record}}
-                    />
-                  {{/if}}
-                </td></tr>
+                  >{{record.connection_name}}</a></td><td
+                ><span>{{i18n "discussion_bridge.admin.publisher_publication_status"}}:
+                    {{this.publicationStatus record.publication_status}}</span><small
+                  >{{i18n "discussion_bridge.admin.publisher_discussion_status"}}:
+                    {{record.discussion_status}}</small>{{#if record.delivery.attention_required}}
+                    <strong>{{i18n "discussion_bridge.admin.cms.withdrawal_attention"}}</strong>
+                  {{/if}}</td><td><DButton
+                    @label="discussion_bridge.admin.publisher_edit_presentation"
+                    @action={{this.beginPresentationCorrection}}
+                    @actionParam={{record}}
+                  /></td></tr>
               {{#if this.editingRecord}}
                 {{#if (eq record.resource_id this.editingRecord.resource_id)}}
                   <tr class="discussion-bridge-publishing__correction-row"><td
                       colspan="5"
                     >
-                      {{#if this.migrationMode}}
-                        <form
-                          class="discussion-bridge-publishing__correction"
-                          {{on "submit" this.migratePresentation}}
-                        >
-                          <h4>{{i18n "discussion_bridge.admin.publisher_migrate_presentation"}}</h4>
-                          <p>{{i18n "discussion_bridge.admin.publisher_migrate_presentation_description"}}</p>
-                          {{#unless (this.nativePublication record)}}
-                            <p>{{i18n "discussion_bridge.admin.publisher_legacy_native_description"}}</p>
-                            <p><strong>{{i18n "discussion_bridge.admin.publisher_platform_content_id"}}</strong>
-                              <code>{{record.external_id}}</code></p>
-                            <label>{{i18n "discussion_bridge.admin.publisher_confirm_platform_content_id"}}<input
-                                required
-                                type="text"
-                                value={{this.legacyPlatformContentId}}
-                                {{on "input" this.updateLegacyPlatformContentId}}
-                              /></label>
-                            <label><input
-                                required
-                                type="checkbox"
-                                checked={{this.legacyNativeConfirmed}}
-                                {{on "change" this.updateLegacyNativeConfirmed}}
-                              />{{i18n "discussion_bridge.admin.publisher_confirm_legacy_native"}}</label>
-                          {{/unless}}
-                          <p><strong>{{i18n "discussion_bridge.admin.publisher_old_presentation_url"}}</strong>
-                            <code>{{this.presentationUrl record}}</code></p>
-                          <label>{{i18n "discussion_bridge.admin.publisher_new_presentation_url"}}<input
-                              required
-                              type="url"
-                              value={{this.correctedCanonicalUrl}}
-                              {{on "input" this.updateCorrectedCanonicalUrl}}
-                            /></label>
-                          <DButton
-                            @type="submit"
-                            @label="discussion_bridge.admin.publisher_verify_and_migrate"
-                            @disabled={{this.working}}
-                            class="btn-primary"
-                          />
-                          <DButton
-                            @label="discussion_bridge.admin.cancel"
-                            @action={{this.cancelPresentationCorrection}}
-                            @disabled={{this.working}}
-                          />
-                        </form>
-                      {{else}}
-                        <form
-                          class="discussion-bridge-publishing__correction"
-                          {{on "submit" this.correctPresentation}}
-                        >
+                      <form
+                        class="discussion-bridge-publishing__correction"
+                        {{on "submit" this.correctPresentation}}
+                      >
                         <h4>{{i18n
                             "discussion_bridge.admin.publisher_edit_presentation"
                           }}</h4>
@@ -661,8 +380,7 @@ export default class DiscussionBridgePublishing extends Component {
                           @action={{this.cancelPresentationCorrection}}
                           @disabled={{this.working}}
                         />
-                        </form>
-                      {{/if}}
+                      </form>
                     </td></tr>
                 {{/if}}
               {{/if}}
@@ -670,73 +388,6 @@ export default class DiscussionBridgePublishing extends Component {
                     "discussion_bridge.admin.publisher_no_activity"
                   }}</td></tr>{{/each}}</tbody>
         </table>
-      </section>
-
-      <section class="discussion-bridge-publishing__recent discussion-bridge-publishing__recent--queue">
-        <h3>{{i18n "discussion_bridge.admin.publication_queue"}}</h3>
-        <p>{{i18n "discussion_bridge.admin.publication_queue_description"}}</p>
-        <label class="discussion-bridge-publishing__queue-filter">
-          {{i18n "discussion_bridge.admin.publication_queue_filter"}}
-          <select {{on "change" this.updatePublicationWorkFilter}}>
-            <option value="all" selected={{eq this.publicationWorkFilter "all"}}>{{i18n "discussion_bridge.admin.all"}}</option>
-            <option value="attention" selected={{eq this.publicationWorkFilter "attention"}}>{{i18n "discussion_bridge.admin.publication_queue_attention_filter"}}</option>
-          </select>
-        </label>
-        <table>
-          <thead><tr><th>{{i18n "discussion_bridge.admin.publisher_local_topic"}}</th><th>{{i18n "discussion_bridge.admin.connection"}}</th><th>{{i18n "discussion_bridge.admin.action"}}</th><th>{{i18n "discussion_bridge.admin.status"}}</th><th>{{i18n "discussion_bridge.admin.reason"}}</th><th>{{i18n "discussion_bridge.admin.actions"}}</th></tr></thead>
-          <tbody>
-            {{#each this.publicationWork as |item|}}
-              <tr>
-                <td><a href={{item.topic_url}}>Topic {{item.topic_id}} · {{item.title}}</a></td>
-                <td>{{item.connection_name}} · {{this.displayToken item.platform}}</td>
-                <td>{{this.displayToken item.action}}</td>
-                <td><span class="discussion-bridge-status" data-state={{item.state}}>{{this.displayToken item.state}}</span></td>
-                <td>{{this.displayToken item.reason}}{{#if item.source_content_bytes}}<small>{{i18n
-                      "discussion_bridge.admin.publication_source_size"
-                      bytes=item.source_content_bytes
-                      limit=item.source_content_limit_bytes
-                    }}</small>{{/if}}{{#if item.last_error_detail}}<small>{{item.last_error_detail}}</small>{{/if}}</td>
-                <td>{{#if (eq item.state "failed")}}<DButton
-                    @label="discussion_bridge.admin.retry_publication"
-                    @action={{fn this.retryPublicationWork item}}
-                    @disabled={{this.working}}
-                    class="btn-small"
-                  />{{/if}}</td>
-              </tr>
-            {{else}}
-              <tr><td colspan="6">{{i18n "discussion_bridge.admin.publication_queue_empty"}}</td></tr>
-            {{/each}}
-          </tbody>
-        </table>
-        <nav
-          class="discussion-bridge-publishing__pagination"
-          aria-label={{i18n
-            "discussion_bridge.admin.publication_queue_pagination"
-          }}
-        >
-          <DButton
-            @label="discussion_bridge.admin.previous"
-            @action={{fn
-              this.loadPublicationWorkPage
-              this.previousPublicationWorkPage
-            }}
-            @disabled={{this.previousPublicationWorkPageDisabled}}
-          />
-          <span>{{i18n
-              "discussion_bridge.admin.publication_queue_page"
-              page=this.publicationWorkPagination.page
-              pages=this.publicationWorkPagination.pages
-              total=this.publicationWorkPagination.total
-            }}</span>
-          <DButton
-            @label="discussion_bridge.admin.next"
-            @action={{fn
-              this.loadPublicationWorkPage
-              this.nextPublicationWorkPage
-            }}
-            @disabled={{this.nextPublicationWorkPageDisabled}}
-          />
-        </nav>
       </section>
     </section>
   </template>

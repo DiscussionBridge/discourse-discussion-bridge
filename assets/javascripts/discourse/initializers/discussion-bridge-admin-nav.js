@@ -10,7 +10,6 @@ export default {
     }
 
     withPluginApi((api) => {
-      api.setAdminPluginIcon("discourse-discussion-bridge", "bridge");
       api.addAdminPluginConfigurationNav("discourse-discussion-bridge", [
         {
           label: "discussion_bridge.admin.health_nav",
@@ -36,11 +35,6 @@ export default {
           label: "discussion_bridge.admin.publishing_nav",
           route: "adminPlugins.show.discussion-bridge-publishing",
           description: "discussion_bridge.admin.publishing_nav_description",
-        },
-        {
-          label: "discussion_bridge.admin.operator_service_nav",
-          route: "adminPlugins.show.discussion-bridge-operator-service",
-          description: "discussion_bridge.admin.operator_service_nav_description",
         },
         {
           label: "discussion_bridge.admin.settings_nav",

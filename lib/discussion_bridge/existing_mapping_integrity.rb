@@ -27,13 +27,10 @@ module DiscussionBridge
       :effective_tags,
     )
 
-    def self.current(mapping_id:, expected_topic_id: nil, expected_updated_at: nil, record_type: nil)
+    def self.current(mapping_id:, expected_topic_id: nil, expected_updated_at: nil)
       result = nil
       ActiveRecord::Base.transaction(requires_new: true) do
-        mapping = if record_type != "legacy_mapping" && defined?(DiscussionBridgeBridgeRecord)
-          DiscussionBridgeBridgeRecord.lock.find_by(id: mapping_id, state: "healthy")
-        end
-        mapping ||= DiscussionBridgeConnection.lock.find_by(id: mapping_id, state: "complete") if record_type != "bridge_record"
+        mapping = DiscussionBridgeBridgeRecord.lock.find_by(id: mapping_id, state: "healthy")
         if !mapping
           result = denied("mapping_incomplete")
           next

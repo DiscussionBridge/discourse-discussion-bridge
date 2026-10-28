@@ -16,7 +16,6 @@ module DiscussionBridge
       verifier.generate(
         {
           "mapping_id" => mapping.id,
-          "record_type" => mapping.is_a?(DiscussionBridgeBridgeRecord) ? "bridge_record" : "legacy_mapping",
           "topic_id" => mapping.topic_id,
           "mapping_updated_at" => mapping.updated_at.utc.iso8601(6),
           "class_name" => class_name,
@@ -30,15 +29,9 @@ module DiscussionBridge
       payload = authenticated_payload(token)
       return unless live_payload?(payload)
 
-      mapping = if payload["record_type"] == "bridge_record"
-        DiscussionBridgeBridgeRecord.find_by(
-          id: payload["mapping_id"], topic_id: payload["topic_id"], state: "healthy",
-        )
-      else
-        DiscussionBridgeConnection.find_by(
-          id: payload["mapping_id"], topic_id: payload["topic_id"], state: "complete",
-        )
-      end
+      mapping = DiscussionBridgeBridgeRecord.find_by(
+        id: payload["mapping_id"], topic_id: payload["topic_id"], state: "healthy",
+      )
       return unless mapping
       return unless mapping.updated_at.utc.iso8601(6) == payload["mapping_updated_at"]
 
