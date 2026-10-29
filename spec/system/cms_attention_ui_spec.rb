@@ -30,10 +30,9 @@ RSpec.describe "DiscussionBridge native attention administration" do
     SiteSetting.discussion_bridge_enabled = true
     SiteSetting.discussion_bridge_endpoint_enabled = true
     SiteSetting.discussion_bridge_publisher_enabled = true
-    # Core's standard system server is HTTP. Leaving force_https enabled here
-    # makes Core issue Secure auth cookies that this server cannot send back.
-    # publication enables it only while capturing actual canonical source URLs.
-    SiteSetting.force_https = false
+    # All source captures, including coordinator refreshes during browser AJAX,
+    # must use Core's real canonical HTTPS URL configuration.
+    SiteSetting.force_https = true
     SiteSetting.login_required = false
     @page_errors = []
     @attention_posts = []
@@ -48,7 +47,8 @@ RSpec.describe "DiscussionBridge native attention administration" do
     @connection, @secret = issue_connection
     @mapping = publication(@connection, "first")
     @work = attention!(@mapping)
-    sign_in(admin)
+    sign_in_on_local_server(admin)
+    visit "/latest"
     expect(URI(page.current_url).host).to eq(Capybara.server_host)
     expect(URI(page.current_url).port).to eq(Capybara.server_port)
     expect(page).to have_css(".header-dropdown-toggle.current-user")
@@ -56,6 +56,18 @@ RSpec.describe "DiscussionBridge native attention administration" do
 
   after do
     expect(@page_errors).to be_empty
+  end
+
+  def sign_in_on_local_server(user)
+    # Core's ordinary become endpoint issues the real auth cookie. Only that
+    # request uses HTTP-cookie settings for its standard local HTTP server;
+    # every later browser request and source operation retains force_https.
+    # No cookie/token or canonical URL is fabricated or patched.
+    previous_force_https = SiteSetting.force_https
+    SiteSetting.force_https = false
+    sign_in(user)
+  ensure
+    SiteSetting.force_https = previous_force_https
   end
 
   def issue_connection(profile: "ghost", kind: "dynamic")
@@ -75,8 +87,6 @@ RSpec.describe "DiscussionBridge native attention administration" do
   end
 
   def publication(connection, name)
-    previous_force_https = SiteSetting.force_https
-    SiteSetting.force_https = true
     topic = Fabricate(:topic, user: admin, title: "Native UI attention #{name}")
     Fabricate(:post, topic: topic, user: admin, post_number: 1,
       raw: "Native UI source #{name}.", cooked: "<p>Native UI source #{name}.</p>")
@@ -90,8 +100,6 @@ RSpec.describe "DiscussionBridge native attention administration" do
     expect(URI(source_url).host).to eq(URI(Discourse.base_url).host)
     DiscussionBridge::CmsProtocol.validate!("Url", source_url)
     mapping
-  ensure
-    SiteSetting.force_https = previous_force_https
   end
 
   def authority(lease)
@@ -433,7 +441,7 @@ RSpec.describe "DiscussionBridge native attention administration" do
     DiscussionBridge::CmsAttentionNotifications.dispatch
     expect(DiscussionBridgeCmsAttentionDelivery.where(notice_id: notice.id, user_id: admin.id).count).to eq(1)
     expect(recipient.reload.notification_id).to eq(notification.id)
-    sign_in(ordinary_user)
+    sign_in_on_local_server(ordinary_user)
     visit PANEL
     expect(page).to have_no_css(".discussion-bridge-connection-card")
     expect(page).to have_no_css(".discussion-bridge-cms-delivery")
