@@ -32,6 +32,32 @@ describe DiscussionBridgeContentConnection do
     expect(second_wordpress.reload.generate_topic_toc).to eq(true)
   end
 
+  it "requires the exact lowercase hexadecimal wire connection identity" do
+    connection, = described_class.issue!(
+      name: "Wire identity validation",
+      platform: "ghost",
+      allowed_origins: ["https://identity.example"],
+      allowed_directions: ["to_discourse"],
+      allowed_lanes: [],
+    )
+
+    connection.public_id = "dbc_0123456789abcdef01234567"
+    expect(connection).to be_valid
+
+    [
+      "dbc_#{'g' * 24}",
+      "dbc_#{'z' * 24}",
+      "dbc_#{'A' * 24}",
+      "dbc_#{'1' * 23}",
+      "dbc_#{'1' * 25}",
+      "dbc_#{'1' * 24}\n",
+    ].each do |public_id|
+      connection.public_id = public_id
+      expect(connection).not_to be_valid
+      expect(connection.errors[:public_id]).to be_present
+    end
+  end
+
   it "keeps credentials independent and rejects malformed scope" do
     first, first_secret = described_class.issue!(
       name: "First",

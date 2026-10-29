@@ -4,7 +4,9 @@ on:
   push:
     branches:
       - main
+      - 'codex/**'
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,4 +15,22 @@ jobs:
   ci:
     uses: discourse/.github/.github/workflows/discourse-plugin.yml@bee9ee78c8e6fd574a8496f415e08c6eb412d3df
     with:
-      core_ref: 36698aae084678151dffa875d49c8d59216d2733
+      # Match the actual protected sandbox Core without upgrading its runtime.
+      core_ref: acf8e70129f5359635f8227ad8a91a792204147e
+      # Compatible Ruby 3.4 image, including browsers for retained system tests.
+      container: discourse/discourse_test@sha256:5df460f3592a1adacc924775b6c690191572d8efe9e51d3f823c38c092d9f6a3
+
+  author_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: discourse/discourse_test@sha256:5df460f3592a1adacc924775b6c690191572d8efe9e51d3f823c38c092d9f6a3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check V4 codec and normal package
+        run: |
+          ruby spec/scripts/v4_codec_checks.rb
+          ruby spec/scripts/v4_package_checks.rb
+      - name: Check support mail transaction regressions
+        run: ruby spec/scripts/support_request_job_checks.rb

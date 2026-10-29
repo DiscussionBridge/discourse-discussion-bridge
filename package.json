@@ -1,0 +1,18 @@
+{
+  "private": true,
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0",
+    "pnpm": ">=10 <12"
+  },
+  "devDependencies": {
+    "@discourse/lint-configs": "3.8.2",
+    "eslint": "10.6.0",
+    "prettier": "3.8.1",
+    "stylelint": "17.5.0"
+  },
+  "scripts": {
+    "lint:js": "eslint assets/javascripts admin/assets/javascripts public/javascripts/support.js --no-error-on-unmatched-pattern",
+    "lint:css": "stylelint \"assets/**/*.scss\" \"admin/assets/**/*.scss\" --allow-empty-input",
+    "lint:prettier": "prettier \"{assets,admin/assets}/**/*.{js,gjs,scss}\" public/javascripts/support.js --check --no-error-on-unmatched-pattern"
+  }
+}

@@ -7,9 +7,9 @@ module Jobs
       # permits a duplicate send on a job retry. Native EmailLog is acceptance by
       # this forum's mailer, not proof of recipient delivery or commercial state.
       row = nil
-      DiscussionBridge::SupportAccess.locked do |state|
+      admitted = DiscussionBridge::SupportAccess.locked do |state|
         row = ::DiscussionBridgeSupportRequest.lock.find_by(id: args[:request_record_id])
-        return unless row && %w[pending queued queue_unconfirmed].include?(row.status)
+        next false unless row && %w[pending queued queue_unconfirmed].include?(row.status)
         actor = row.actor
         begin
           DiscussionBridge::CmsAuthorityLifecycle.administrator!(actor)
@@ -19,11 +19,12 @@ module Jobs
           raise Discourse::InvalidAccess unless allowed
         rescue Discourse::InvalidAccess
           row.update!(status: "cancelled", failure_code: "consent_or_actor_unavailable")
-          return
+          next false
         end
         row.update!(status: "sending", failure_code: nil)
+        true
       end
-      return unless row&.status == "sending"
+      return unless admitted && row&.status == "sending"
 
       # Keep support disable/revocation serialized with delivery admission too.
       DiscussionBridge::SupportAccess.locked do |state|
@@ -33,11 +34,11 @@ module Jobs
           DiscussionBridge::CmsAuthorityLifecycle.administrator!(actor)
         rescue Discourse::InvalidAccess
           row.update!(status: "cancelled", failure_code: "consent_or_actor_unavailable")
-          return
+          next
         end
         unless state.enabled && SiteSetting.discussion_bridge_enabled
           row.update!(status: "cancelled", failure_code: "consent_or_actor_unavailable")
-          return
+          next
         end
         result = Email::Sender.new(DiscussionBridge::SupportMailer.request_assistance(row), "discussion_bridge_support").send
         accepted = result.is_a?(EmailLog) && result.persisted?
