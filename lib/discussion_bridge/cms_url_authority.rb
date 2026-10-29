@@ -64,14 +64,12 @@ module DiscussionBridge
         .fetch("members")
         .map do |member|
           relative = member.fetch("path")
-          unless relative.is_a?(String) && !relative.empty? &&
-                   !relative.start_with?("/") && !relative.include?(":") &&
-                   !relative.include?("\\") &&
-                   relative
-                     .split("/")
-                     .none? { |part|
-                       part.empty? || part == "." || part == ".."
-                     }
+          if !relative.is_a?(String) || relative.empty? ||
+               relative.start_with?("/") || relative.include?(":") ||
+               relative.include?("\\") ||
+               relative
+                 .split("/")
+                 .any? { |part| part.empty? || part == "." || part == ".." }
             raise "V4 private IDNA member path mismatch"
           end
           file = File.join(bundle, relative)

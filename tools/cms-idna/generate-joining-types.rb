@@ -5,22 +5,21 @@
 require "digest"
 input, output = ARGV
 bytes = File.binread(input)
-unless bytes.include?("DerivedJoiningType-17.0.0.txt")
-  abort "Unexpected Unicode version"
-end
+expected_version = bytes.include?("DerivedJoiningType-17.0.0.txt")
+abort "Unexpected Unicode version" unless expected_version
 entries = {}
 bytes.each_line do |line|
   match = /\A([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*([CDLRTU])\b/.match(line)
   next unless match
   first = match[1].to_i(16)
   last = match[2] ? match[2].to_i(16) : first
-  abort "Invalid property range" unless first <= last && last <= 0x10ffff
+  abort "Invalid property range" if first > last || last > 0x10ffff
   (first..last).each do |point|
     abort "Duplicate property" if entries.key?(point)
     entries[point] = match[3].ord
   end
 end
-abort "Incomplete property source" unless entries.length > 2000
+abort "Incomplete property source" if entries.length <= 2000
 lines =
   entries.sort.map do |point, type|
     "      #{[point].pack("U").dump} => #{type},"

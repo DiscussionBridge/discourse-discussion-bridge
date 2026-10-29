@@ -100,8 +100,8 @@ require File.join(nfc_dir, "normalize")
   scripts_generator
   uts46_generator
 ].each { |name| require File.join(upstream, "tasks", name) }
-CodePoint.prepend(
-  Module.new do
+module DiscussionBridgeIdnaBuild
+  module CodePointNormalization
     def nfkc_cf
       return char unless char.valid_encoding?
       DiscussionBridgeIdnaNfc17.normalize(
@@ -110,7 +110,8 @@ CodePoint.prepend(
       )
     end
   end
-)
+end
+CodePoint.prepend(DiscussionBridgeIdnaBuild::CodePointNormalization)
 unicode = UnicodeData.new("17.0.0", File.dirname(data_dir))
 target_data = File.join(output, "uri/idna/data")
 %w[unicode_version].each do |name|
