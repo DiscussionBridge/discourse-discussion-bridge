@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require_relative "support/attention_https_system"
 
 # Actual Core/Capybara/Playwright rendering and AJAX against local Rails/SQL.
 # Only native-owner observations/public proofs below are synthetic typed facts.
 # No CMS write or anonymous public-URL qualification is claimed by these tests.
-# Runtime prerequisite: real loopback HTTPS serving the configured canonical
-# forum origin. Do not stub Topic.url/Discourse.base_url or relax the Url schema.
+# Phil approved Core's standard local browser server for these admin cases.
+# Canonical source URLs still come from actual Core HTTPS settings and are
+# asserted below. Actual HTTPS transport is a separate protected-sandbox gate;
+# neither Topic.url/Discourse.base_url nor the product Url schema is replaced.
 RSpec.describe "DiscussionBridge native attention administration" do
   PANEL = "/admin/plugins/discourse-discussion-bridge/connections"
   CHECK = "Check native state"
@@ -45,7 +46,8 @@ RSpec.describe "DiscussionBridge native attention administration" do
     @mapping = publication(@connection, "first")
     @work = attention!(@mapping)
     sign_in(admin)
-    expect(URI(page.current_url).scheme).to eq("https"), "Native source fixtures require an actual local HTTPS origin"
+    expect(URI(page.current_url).host).to eq(Capybara.server_host)
+    expect(URI(page.current_url).port).to eq(Capybara.server_port)
   end
 
   after do
@@ -74,7 +76,14 @@ RSpec.describe "DiscussionBridge native attention administration" do
       raw: "Native UI source #{name}.", cooked: "<p>Native UI source #{name}.</p>")
     result = DiscussionBridge::FromDiscourseRecordCreator.call(user: admin, connection_id: connection.id,
       topic_id: topic.id, external_id: "ui-#{name}", canonical_url: "https://site.example/ui-#{name}/")
-    DiscussionBridgeCmsMapping.find_by!(content_binding_id: result.record.active_binding("presentation").id)
+    mapping = DiscussionBridgeCmsMapping.find_by!(content_binding_id: result.record.active_binding("presentation").id)
+    source_url = mapping.work_items.order(:id).last.source_snapshot.fetch("topic_url")
+    expect(Discourse.base_url).to start_with("https://")
+    expect(source_url).to eq(topic.url)
+    expect(URI(source_url).scheme).to eq("https")
+    expect(URI(source_url).host).to eq(URI(Discourse.base_url).host)
+    DiscussionBridge::CmsProtocol.validate!("Url", source_url)
+    mapping
   end
 
   def authority(lease)
