@@ -26,14 +26,17 @@ jobs:
     container: discourse/discourse_test@sha256:5df460f3592a1adacc924775b6c690191572d8efe9e51d3f823c38c092d9f6a3
     env:
       BUNDLE_FROZEN: "true"
-      BUNDLE_PATH: ${{ runner.temp }}/discussionbridge-author-bundle
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Install the locked author-test dependencies
+        env:
+          BUNDLE_PATH: ${{ runner.temp }}/discussionbridge-author-bundle
         run: bundle install --jobs 2 --retry 2
       - name: Check V4 codec and normal package
+        env:
+          BUNDLE_PATH: ${{ runner.temp }}/discussionbridge-author-bundle
         run: |
           bundle exec ruby spec/scripts/v4_codec_checks.rb
           bundle exec ruby spec/scripts/v4_package_checks.rb
@@ -41,4 +44,6 @@ jobs:
           bundle exec ruby spec/scripts/source_move_projection_checks.rb
           bundle exec ruby spec/scripts/support_controls_checks.rb
       - name: Check support mail transaction regressions
+        env:
+          BUNDLE_PATH: ${{ runner.temp }}/discussionbridge-author-bundle
         run: bundle exec ruby spec/scripts/support_request_job_checks.rb
