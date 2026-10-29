@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require_relative "../support/attention_https_system"
+require_relative "support/attention_https_system"
 
 # Actual Core/Capybara/Playwright rendering and AJAX against local Rails/SQL.
 # Only native-owner observations/public proofs below are synthetic typed facts.

@@ -6,7 +6,7 @@
 # proves projection admission, never a native commit or public-proof success.
 require "json"
 require "digest"
-require_relative "../support/standalone_enumerable_helpers"
+require_relative "support/standalone_enumerable_helpers"
 
 class Object
   def blank? = respond_to?(:empty?) ? empty? : !self

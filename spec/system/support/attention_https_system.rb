@@ -8,6 +8,23 @@ require "fileutils"
 # certificate. This is browser/controller/SQL evidence, not public-origin proof.
 # Production transport and certificate validation are not changed by this file.
 module DiscussionBridgeAttentionHttpsSystem
+  class << self
+    attr_reader :host, :port
+  end
+
+  # Capybara normally discovers SSL by first probing plain HTTP. This suite has
+  # explicitly created an SSL-only listener, so select HTTPS for its real health
+  # request immediately. Do not fabricate a response or alter other origins.
+  module ReadinessTransport
+    def initialize(host, port)
+      super
+      if host == DiscussionBridgeAttentionHttpsSystem.host &&
+           port == DiscussionBridgeAttentionHttpsSystem.port
+        @ssl = true
+      end
+    end
+  end
+
   module Driver
     private
 
@@ -20,6 +37,8 @@ module DiscussionBridgeAttentionHttpsSystem
     host = Capybara.server_host
     loopback = %w[localhost 127.0.0.1 ::1].include?(host)
     raise "Attention system TLS must remain loopback-only" unless loopback
+    @host = host
+    @port = Capybara.server_port
 
     @directory = Dir.mktmpdir("discussionbridge-attention-tls-")
     key = OpenSSL::PKey::RSA.new(2048)
@@ -43,8 +62,9 @@ module DiscussionBridgeAttentionHttpsSystem
     File.write(certificate_path, certificate.to_pem)
     bind_host = host == "::1" ? "[::1]" : host
     query = URI.encode_www_form(key: key_path, cert: certificate_path)
-    Capybara.server = :puma, { Host: "ssl://#{bind_host}:#{Capybara.server_port}?#{query}", Silent: true }
-    Capybara.app_host = "https://#{bind_host}:#{Capybara.server_port}"
+    Capybara.server = :puma, { Host: "ssl://#{bind_host}:#{@port}?#{query}", Silent: true }
+    Capybara.app_host = "https://#{bind_host}:#{@port}"
+    Capybara::Server::Checker.prepend(ReadinessTransport)
     SystemDrivers.singleton_class.prepend(Driver)
   end
 

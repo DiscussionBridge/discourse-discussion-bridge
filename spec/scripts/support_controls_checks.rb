@@ -3,7 +3,7 @@
 # Standalone author checks: execute the actual support control modules against
 # explicit native-framework seams. No database, Core session or account mutation.
 require "json"
-require_relative "../support/standalone_enumerable_helpers"
+require_relative "support/standalone_enumerable_helpers"
 
 class Object
   def deep_dup

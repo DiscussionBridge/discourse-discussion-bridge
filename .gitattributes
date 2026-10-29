@@ -1,0 +1,3 @@
+# Protocol pins and source archives identify exact bytes on every host.
+# Do not let a checkout/archive's core.autocrlf rewrite those bytes.
+* -text

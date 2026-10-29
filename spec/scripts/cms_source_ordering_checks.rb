@@ -7,7 +7,7 @@
 # Native coverage belongs to spec/lib/cms_source_ordering_spec.rb.
 require "json"
 require "digest"
-require_relative "../support/standalone_enumerable_helpers"
+require_relative "support/standalone_enumerable_helpers"
 
 class Object
   def blank? = respond_to?(:empty?) ? empty? : !self
