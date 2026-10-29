@@ -1,0 +1,183 @@
+{
+  "format": 1,
+  "scope": "Private UTS46 ToASCII URL-authority validation only; no global URI, String or native normalizer replacement.",
+  "unicode_version": "17.0.0",
+  "uri_idna_version": "0.3.1",
+  "uri_idna_commit": "29fadb2b73599c66db3202d62ceb1d25eefeca12",
+  "ruby_compatible_engine_commit": "0581089df9f0af0fe6b64cb8167987c211100947",
+  "ruby_composition_and_generator_commit": "a6c4c8e8e6ab9a280f5dd4f757785669fddb897e",
+  "owned_changes": [
+    "Private namespace and LF transport",
+    "Pinned Unicode17 data and complete derived joining types",
+    "Empty STD3-set compatibility",
+    "Correct virama regexp direction and transparent-only ContextJ scans",
+    "Private pinned NFC with maintained Unicode16+ composition correction and Ruby3.3-compatible cache/syntax",
+    "No build-host NFKC dependency in generated codepoint properties"
+  ],
+  "unicode_input_sha256": {
+    "ArabicShaping.txt": "39afa01e680e27d0fd10b67a9b27be13fbaa3d0efecfb5be45991de9a0d267d0",
+    "Blocks.txt": "c0edefaf1a19771e830a82735472716af6bf3c3975f6c2a23ffbe2580fbbcb15",
+    "CaseFolding.txt": "ff8d8fefbf123574205085d6714c36149eb946d717a0c585c27f0f4ef58c4183",
+    "CompositionExclusions.txt": "2f239196ef3b5b61db5cc476e9bd80f534d15aa1b74e1be1dea5d042a344c85f",
+    "DerivedCoreProperties.txt": "24c7fed1195c482faaefd5c1e7eb821c5ee1fb6de07ecdbaa64b56a99da22c08",
+    "DerivedJoiningType.txt": "f39ebe974825d6736aee15582250307aa532b2cfab3caf3f86bd23fddc9c5c4d",
+    "HangulSyllableType.txt": "5a57450afde0d082bc5026f7458649eac3b615490cc7e3d916b0367f1593c0e3",
+    "IdnaMappingTable.txt": "87f05505dc026fdb2bff16132bdc68a8014675836882a9a2b1844540ad3be382",
+    "PropList.txt": "130dcddcaadaf071008bdfce1e7743e04fdfbc910886f017d9f9ac931d8c64dd",
+    "Scripts.txt": "9f5e50d3abaee7d6ce09480f325c706f485ae3240912527e651954d2d6b035bf",
+    "UnicodeData.txt": "2e1efc1dcb59c575eedf5ccae60f95229f706ee6d031835247d843c11d96470c",
+    "LICENSE.txt": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96"
+  },
+  "members": [
+    {
+      "path": "LICENSE_RUBY_BSD.txt",
+      "bytes": 1291,
+      "sha256": "36a9a6e7347214bbba599a412617204e65bff065dcbe5c46f5cb454c80de9eb0"
+    },
+    {
+      "path": "LICENSE_UNICODE.txt",
+      "bytes": 1995,
+      "sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96"
+    },
+    {
+      "path": "LICENSE_URI_IDNA.txt",
+      "bytes": 1085,
+      "sha256": "1feec304bc0f17811e229ea26a34760a90aa7b4975f4b458bba27150a28b37bf"
+    },
+    {
+      "path": "private_nfc17/normalize.rb",
+      "bytes": 6313,
+      "sha256": "89ec66b4f826033f96b6c6ae2b833a21e085c0ef75b2a9c687f59599ae1192a9"
+    },
+    {
+      "path": "private_nfc17/tables.rb",
+      "bytes": 229214,
+      "sha256": "1db1eb7e9fcfbbf37451cfd54fff9ef12d07b272c910ff3727c56ec87cb8b77a"
+    },
+    {
+      "path": "uri-idna.rb",
+      "bytes": 59,
+      "sha256": "8f3238973ce956d58b5d30390490c7f464a5cad664efd04c86e624fc8a093535"
+    },
+    {
+      "path": "uri/idna.rb",
+      "bytes": 2207,
+      "sha256": "735539cf5a5a8e8c6d510813324ec2c19ea59e67f5fe3ea9bab10c17eedafae9"
+    },
+    {
+      "path": "uri/idna/base_processing.rb",
+      "bytes": 2062,
+      "sha256": "3a172ad78592af9859280e730f874c22d4d84214c27804ad99d06206756e0023"
+    },
+    {
+      "path": "uri/idna/data/bidi_classes.rb",
+      "bytes": 52608,
+      "sha256": "764d4661eb2bff2b3cb8c3f4e89b54b26115aa7270670a51336ebb19577520d9"
+    },
+    {
+      "path": "uri/idna/data/codepoint_classes.rb",
+      "bytes": 28539,
+      "sha256": "6ab24f194ff05336fc842d7c72407a24a66f4415e984dd079d3113f3a7b1ad8f"
+    },
+    {
+      "path": "uri/idna/data/joining_types.rb",
+      "bytes": 70334,
+      "sha256": "cf94347a10520920d839f1abd76f5b3d174ff4b88d31f4b3ce898a9a304ab265"
+    },
+    {
+      "path": "uri/idna/data/leading_combiners.rb",
+      "bytes": 7882,
+      "sha256": "2810b7b22716b6c0476d565ad69ab1c550b04d144c9b343bed05f18650d00fa3"
+    },
+    {
+      "path": "uri/idna/data/scripts.rb",
+      "bytes": 2533,
+      "sha256": "c0691144c54f96db75ebf5b5c15ff2ba92fec45f45e3c10f91fda756863b3b06"
+    },
+    {
+      "path": "uri/idna/data/unicode_version.rb",
+      "bytes": 206,
+      "sha256": "d3ccde0939c24c215f57885ee64c9ef290bb57e758245bb25b00f9a9746cd2cd"
+    },
+    {
+      "path": "uri/idna/data/uts46.rb",
+      "bytes": 231031,
+      "sha256": "3d6322fc608dd43295d1aeb2bb3dbc71127b17f612c164ab0d92b89c68d0fc66"
+    },
+    {
+      "path": "uri/idna/data/virama_combining_classes.rb",
+      "bytes": 1309,
+      "sha256": "c1025156a151fd05aec3759e6d20ad43f077b02a3b11037f498565bfae5271e0"
+    },
+    {
+      "path": "uri/idna/idna2008/options.rb",
+      "bytes": 1455,
+      "sha256": "31e81c2c37f3e3fabf99ad9fecac8c5062e6af6cb3ac820a486da54b0ea03023"
+    },
+    {
+      "path": "uri/idna/idna2008/processing.rb",
+      "bytes": 4297,
+      "sha256": "98e6140c336cdbfa876ace061b508e8874b9d4393678ad8197a72f823b586b5c"
+    },
+    {
+      "path": "uri/idna/punycode.rb",
+      "bytes": 4312,
+      "sha256": "8c5e49713af7eee39d052d8f0cdb8d08d1435136e2b0786f93a9d57fae282211"
+    },
+    {
+      "path": "uri/idna/uts46/mapping.rb",
+      "bytes": 2510,
+      "sha256": "d3b4c410481f06fa25e522babdbd25c8527692f07abc7e3bab043e0470f7f0f9"
+    },
+    {
+      "path": "uri/idna/uts46/options.rb",
+      "bytes": 2187,
+      "sha256": "f1b07ad9161c4ac39e4a249ad0df81a9b59dc2881daae06298ff5c11af48d017"
+    },
+    {
+      "path": "uri/idna/uts46/processing.rb",
+      "bytes": 2762,
+      "sha256": "0f3c07c20de228d3e96507d5092a10bdd7f70bb4ebcb95ca97b99ef797af46e2"
+    },
+    {
+      "path": "uri/idna/validation/bidi.rb",
+      "bytes": 2946,
+      "sha256": "c6d15cfb580101b5e5f870c19d021c15bc2b45eaec365363cdaef66645969392"
+    },
+    {
+      "path": "uri/idna/validation/contextj.rb",
+      "bytes": 2106,
+      "sha256": "e449ccff05de9234c83bb8b972e01e57308697a07cd08a3b385fc9e779ca1228"
+    },
+    {
+      "path": "uri/idna/validation/contexto.rb",
+      "bytes": 2448,
+      "sha256": "b4d8352b20f822991c5d8c97203912689b890928040525f121c86c95a9799426"
+    },
+    {
+      "path": "uri/idna/validation/idna_permitted.rb",
+      "bytes": 831,
+      "sha256": "7cada2fe8b7513848621c7617ec82431af2cef5f91dbb2cd97619b6cd9ca3a98"
+    },
+    {
+      "path": "uri/idna/validation/label.rb",
+      "bytes": 2092,
+      "sha256": "2b9e7ac8e289154aba41300c4caa426e79f260400db41964628fbf2186eae473"
+    },
+    {
+      "path": "uri/idna/validation/leading_combining.rb",
+      "bytes": 607,
+      "sha256": "d6354320318080f0b59e30a1be79adad02740e9a39b967cf50f1e543256cac01"
+    },
+    {
+      "path": "uri/idna/version.rb",
+      "bytes": 110,
+      "sha256": "43918c2e4b86252fc3e2341349a0bf674ba520ace4169be723811c5bbb7323e2"
+    },
+    {
+      "path": "uri/idna/whatwg/processing.rb",
+      "bytes": 905,
+      "sha256": "49632df922525533841567bcc67716bbc76da8a8e8fcd80f55ff26cca5f63079"
+    }
+  ]
+}

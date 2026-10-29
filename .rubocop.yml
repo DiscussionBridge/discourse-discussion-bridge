@@ -1,2 +1,7 @@
 inherit_gem:
   rubocop-discourse: stree-compat.yml
+
+AllCops:
+  Exclude:
+    # Exact third-party/generated dependency members; owned helper/tools remain checked.
+    - lib/discussion_bridge/vendor/cms_idna/**/*
