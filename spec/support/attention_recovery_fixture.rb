@@ -8,6 +8,7 @@ require "digest"
 require "securerandom"
 require "stringio"
 require "active_support"
+require "active_support/core_ext/enumerable"
 require "active_support/core_ext/object/blank"
 require "active_support/core_ext/object/deep_dup"
 require "active_support/core_ext/hash/except"
@@ -65,12 +66,12 @@ class Relation
   end
   def order(*keys, **kw)
     if kw.any?
-      key, direction = kw.first
-      sorted = rows.sort_by { |row| row.public_send(key) }
+      order_key, direction = kw.first
+      sorted = rows.sort_by { |row| row.public_send(order_key) }
       sorted.reverse! if direction == :desc
     else
-      names = keys.map { |key| key.to_s.split(".").last.to_sym }
-      sorted = rows.sort_by { |row| names.map { |key| row.public_send(key) } }
+      names = keys.map { |field| field.to_s.split(".").last.to_sym }
+      sorted = rows.sort_by { |row| names.map { |field| row.public_send(field) } }
     end
     self.class.new(model, sorted)
   end

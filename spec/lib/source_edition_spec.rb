@@ -12,6 +12,7 @@ describe DiscussionBridge::SourceEdition do
     first_post.update!(deleted_at: Time.current)
     expect(described_class.publicly_available?(topic.reload)).to eq(false)
   end
+
   it "does not publish a shared draft even when its native category is publicly readable" do
     SharedDraft.create!(topic_id: topic.id, category_id: topic.category_id)
     expect(described_class.publicly_available?(topic)).to eq(false)

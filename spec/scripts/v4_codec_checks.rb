@@ -4,9 +4,10 @@
 # framework convenience methods; no Rails/database/native proof is exercised.
 require "json"
 require "digest"
+require_relative "../support/standalone_enumerable_helpers"
 class Object
   def blank? = respond_to?(:empty?) ? empty? : !self
-  def present? = !blank?
+  def present? = blank? == false
   def presence = present? ? self : nil
 end
 class String
@@ -20,9 +21,15 @@ require File.join(root, "lib/discussion_bridge/cms_protocol")
 require File.join(root, "lib/discussion_bridge/managed_native_publication")
 require File.join(root, "lib/discussion_bridge/cms_to_publication")
 require File.join(root, "lib/discussion_bridge/cms_generated_excerpt")
-contract = File.expand_path("../adapter-contract", root)
-positive = JSON.parse(File.read(File.join(contract, "fixtures/positive-examples.json"))).fetch("fixtures")
-negative = JSON.parse(File.read(File.join(contract, "fixtures/rejection-cases.json")))
+fixtures = File.join(root, "spec/fixtures/v4")
+{
+  "positive-examples.json" => "b3ea942e9fe6b824ab2a0af5f4eecf46b672d544856fea53929d60a359225b30",
+  "rejection-cases.json" => "9d289b3985fcd7f401313a5fc9830526347b3a5dfc290ea6dabda8bf3c908431",
+}.each do |name, expected|
+  raise "V4 test-vector identity mismatch: #{name}" unless Digest::SHA256.file(File.join(fixtures, name)).hexdigest == expected
+end
+positive = JSON.parse(File.read(File.join(fixtures, "positive-examples.json"))).fetch("fixtures")
+negative = JSON.parse(File.read(File.join(fixtures, "rejection-cases.json")))
 checks = 0
 positive.each do |item|
   DiscussionBridge::CmsProtocol.validate!(item.fetch("type"), item.fetch("value"))
@@ -112,7 +119,7 @@ record["representation"] = { "kind" => "full" }
 record["source_content_bytes"] = complete.bytesize
 record["source_content_sha256"] = Digest::SHA256.hexdigest(complete)
 full_envelope = DiscussionBridge::CmsProtocol.semantic_identity({ "mutation_id" => "11111111-1111-4111-8111-111111111111", "bridge_record" => record }).bytesize
-raise "Envelope-only case missing" unless complete.bytesize <= 49_152 && full_envelope > 65_536
+raise "Envelope-only case missing" if complete.bytesize > 49_152 || full_envelope <= 65_536
 article = '<p>Preserved source article prefix.</p>'
 record["content_html"] = article + DiscussionBridge::CmsGeneratedExcerpt.link(record.fetch("canonical_url"))
 record["representation"] = {

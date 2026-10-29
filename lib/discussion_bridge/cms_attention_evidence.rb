@@ -87,11 +87,12 @@ module DiscussionBridge
     def self.candidate?(inspection, observation)
       work = inspection.fetch("work")
       result = observation["native_result"]
-      return false unless result && result["kind"] == work.fetch("action") &&
+      candidate_owned = result && result["kind"] == work.fetch("action") &&
         equal_hash?(observation, "current_sha256", "candidate_sha256") &&
         observation["source_revision"] == work["source_revision"] &&
         (owned_object?(inspection, observation, revision: nil, allow_prior_revision: true) ||
           candidate_after_withdrawal?(inspection, observation))
+      return false unless candidate_owned
       if work.fetch("action") == "publish_revision"
         source = inspection["source"]
         return false unless source && result.dig("representation", "source_content_sha256") == source["content_sha256"]
@@ -103,7 +104,7 @@ module DiscussionBridge
       mapping = inspection.fetch("mapping")
       ownership = observation["ownership"]
       result = observation["native_result"]
-      return false unless observation["object_exists"] == true && ownership && result &&
+      object_owned = observation["object_exists"] == true && ownership && result &&
         observation["managed_content_sha256"] && observation["native_id"] &&
         observation["native_revision"] == result["native_revision"] &&
         observation["native_id"] == result["native_id"] &&
@@ -114,6 +115,7 @@ module DiscussionBridge
         ownership["canonical_url"] == mapping["canonical_url"] &&
         result["external_id"] == mapping["external_id"] && result["canonical_url"] == mapping["canonical_url"] &&
         ownership["ownership_receipt_sha256"] == result["ownership_receipt_sha256"]
+      return false unless object_owned
       if allow_prior_revision
         [inspection.fetch("work")["source_revision"], mapping["synchronized_source_revision"],
          mapping["publicly_verified_source_revision"]].include?(ownership["source_revision"])
@@ -177,8 +179,9 @@ module DiscussionBridge
       elsif observation["object_exists"] == false
         # Only the Hugo profile currently supplies a qualified complete owned
         # all-absent manifest. Deleting Astro's known draft is a conflict.
-        return false unless profile == "hugo" && publication_kind == "static" &&
+        retained_absence = profile == "hugo" && publication_kind == "static" &&
           (observation["native_revision"].nil? || observation["native_revision"] == baseline["native_revision"])
+        return false unless retained_absence
       else
         return false
       end

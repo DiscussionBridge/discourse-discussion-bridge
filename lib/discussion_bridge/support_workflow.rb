@@ -89,7 +89,7 @@ module DiscussionBridge
       SupportAccess.locked do |state|
         CmsAuthorityLifecycle.administrator!(actor)
         raise Error, "Enable support before requesting assistance." unless state.enabled
-        raise Error, "The support request email destination has not been configured." unless REQUEST_DESTINATION.present?
+        raise Error, "The support request email destination has not been configured." if REQUEST_DESTINATION.blank?
         payload = input.slice(*REQUEST_FIELDS)
         digest = Digest::SHA256.hexdigest(JSON.generate(payload.sort.to_h))
         row = DiscussionBridgeSupportRequest.find_by(request_id: input.fetch("request_id"))

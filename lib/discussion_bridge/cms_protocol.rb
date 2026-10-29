@@ -31,7 +31,7 @@ module DiscussionBridge
     ERRORS =
       SCHEMA
         .fetch("errors")
-        .to_h { |error| [error.fetch("code"), error] }
+        .index_by { |error| error.fetch("code") }
         .freeze
     MAX_COUNTER = 9_007_199_254_740_991
 
@@ -433,21 +433,23 @@ module DiscussionBridge
           reject!("invalid_field")
         end
       when "AttentionPreparedTransaction"
-        unless (value.fetch("action") == "withdraw") == value["source_revision"].nil? &&
+        valid_preparation = (value.fetch("action") == "withdraw") == value["source_revision"].nil? &&
              value.fetch("native_result").fetch("kind") == value.fetch("action") &&
              value["deployment_id"].nil? == value["deployed_at"].nil? &&
              (value["deployed_at"].nil? || value["deployed_at"] >= value.fetch("prepared_at"))
+        unless valid_preparation
           reject!("invalid_field")
         end
       when "AttentionInspection", "AttentionRecovery"
         work = value.fetch("work")
         mapping = value.fetch("mapping")
         source = value["source"]
-        unless work.fetch("mapping_id") == mapping.fetch("mapping_id") &&
+        matching_identity = work.fetch("mapping_id") == mapping.fetch("mapping_id") &&
              work.fetch("source_id") == mapping.fetch("source_id") &&
              (work.fetch("action") != "publish_revision" || source) &&
              (!source || source.fetch("source_id") == work.fetch("source_id") &&
                (work.fetch("action") != "publish_revision" || source.fetch("source_revision") == work.fetch("source_revision")))
+        unless matching_identity
           reject!("identity_conflict")
         end
         if name == "AttentionInspection"
@@ -523,7 +525,7 @@ module DiscussionBridge
     end
 
     def self.validate_attention_feed_page!(type, page, after)
-      reject!("invalid_field") unless %w[AttentionInspectionPage AttentionRecoveryPage].include?(type)
+      reject!("invalid_field") if %w[AttentionInspectionPage AttentionRecoveryPage].exclude?(type)
       validate!("UInt", after)
       validate!(type, page)
       if page.fetch("items").any? { |item| item.fetch("sequence") <= after } ||

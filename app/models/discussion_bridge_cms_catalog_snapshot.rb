@@ -27,3 +27,32 @@ class DiscussionBridgeCmsCatalogSnapshot < ActiveRecord::Base
     end
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_catalog_snapshots
+#
+#  id                    :bigint           not null, primary key
+#  active                :boolean          default(FALSE), not null
+#  catalog_revision      :string(128)      not null
+#  destination_origin    :text             not null
+#  kind                  :string(16)       not null
+#  native_revision       :string(128)      not null
+#  profile               :string(32)       not null
+#  publication_lane      :string(64)       not null
+#  total_items           :bigint           not null
+#  created_at            :datetime         not null
+#  catalog_upload_id     :bigint           not null
+#  content_connection_id :bigint           not null
+#
+# Indexes
+#
+#  idx_db_cms_catalog_snapshot_active    (content_connection_id,kind,publication_lane) UNIQUE WHERE (active = true)
+#  idx_db_cms_catalog_snapshot_revision  (catalog_revision) UNIQUE
+#  idx_db_cms_catalog_snapshot_upload    (catalog_upload_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (catalog_upload_id => discussion_bridge_cms_catalog_uploads.id)
+#  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
+#

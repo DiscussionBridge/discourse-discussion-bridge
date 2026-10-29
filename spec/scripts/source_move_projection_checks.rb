@@ -6,10 +6,11 @@
 # proves projection admission, never a native commit or public-proof success.
 require "json"
 require "digest"
+require_relative "../support/standalone_enumerable_helpers"
 
 class Object
   def blank? = respond_to?(:empty?) ? empty? : !self
-  def present? = !blank?
+  def present? = blank? == false
   def presence = present? ? self : nil
 end
 class String

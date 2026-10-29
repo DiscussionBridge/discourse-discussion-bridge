@@ -34,3 +34,29 @@ class DiscussionBridgeCmsUrlReservation < ActiveRecord::Base
     errors.add(:canonical_url, "is invalid")
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_url_reservations
+#
+#  id                   :bigint           not null, primary key
+#  canonical_url        :text             not null
+#  collision_key_sha256 :string(64)       not null
+#  retired_at           :datetime
+#  state                :string(16)       not null
+#  created_at           :datetime         not null
+#  updated_at           :datetime         not null
+#  cms_mapping_id       :bigint
+#  content_binding_id   :bigint
+#  move_id              :uuid
+#
+# Indexes
+#
+#  idx_db_cms_url_collision      (collision_key_sha256) UNIQUE
+#  idx_db_cms_url_mapping_state  (cms_mapping_id,state,id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (cms_mapping_id => discussion_bridge_cms_mappings.id)
+#  fk_rails_...  (content_binding_id => discussion_bridge_content_bindings.id)
+#

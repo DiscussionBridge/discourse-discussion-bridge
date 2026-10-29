@@ -236,8 +236,9 @@ module DiscussionBridge
       keys = { content_connection_id: @connection.id, route: route, path_resource: path,
                mutation_id: input.fetch("mutation_id") }
       if receipt = DiscussionBridgeCmsMutationReceipt.find_by(keys)
-        unless same?(CmsReceiptCipher.decrypt(receipt.request_tree), input) &&
-             (!actor || receipt.native_actor_user_id == actor.id)
+        same_request = same?(CmsReceiptCipher.decrypt(receipt.request_tree), input) &&
+          (!actor || receipt.native_actor_user_id == actor.id)
+        unless same_request
           CmsProtocol.reject!("mutation_conflict")
         end
         return Result.new(status: receipt.response_status,
@@ -350,7 +351,8 @@ module DiscussionBridge
     def admit!(work, mapping, inspection, observation, actor, settle:, configuration:)
       prepared = mapping.prepared_transaction
       required = prepared.present?
-      unless settle == required && (!required || observation.fetch("native_state") == "restored_baseline")
+      valid_settlement = settle == required && (!required || observation.fetch("native_state") == "restored_baseline")
+      unless valid_settlement
         CmsProtocol.reject!("invalid_transition")
       end
       snapshot = {

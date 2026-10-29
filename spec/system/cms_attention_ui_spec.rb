@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 require "rails_helper"
+require_relative "../support/attention_https_system"
 
 # Actual Core/Capybara/Playwright rendering and AJAX against local Rails/SQL.
 # Only native-owner observations/public proofs below are synthetic typed facts.
 # No CMS write or anonymous public-URL qualification is claimed by these tests.
 # Runtime prerequisite: real loopback HTTPS serving the configured canonical
 # forum origin. Do not stub Topic.url/Discourse.base_url or relax the Url schema.
-RSpec.describe "DiscussionBridge native attention administration", type: :system do
+RSpec.describe "DiscussionBridge native attention administration" do
   PANEL = "/admin/plugins/discourse-discussion-bridge/connections"
   CHECK = "Check native state"
   CHECK_SELECTED = "Check native state for selected"

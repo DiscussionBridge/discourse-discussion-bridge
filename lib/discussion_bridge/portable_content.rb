@@ -157,9 +157,11 @@ module DiscussionBridge
           position += 1
           break if character == "," && depth.zero?
         end
-        raise PreparationUnavailable.new("Unclosed srcset descriptor cannot be preserved", diagnostic_code: "srcset_descriptor_unsupported") unless depth.zero?
+        raise PreparationUnavailable.new("Unclosed srcset descriptor cannot be preserved", diagnostic_code: "srcset_descriptor_unsupported") if depth.nonzero?
       end
-      replacements.reverse_each { |start, ending, replacement| output[start...ending] = replacement }
+      replacements.reverse_each do |replacement_start, replacement_end, replacement|
+        output[replacement_start...replacement_end] = replacement
+      end
       output
     end
 

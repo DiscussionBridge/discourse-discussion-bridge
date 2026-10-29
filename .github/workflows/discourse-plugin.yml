@@ -32,5 +32,8 @@ jobs:
         run: |
           ruby spec/scripts/v4_codec_checks.rb
           ruby spec/scripts/v4_package_checks.rb
+          ruby spec/scripts/cms_source_ordering_checks.rb
+          ruby spec/scripts/source_move_projection_checks.rb
+          ruby spec/scripts/support_controls_checks.rb
       - name: Check support mail transaction regressions
         run: ruby spec/scripts/support_request_job_checks.rb

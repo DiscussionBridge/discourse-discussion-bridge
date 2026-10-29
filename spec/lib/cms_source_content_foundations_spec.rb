@@ -64,7 +64,25 @@ RSpec.describe DiscussionBridge::CmsSourceStore do
       intent = @store.refresh_topic!(topic.id)
       accepted = stored_revision(intent).attributes.deep_dup
       events = intent.cms_source_stream.source_events.order(:id).map(&:attributes)
-      first_post.update_columns(raw: "Existing nontext native source", cooked: unavailable)
+      # Current Core's cooked column is NOT NULL. Keep the native row valid;
+      # the nil case injects unavailable extraction evidence at the exact SQL
+      # projection boundary instead of fabricating an impossible persisted row.
+      first_post.update_columns(raw: "Existing nontext native source", cooked: unavailable || "")
+      if unavailable.nil?
+        source_post_id = first_post.id
+        columns = DiscussionBridge::SourceEdition::SOURCE_COLUMNS + ["users.id"]
+        allow_any_instance_of(ActiveRecord::Relation).to receive(:pluck).and_wrap_original do |original, *selected|
+          rows = original.call(*selected)
+          if selected == columns
+            rows = rows.map do |row|
+              row = row.dup
+              row[10] = nil if row[4] == source_post_id
+              row
+            end
+          end
+          rows
+        end
+      end
       refreshed = @store.refresh_topic!(topic.id)
       expect(refreshed.state).to eq("attention")
       expect(refreshed.attention_code).to eq("metadata_unavailable")
@@ -81,9 +99,10 @@ RSpec.describe DiscussionBridge::CmsSourceStore do
     end
     corrupted = described_class::Snapshot.new(metadata: snapshot.metadata, body: snapshot.body + "corrupted")
     allow_any_instance_of(described_class).to receive(:capture_snapshot_locked).and_return(corrupted)
-    expect(Nokogiri::HTML5).not_to receive(:fragment)
+    allow(Nokogiri::HTML5).to receive(:fragment).and_call_original
     expect { inspector.preview(topic.id.to_s) }.to raise_error(DiscussionBridge::CmsProtocol::Error) { |error|
       expect(error.code).to eq("content_hash_mismatch")
     }
+    expect(Nokogiri::HTML5).not_to have_received(:fragment)
   end
 end

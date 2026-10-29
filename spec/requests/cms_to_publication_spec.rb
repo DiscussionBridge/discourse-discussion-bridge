@@ -4,7 +4,7 @@ require "rails_helper"
 
 describe DiscussionBridge::CmsRecordsController do
   fab!(:admin)
-  fab!(:author) { Fabricate(:user) }
+  fab!(:author, :user)
   fab!(:category)
 
   before do
@@ -180,8 +180,9 @@ describe DiscussionBridge::CmsRecordsController do
     expect(record.cms_source_publication.fetch("input").fetch("source_content_sha256")).to eq(Digest::SHA256.hexdigest(original.fetch("content_html").b))
     expect(input).to eq(original)
     accepted_raw = record.topic.first_post.raw.dup
-    expect(DiscussionBridge::PortableContent).not_to receive(:to_discourse_raw)
+    allow(DiscussionBridge::PortableContent).to receive(:to_discourse_raw).and_call_original
     deliver(original.merge("expected_source_revision" => original.fetch("source_revision")))
+    expect(DiscussionBridge::PortableContent).not_to have_received(:to_discourse_raw)
     expect(response).to have_http_status(:ok)
     expect(record.topic.first_post.reload.raw).to eq(accepted_raw)
     expect(record.reload.cms_source_publication.fetch("input")).to eq(original)
@@ -199,8 +200,9 @@ describe DiscussionBridge::CmsRecordsController do
   it "validates whole input evidence before any native content conversion" do
     input = source(html: '<img src="./image.png" alt="Native source">')
     input["source_content_sha256"] = "0" * 64
-    expect(DiscussionBridge::PortableContent).not_to receive(:to_discourse_raw)
+    allow(DiscussionBridge::PortableContent).to receive(:to_discourse_raw).and_call_original
     deliver(input)
+    expect(DiscussionBridge::PortableContent).not_to have_received(:to_discourse_raw)
     expect_error("content_hash_mismatch")
     expect(DiscussionBridgeBridgeRecord.count).to eq(0)
     expect(DiscussionBridgeCmsToSourceRevision.count).to eq(0)
@@ -264,8 +266,9 @@ describe DiscussionBridge::CmsRecordsController do
     input = source
     record = create_current(input)
     native = record.topic.first_post.attributes.deep_dup
-    expect(DiscussionBridge::NativeContentPreservation).not_to receive(:verify!)
+    allow(DiscussionBridge::NativeContentPreservation).to receive(:verify!).and_call_original
     deliver(input.merge("expected_source_revision" => input.fetch("source_revision")))
+    expect(DiscussionBridge::NativeContentPreservation).not_to have_received(:verify!)
     expect(response).to have_http_status(:ok)
     expect(record.topic.first_post.reload.attributes).to eq(native)
   end
@@ -324,10 +327,11 @@ describe DiscussionBridge::CmsRecordsController do
       "verification" => { "url" => move.new_url, "external_id" => input.fetch("external_id"), "source_revision" => "native:r2",
         "source_content_sha256" => input.fetch("source_content_sha256"), "native_ownership_receipt_sha256" => "1" * 64,
         "native_publication_sha256" => "2" * 64, "verification_profile" => "local-negative-fixture", "checked_at" => DiscussionBridge::CmsProtocol.instant(time) } }
-    expect(DiscussionBridge::CmsMoveReservation).not_to receive(:commit!)
+    allow(DiscussionBridge::CmsMoveReservation).to receive(:commit!).and_call_original
     expect { store.finalize(record.resource_id, move.move_id, attempt) }.to raise_error(DiscussionBridge::CmsProtocol::Error) { |error|
       expect(error.code).to eq("content_preservation_unavailable")
     }
+    expect(DiscussionBridge::CmsMoveReservation).not_to have_received(:commit!)
     expect(native.reload.attributes).to eq(before.fetch(:native))
     expect(record.reload.attributes).to eq(before.fetch(:record))
     expect(record.active_binding("source").attributes).to eq(before.fetch(:binding))

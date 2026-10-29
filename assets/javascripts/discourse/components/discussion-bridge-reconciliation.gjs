@@ -13,6 +13,14 @@ export default class DiscussionBridgeReconciliation extends Component {
   @tracked query = this.args.model.query || "";
   @tracked severity = this.args.model.severity || "";
 
+  get previousDisabled() {
+    return this.args.model.pagination.page <= 1;
+  }
+
+  get nextDisabled() {
+    return this.args.model.pagination.page >= this.args.model.pagination.pages;
+  }
+
   @action
   updateQuery(event) {
     this.query = event.target.value;
@@ -43,14 +51,6 @@ export default class DiscussionBridgeReconciliation extends Component {
     return value?.replaceAll("_", " ") || "—";
   }
 
-  get previousDisabled() {
-    return this.args.model.pagination.page <= 1;
-  }
-
-  get nextDisabled() {
-    return this.args.model.pagination.page >= this.args.model.pagination.pages;
-  }
-
   goToPage(page) {
     this.router.transitionTo(
       "adminPlugins.show.discussion-bridge-reconciliation",
@@ -63,19 +63,19 @@ export default class DiscussionBridgeReconciliation extends Component {
   <template>
     <section class="discussion-bridge-reconciliation">
       <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.reconciliation_title"}}
         @descriptionLabel={{i18n
           "discussion_bridge.admin.reconciliation_description"
         }}
+        @titleLabel={{i18n "discussion_bridge.admin.reconciliation_title"}}
       />
       <p>{{i18n "discussion_bridge.admin.reconciliation_boundary"}}</p>
       <a
         class="btn btn-default"
-        href="/discussion-bridge/admin/reconciliation/report.json"
         download
+        href="/discussion-bridge/admin/reconciliation/report.json"
       >{{i18n "discussion_bridge.admin.export_report"}}</a>
 
-      <div class="discussion-bridge-reconciliation__summary" aria-live="polite">
+      <div aria-live="polite" class="discussion-bridge-reconciliation__summary">
         <section><span>{{i18n "discussion_bridge.admin.issues"}}</span><strong
           >{{@model.summary.total}}</strong></section>
         <section data-severity="critical"><span>{{i18n
@@ -90,8 +90,8 @@ export default class DiscussionBridgeReconciliation extends Component {
       </div>
 
       <form
-        {{on "submit" this.applyFilters}}
         class="discussion-bridge-reconciliation__controls"
+        {{on "submit" this.applyFilters}}
       >
         <label>{{i18n "discussion_bridge.admin.search"}}<input
             type="search"
@@ -112,7 +112,7 @@ export default class DiscussionBridgeReconciliation extends Component {
               }}</option>
           </select>
         </label>
-        <DButton @type="submit" @label="discussion_bridge.admin.apply" />
+        <DButton @label="discussion_bridge.admin.apply" @type="submit" />
       </form>
 
       <div class="discussion-bridge-reconciliation__table-wrap">
@@ -147,18 +147,18 @@ export default class DiscussionBridgeReconciliation extends Component {
 
       <div class="discussion-bridge-reconciliation__pagination">
         <DButton
-          @label="discussion_bridge.admin.previous"
-          @disabled={{this.previousDisabled}}
           @action={{this.previousPage}}
+          @disabled={{this.previousDisabled}}
+          @label="discussion_bridge.admin.previous"
         />
         <span>{{i18n "discussion_bridge.admin.page"}}
           {{@model.pagination.page}}
           /
           {{@model.pagination.pages}}</span>
         <DButton
-          @label="discussion_bridge.admin.next"
-          @disabled={{this.nextDisabled}}
           @action={{this.nextPage}}
+          @disabled={{this.nextDisabled}}
+          @label="discussion_bridge.admin.next"
         />
       </div>
     </section>

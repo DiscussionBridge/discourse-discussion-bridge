@@ -48,7 +48,7 @@ module DiscussionBridge
           begin
             _source_intent, source, _topic = CmsMappingService.new(connection, clock: clock).send(:current_source!, mapping.source_id)
           rescue CmsProtocol::Error => error
-            raise unless %w[source_ineligible revision_conflict metadata_unavailable].include?(error.code)
+            raise if %w[source_ineligible revision_conflict metadata_unavailable].exclude?(error.code)
             intent.merge!("state" => "attention", "attention_code" => error.code)
           end
           if source && eligible_cycle?(mapping, prior, source, configuration)

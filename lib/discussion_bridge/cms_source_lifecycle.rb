@@ -58,8 +58,8 @@ module DiscussionBridge
       clock: -> { Time.current }
     )
       reason = reason.to_s
-      unless INVALIDATION_REASONS.include?(reason) &&
-               %w[cancelled superseded].include?(unfinished_state)
+      if INVALIDATION_REASONS.exclude?(reason) ||
+               %w[cancelled superseded].exclude?(unfinished_state)
         raise ArgumentError, "Invalid receiver CMS invalidation"
       end
       DiscussionBridgeContentConnection.transaction do

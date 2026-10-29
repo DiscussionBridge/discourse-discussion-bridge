@@ -25,3 +25,44 @@ class DiscussionBridgeCmsMapping < ActiveRecord::Base
     errors.add(:content_binding, "must identify the same connection-owned native source")
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_mappings
+#
+#  id                                :bigint           not null, primary key
+#  desired_source_revision           :string(128)
+#  destination_native_revision       :string(128)
+#  fence_generation                  :bigint           default(0), not null
+#  mapping_revision                  :string(128)      not null
+#  mapping_state                     :string(16)       default("pending"), not null
+#  native_result                     :jsonb
+#  prepared_transaction              :jsonb
+#  presentation_move_intent          :jsonb
+#  publicly_verified_at              :datetime
+#  publicly_verified_source_revision :string(128)
+#  source_created_at                 :datetime
+#  source_updated_at                 :datetime
+#  synchronized_at                   :datetime
+#  synchronized_source_revision      :string(128)
+#  verified_result                   :jsonb
+#  created_at                        :datetime         not null
+#  updated_at                        :datetime         not null
+#  content_binding_id                :bigint           not null
+#  content_connection_id             :bigint           not null
+#  destination_native_id             :string(255)
+#  mapping_id                        :uuid             not null
+#  source_id                         :string(255)      not null
+#
+# Indexes
+#
+#  idx_db_cms_mapping_binding          (content_binding_id) UNIQUE
+#  idx_db_cms_mapping_native_identity  (content_connection_id,destination_native_id) UNIQUE WHERE (destination_native_id IS NOT NULL)
+#  idx_db_cms_mapping_source           (content_connection_id,source_id) UNIQUE
+#  idx_db_cms_mapping_uuid             (mapping_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (content_binding_id => discussion_bridge_content_bindings.id)
+#  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
+#

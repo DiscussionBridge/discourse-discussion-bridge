@@ -35,8 +35,9 @@ module DiscussionBridge
 
     def self.validate_record!(input)
       representation = input.fetch("representation")
-      unless representation.fetch("read_more_url") == input.fetch("canonical_url") &&
+      valid_selection = representation.fetch("read_more_url") == input.fetch("canonical_url") &&
           (input.fetch("source_content_bytes") > 49_152 || representation.fetch("selection_full_request_bytes") > 65_536)
+      unless valid_selection
         CmsProtocol.reject!("invalid_field")
       end
       article(input)

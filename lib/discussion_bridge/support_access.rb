@@ -24,7 +24,7 @@ module DiscussionBridge
     end
 
     def self.operator!(actor, state:, action:, connection: nil)
-      raise Discourse::InvalidAccess unless ACTIONS.include?(action)
+      raise Discourse::InvalidAccess if ACTIONS.exclude?(action)
       native_user!(actor)
       unless SiteSetting.discussion_bridge_enabled && state.reload.enabled &&
                DiscussionBridgeSupportGrant.active.exists?(user_id: actor.id)

@@ -10,12 +10,6 @@ module DiscussionBridge
       "discussion_bridge_publisher_enabled" => "publisher_disabled",
     }.freeze
 
-    def self.register
-      DiscourseEvent.on(:site_setting_changed) do |name, previous, current|
-        changed(name, previous, current)
-      end
-    end
-
     def self.changed(name, previous, current)
       reason = GATES[name.to_s]
       return unless reason && previous != current

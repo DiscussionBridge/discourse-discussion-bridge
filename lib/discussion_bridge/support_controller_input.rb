@@ -13,7 +13,7 @@ module DiscussionBridge
         render json: { errors: ["The current native action was rejected (#{error.code}). Refresh before retrying."] }, status: definition.fetch("http")
       end
       base.rescue_from ArgumentError do
-        render json: { errors: ["A valid native account, connection or topic identity is required."] }, status: 422
+        render json: { errors: ["A valid native account, connection or topic identity is required."] }, status: :unprocessable_content
       end
     end
 

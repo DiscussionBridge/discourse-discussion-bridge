@@ -19,7 +19,7 @@ module DiscussionBridge
 
     def self.checked_at!(verification, prepared_at, now)
       checked = Time.iso8601(verification.fetch("checked_at"))
-      unless checked >= prepared_at && checked <= now + CmsWorkCoordinator::LEASE_SECONDS
+      if checked < prepared_at || checked > now + CmsWorkCoordinator::LEASE_SECONDS
         CmsProtocol.reject!("invalid_field")
       end
     end

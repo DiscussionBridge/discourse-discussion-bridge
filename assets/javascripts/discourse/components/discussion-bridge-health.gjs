@@ -7,8 +7,8 @@ export default <template>
     <header class="discussion-bridge-health__hero">
       <div class="discussion-bridge-health__identity">
         <span
-          class="discussion-bridge-health__mark"
           aria-hidden="true"
+          class="discussion-bridge-health__mark"
         >DB</span>
         <div>
           <h2>{{i18n "discussion_bridge.admin.title"}}</h2>
@@ -28,11 +28,11 @@ export default <template>
     </header>
 
     <DPageSubheader
-      @titleLabel={{i18n "discussion_bridge.admin.overview_title"}}
       @descriptionLabel={{i18n "discussion_bridge.admin.overview_function"}}
+      @titleLabel={{i18n "discussion_bridge.admin.overview_title"}}
     />
 
-    <div class="discussion-bridge-health__summary" aria-live="polite">
+    <div aria-live="polite" class="discussion-bridge-health__summary">
       <section class="discussion-bridge-health__metric"><span>{{i18n
             "discussion_bridge.admin.content_connections"
           }}</span><strong
@@ -136,12 +136,13 @@ export default <template>
       </div>
     </section>
 
-    <a class="btn btn-default" href="/discussion-bridge/admin/support">Paid support and local access</a>
+    <a class="btn btn-default" href="/discussion-bridge/admin/support">Paid
+      support and local access</a>
 
     <a
       class="btn btn-default"
-      href="/discussion-bridge/admin/support-bundle.json"
       download
+      href="/discussion-bridge/admin/support-bundle.json"
     >
       {{i18n "discussion_bridge.admin.download_support_bundle"}}
     </a>

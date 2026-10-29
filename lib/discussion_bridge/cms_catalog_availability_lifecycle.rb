@@ -55,7 +55,7 @@ module DiscussionBridge
     end
 
     def self.validate_action!(action)
-      CmsProtocol.reject!("invalid_field") unless %w[publish_revision withdraw].include?(action)
+      CmsProtocol.reject!("invalid_field") if %w[publish_revision withdraw].exclude?(action)
     end
     private_class_method :validate_action!
 

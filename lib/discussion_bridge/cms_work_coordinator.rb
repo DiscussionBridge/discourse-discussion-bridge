@@ -21,13 +21,13 @@ module DiscussionBridge
           begin
             processed += new(connection, clock: clock).maintain_due!
           rescue CmsProtocol::Error => error
-            unless %w[
+            if %w[
                      connection_disabled
                      scope_denied
                      invalid_field
                      unknown_field
                      presentation_unsupported
-                   ].include?(error.code)
+                   ].exclude?(error.code)
               raise
             end
             # Current scope prevents work; the authority/lifecycle path retains
@@ -167,7 +167,7 @@ module DiscussionBridge
         if mapping.fence_generation >= CmsProtocol::MAX_COUNTER
           CmsProtocol.reject!("storage_exhausted")
         end
-        CmsProtocol.reject!("invalid_transition") unless work.attempt < 3
+        CmsProtocol.reject!("invalid_transition") if work.attempt >= 3
         token = SecureRandom.urlsafe_base64(32, false)
         generation = mapping.fence_generation + 1
         mapping.update!(fence_generation: generation)
@@ -238,7 +238,7 @@ module DiscussionBridge
 
     def renew(work_id, input)
       mutate_work("renew", "Renew", work_id, input) do |work, _config|
-        unless DiscussionBridgeCmsWork::LIVE_STATES.include?(work.state)
+        if DiscussionBridgeCmsWork::LIVE_STATES.exclude?(work.state)
           CmsProtocol.reject!("invalid_transition")
         end
         work.update!(lease_expires_at: now + LEASE_SECONDS)
@@ -277,7 +277,7 @@ module DiscussionBridge
 
     def fail(work_id, input)
       mutate_work("fail", "Failure", work_id, input) do |work, _config|
-        unless DiscussionBridgeCmsWork::LIVE_STATES.include?(work.state)
+        if DiscussionBridgeCmsWork::LIVE_STATES.exclude?(work.state)
           CmsProtocol.reject!("invalid_transition")
         end
         delay = input.fetch("retry_after_seconds")
@@ -375,7 +375,7 @@ module DiscussionBridge
     # Receiver-only settlement of current LIVE publication authority. Waiting
     # work and existing attention retain their original cycle/count/history.
     def fail_receiver_publication!(work, code:)
-      unless CmsSourceLifecycle::ATTENTION_CODES.include?(code)
+      if CmsSourceLifecycle::ATTENTION_CODES.exclude?(code)
         raise ArgumentError, "Invalid receiver publication failure"
       end
       DiscussionBridgeContentConnection.transaction do
@@ -396,7 +396,7 @@ module DiscussionBridge
     end
 
     def fail_catalog_metadata!(work, code:)
-      unless CmsCatalogAvailabilityLifecycle::PERMANENT_CODES.include?(code)
+      if CmsCatalogAvailabilityLifecycle::PERMANENT_CODES.exclude?(code)
         raise ArgumentError, "Invalid permanent catalog failure"
       end
       fail_receiver_publication!(work, code: code)
@@ -456,7 +456,7 @@ module DiscussionBridge
         work.lock!
         config = scoped_mapping!(work.cms_mapping, enabled: true)
         current_work!(work, config)
-        unless %w[fail abort].include?(route)
+        if %w[fail abort].exclude?(route)
           CmsCatalogAvailabilityLifecycle.assert_publication_available!(
             @connection,
             configuration: config,

@@ -295,10 +295,10 @@ export default class DiscussionBridgeConnections extends Component {
   <template>
     <section class="discussion-bridge-connections">
       <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
         @descriptionLabel={{i18n
           "discussion_bridge.admin.connections_description"
         }}
+        @titleLabel={{i18n "discussion_bridge.admin.connections_title"}}
       />
 
       {{#if this.issuedSecret}}
@@ -308,8 +308,8 @@ export default class DiscussionBridgeConnections extends Component {
             <span>{{i18n "discussion_bridge.admin.connection_id"}}</span>
             <code>{{this.issuedConnectionId}}</code>
             <button
-              type="button"
               class="btn btn-default"
+              type="button"
               {{on
                 "click"
                 (fn this.copyCredential "id" this.issuedConnectionId)
@@ -326,8 +326,8 @@ export default class DiscussionBridgeConnections extends Component {
             <span>{{i18n "discussion_bridge.admin.connection_secret"}}</span>
             <code>{{this.issuedSecret}}</code>
             <button
-              type="button"
               class="btn btn-default"
+              type="button"
               {{on "click" (fn this.copyCredential "secret" this.issuedSecret)}}
             >
               {{if
@@ -424,28 +424,28 @@ export default class DiscussionBridgeConnections extends Component {
             </dl>
             <div class="discussion-bridge-actions">
               <DButton
-                @label="discussion_bridge.admin.manage"
                 @action={{this.editConnection}}
                 @actionParam={{connection}}
+                @label="discussion_bridge.admin.manage"
               />
               <DButton
+                @action={{this.toggleConnection}}
+                @actionParam={{connection}}
                 @label={{if
                   connection.enabled
                   "discussion_bridge.admin.disable"
                   "discussion_bridge.admin.enable"
                 }}
-                @action={{this.toggleConnection}}
-                @actionParam={{connection}}
               />
               <DButton
-                @label="discussion_bridge.admin.rotate_secret"
                 @action={{this.rotateSecret}}
                 @actionParam={{connection}}
+                @label="discussion_bridge.admin.rotate_secret"
               />
             </div>
             <DiscussionBridgeCmsConfiguration
-              @connection={{connection}}
               @categories={{@model.categories}}
+              @connection={{connection}}
             />
           </article>
         {{else}}
@@ -464,19 +464,19 @@ export default class DiscussionBridgeConnections extends Component {
           }}</h3>
         {{#if this.editingConnectionId}}
           <nav
-            class="discussion-bridge-connection-tabs"
             aria-label={{i18n
               "discussion_bridge.admin.connection_settings_tabs"
             }}
+            class="discussion-bridge-connection-tabs"
           >
             <button
-              type="button"
               class={{if (eq this.editingTab "general") "active"}}
+              type="button"
               {{on "click" this.showGeneralTab}}
             >{{i18n "discussion_bridge.admin.general_tab"}}</button>
             <button
-              type="button"
               class={{if (eq this.editingTab "authors") "active"}}
+              type="button"
               {{on "click" this.showAuthorsTab}}
             >{{i18n "discussion_bridge.admin.authors_tab"}}</button>
           </nav>
@@ -490,21 +490,21 @@ export default class DiscussionBridgeConnections extends Component {
             /></label>
           <label>{{i18n "discussion_bridge.admin.platform"}}
             <select required {{on "change" this.updatePlatform}}>
-              <option value="" selected={{eq this.platform ""}}>{{i18n
+              <option selected={{eq this.platform ""}} value="">{{i18n
                   "discussion_bridge.admin.select_platform"
                 }}</option>
               {{#each @model.platforms as |platform|}}<option
-                  value={{platform}}
                   selected={{eq platform this.platform}}
+                  value={{platform}}
                 >{{this.displayToken platform}}</option>{{/each}}
             </select>
           </label>
           <label>{{i18n "discussion_bridge.admin.topic_author"}}<input
-              value={{this.authorUsername}}
-              {{on "input" this.updateAuthorUsername}}
               placeholder={{i18n
                 "discussion_bridge.admin.topic_author_default"
               }}
+              value={{this.authorUsername}}
+              {{on "input" this.updateAuthorUsername}}
             /></label>
           <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea
               required
@@ -513,7 +513,7 @@ export default class DiscussionBridgeConnections extends Component {
             ></textarea></label>
           <label>{{i18n "discussion_bridge.admin.companion_topic_category"}}
             <select {{on "change" this.updateDefaultCategory}}>
-              <option value="" selected={{eq this.defaultCategoryId ""}}>
+              <option selected={{eq this.defaultCategoryId ""}} value="">
                 {{#if @model.fallback_category.name}}
                   {{i18n
                     "discussion_bridge.admin.use_forum_fallback_category"
@@ -525,8 +525,8 @@ export default class DiscussionBridgeConnections extends Component {
               </option>
               {{#each @model.categories as |category|}}
                 <option
-                  value={{category.id}}
                   selected={{eq this.defaultCategoryId category.id_string}}
+                  value={{category.id}}
                 >{{category.name}}</option>
               {{/each}}
             </select>
@@ -543,15 +543,15 @@ export default class DiscussionBridgeConnections extends Component {
                 "discussion_bridge.admin.allowed_directions"
               }}</legend>
             <label class="discussion-bridge-direction-option"><input
-                type="checkbox"
                 checked={{this.toDiscourse}}
+                type="checkbox"
                 {{on "change" this.updateToDiscourse}}
               /><span>{{i18n
                   "discussion_bridge.admin.to_discourse"
                 }}</span></label>
             <label class="discussion-bridge-direction-option"><input
-                type="checkbox"
                 checked={{this.fromDiscourse}}
+                type="checkbox"
                 {{on "change" this.updateFromDiscourse}}
               /><span>{{i18n
                   "discussion_bridge.admin.from_discourse"
@@ -559,9 +559,9 @@ export default class DiscussionBridgeConnections extends Component {
           </fieldset>
           <label class="discussion-bridge-checkbox-setting">
             <input
-              type="checkbox"
               aria-label={{i18n "discussion_bridge.admin.generate_topic_toc"}}
               checked={{this.generateTopicToc}}
+              type="checkbox"
               {{on "change" this.updateGenerateTopicToc}}
             />
             <span><strong>{{i18n
@@ -576,31 +576,31 @@ export default class DiscussionBridgeConnections extends Component {
             <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
               <select {{on "change" this.updateAuthorshipMode}}>
                 <option
-                  value="fixed"
                   selected={{eq this.authorshipMode "fixed"}}
+                  value="fixed"
                 >{{i18n "discussion_bridge.admin.authorship_fixed"}}</option>
                 <option
-                  value="mapped"
                   selected={{eq this.authorshipMode "mapped"}}
+                  value="mapped"
                 >{{i18n "discussion_bridge.admin.authorship_mapped"}}</option>
               </select>
             </label>
             <label>{{i18n "discussion_bridge.admin.fallback_author"}}<input
-                value={{this.authorUsername}}
-                {{on "input" this.updateAuthorUsername}}
                 placeholder={{i18n
                   "discussion_bridge.admin.topic_author_default"
                 }}
+                value={{this.authorUsername}}
+                {{on "input" this.updateAuthorUsername}}
               /></label>
             <label>{{i18n "discussion_bridge.admin.unmapped_author_policy"}}
               <select {{on "change" this.updateUnmappedAuthorPolicy}}>
                 <option
-                  value="fallback"
                   selected={{eq this.unmappedAuthorPolicy "fallback"}}
+                  value="fallback"
                 >{{i18n "discussion_bridge.admin.unmapped_fallback"}}</option>
                 <option
-                  value="hold"
                   selected={{eq this.unmappedAuthorPolicy "hold"}}
+                  value="hold"
                 >{{i18n "discussion_bridge.admin.unmapped_hold"}}</option>
               </select>
             </label>
@@ -622,23 +622,23 @@ export default class DiscussionBridgeConnections extends Component {
                           /><code>{{sourceAuthor.source_author_id}}</code></td>
                         <td>{{#if sourceAuthor.profile_url}}<a
                               href={{sourceAuthor.profile_url}}
-                              target="_blank"
                               rel="noopener noreferrer"
+                              target="_blank"
                             >{{sourceAuthor.profile_url}}</a>{{else}}—{{/if}}</td>
                         <td><input
+                            placeholder={{i18n
+                              "discussion_bridge.admin.unmapped"
+                            }}
                             value={{sourceAuthor.discourse_username}}
                             {{on
                               "input"
                               (fn this.updateSourceMapping sourceAuthor)
                             }}
-                            placeholder={{i18n
-                              "discussion_bridge.admin.unmapped"
-                            }}
                           /></td>
                         <td><DButton
-                            @label="discussion_bridge.admin.save_mapping"
                             @action={{this.saveAuthorMapping}}
                             @actionParam={{sourceAuthor}}
+                            @label="discussion_bridge.admin.save_mapping"
                           /></td>
                       </tr>
                     {{else}}
@@ -653,18 +653,18 @@ export default class DiscussionBridgeConnections extends Component {
           </section>
         {{/if}}
         <DButton
-          @type="submit"
+          class="btn-primary"
           @label={{if
             this.editingConnectionId
             "discussion_bridge.admin.save_connection"
             "discussion_bridge.admin.add_connection"
           }}
-          class="btn-primary"
+          @type="submit"
         />
         {{#if this.editingConnectionId}}
           <DButton
-            @label="discussion_bridge.admin.cancel"
             @action={{this.cancelEdit}}
+            @label="discussion_bridge.admin.cancel"
           />
         {{/if}}
       </form>

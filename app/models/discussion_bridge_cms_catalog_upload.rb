@@ -28,3 +28,36 @@ class DiscussionBridgeCmsCatalogUpload < ActiveRecord::Base
               less_than_or_equal_to: 9_007_199_254_740_991,
             }
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_catalog_uploads
+#
+#  id                    :bigint           not null, primary key
+#  destination_origin    :text             not null
+#  expires_at            :datetime         not null
+#  finalized_response    :jsonb
+#  invalidated_at        :datetime
+#  kind                  :string(16)       not null
+#  native_revision       :string(128)      not null
+#  next_page             :bigint           default(0), not null
+#  profile               :string(32)       not null
+#  publication_lane      :string(64)       not null
+#  received_items        :bigint           default(0), not null
+#  scope_signature       :string(64)       not null
+#  state                 :string(16)       default("open"), not null
+#  total_items           :bigint           not null
+#  created_at            :datetime         not null
+#  updated_at            :datetime         not null
+#  content_connection_id :bigint           not null
+#  upload_id             :uuid             not null
+#
+# Indexes
+#
+#  idx_db_cms_catalog_upload_owner  (content_connection_id,kind,publication_lane)
+#  idx_db_cms_catalog_upload_uuid   (upload_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
+#

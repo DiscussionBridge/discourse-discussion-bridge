@@ -21,3 +21,40 @@ class DiscussionBridgeCmsWork < ActiveRecord::Base
     errors.add(:source_revision, "does not match action") unless valid
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_work
+#
+#  id                :bigint           not null, primary key
+#  action            :string(32)       not null
+#  attempt           :integer          default(0), not null
+#  attempt_cycle     :uuid             not null
+#  failure_detail    :jsonb
+#  last_failure_code :string(64)
+#  lease_expires_at  :datetime
+#  lease_generation  :bigint           default(0), not null
+#  lease_verifier    :string(64)
+#  policy_revision   :string(128)      not null
+#  retry_at          :datetime
+#  same_intent_hold  :boolean          default(FALSE), not null
+#  source_revision   :string(128)
+#  source_snapshot   :jsonb
+#  state             :string(32)       default("pending"), not null
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#  cms_mapping_id    :bigint           not null
+#  retry_of_work_id  :bigint
+#  work_id           :uuid             not null
+#
+# Indexes
+#
+#  idx_db_cms_work_mapping_state      (cms_mapping_id,state)
+#  idx_db_cms_work_retry_predecessor  (retry_of_work_id) UNIQUE
+#  idx_db_cms_work_uuid               (work_id) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (cms_mapping_id => discussion_bridge_cms_mappings.id)
+#  fk_rails_...  (retry_of_work_id => discussion_bridge_cms_work.id)
+#

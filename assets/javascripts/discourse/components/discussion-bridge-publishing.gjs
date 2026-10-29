@@ -11,12 +11,10 @@ import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
 
 export default class DiscussionBridgePublishing extends Component {
-  publicationStatus(value) {
-    return i18n(`discussion_bridge.admin.cms.delivery_states.${value}`);
-  }
   @service router;
 
   @tracked topicId = "";
+
   @tracked connectionId = "";
   @tracked externalId = "";
   @tracked canonicalUrl = "";
@@ -30,6 +28,20 @@ export default class DiscussionBridgePublishing extends Component {
   @tracked editingRecord = null;
   @tracked correctedCanonicalUrl = "";
   @tracked correctedPresentationUrls = {};
+
+  get selectedConnection() {
+    return this.args.model.connections.find(
+      (connection) => String(connection.id) === String(this.connectionId)
+    );
+  }
+
+  get selectedLanes() {
+    return this.selectedConnection?.allowed_lanes || [];
+  }
+
+  publicationStatus(value) {
+    return i18n(`discussion_bridge.admin.cms.delivery_states.${value}`);
+  }
 
   @action
   updateTopicId(event) {
@@ -118,16 +130,6 @@ export default class DiscussionBridgePublishing extends Component {
     }
   }
 
-  get selectedConnection() {
-    return this.args.model.connections.find(
-      (connection) => String(connection.id) === String(this.connectionId)
-    );
-  }
-
-  get selectedLanes() {
-    return this.selectedConnection?.allowed_lanes || [];
-  }
-
   @action
   async publishTopic(event) {
     event.preventDefault();
@@ -195,8 +197,8 @@ export default class DiscussionBridgePublishing extends Component {
       </header>
 
       <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.publishing_nav"}}
         @descriptionLabel={{@model.product.version}}
+        @titleLabel={{i18n "discussion_bridge.admin.publishing_nav"}}
       />
 
       <div class="discussion-bridge-publishing__metrics">
@@ -232,8 +234,8 @@ export default class DiscussionBridgePublishing extends Component {
           <label class="discussion-bridge-publishing__topic-id">{{i18n
               "discussion_bridge.admin.publisher_local_topic_id"
             }}<input
-              required
               min="1"
+              required
               type="number"
               value={{this.topicId}}
               {{on "input" this.updateTopicId}}
@@ -242,8 +244,8 @@ export default class DiscussionBridgePublishing extends Component {
             <select required {{on "change" this.updateConnectionId}}>
               <option value="">—</option>
               {{#each @model.connections as |connection|}}<option
-                  value={{connection.id}}
                   selected={{eq connection.id this.connectionId}}
+                  value={{connection.id}}
                 >{{connection.name}}
                   ·
                   {{this.displayToken connection.platform}}</option>{{/each}}
@@ -254,8 +256,8 @@ export default class DiscussionBridgePublishing extends Component {
               <select required {{on "change" this.updateLane}}>
                 <option value="">—</option>
                 {{#each this.selectedLanes as |lane|}}<option
-                    value={{lane}}
                     selected={{eq lane this.lane}}
+                    value={{lane}}
                   >{{lane}}</option>{{/each}}
               </select>
               <small>{{i18n
@@ -277,19 +279,28 @@ export default class DiscussionBridgePublishing extends Component {
 
           <label>{{i18n "discussion_bridge.admin.publisher_presentation_mode"}}
             <select {{on "change" this.updatePresentationMode}}>
-              <option value="" selected={{eq this.presentationMode ""}}>{{i18n
+              <option selected={{eq this.presentationMode ""}} value="">{{i18n
                   "discussion_bridge.admin.publisher_destination_mode"
                 }}</option>
-              <option value="simple" selected={{eq this.presentationMode "simple"}}>Simple</option>
-              <option value="full" selected={{eq this.presentationMode "full"}}>Full</option>
-              <option value="interactive" selected={{eq this.presentationMode "interactive"}}>Interactive</option>
+              <option
+                selected={{eq this.presentationMode "simple"}}
+                value="simple"
+              >Simple</option>
+              <option
+                selected={{eq this.presentationMode "full"}}
+                value="full"
+              >Full</option>
+              <option
+                selected={{eq this.presentationMode "interactive"}}
+                value="interactive"
+              >Interactive</option>
             </select>
           </label>
           <DButton
-            @type="submit"
-            @label="discussion_bridge.admin.publisher_publish"
-            @disabled={{this.working}}
             class="btn-primary"
+            @disabled={{this.working}}
+            @label="discussion_bridge.admin.publisher_publish"
+            @type="submit"
           />
           {{#if (eq this.noticeContext "publication")}}
             <p
@@ -313,12 +324,22 @@ export default class DiscussionBridgePublishing extends Component {
                 {{this.createdRecord.topic_id}}</a>{{/if}}</p>
         {{/if}}
         {{#if this.createdRecord.presentation_move_intent}}
-          <p>{{i18n "discussion_bridge.admin.publisher_presentation_requested"}}:
-            <a href={{this.createdRecord.presentation_move_intent.requested_url}}>{{this.createdRecord.presentation_move_intent.requested_url}}</a>
-            · {{i18n "discussion_bridge.admin.publisher_presentation_move_state"}}:
-            {{this.displayToken this.createdRecord.presentation_move_intent.state}}
+          <p>{{i18n
+              "discussion_bridge.admin.publisher_presentation_requested"
+            }}:
+            <a
+              href={{this.createdRecord.presentation_move_intent.requested_url}}
+            >{{this.createdRecord.presentation_move_intent.requested_url}}</a>
+            ·
+            {{i18n
+              "discussion_bridge.admin.publisher_presentation_move_state"
+            }}:
+            {{this.displayToken
+              this.createdRecord.presentation_move_intent.state
+            }}
             {{#if this.createdRecord.presentation_move_intent.attention_code}}
-              <code>{{this.createdRecord.presentation_move_intent.attention_code}}</code>
+              <code
+              >{{this.createdRecord.presentation_move_intent.attention_code}}</code>
             {{/if}}
           </p>
         {{/if}}
@@ -335,16 +356,24 @@ export default class DiscussionBridgePublishing extends Component {
                   ><code>{{record.resource_id}}</code></small></td><td
                 >{{this.displayToken record.platform}}</td><td><a
                     href={{this.presentationUrl record}}
-                  >{{record.connection_name}}</a></td><td
-                ><span>{{i18n "discussion_bridge.admin.publisher_publication_status"}}:
-                    {{this.publicationStatus record.publication_status}}</span><small
-                  >{{i18n "discussion_bridge.admin.publisher_discussion_status"}}:
-                    {{record.discussion_status}}</small>{{#if record.delivery.attention_required}}
-                    <strong>{{i18n "discussion_bridge.admin.cms.withdrawal_attention"}}</strong>
+                  >{{record.connection_name}}</a></td><td><span>{{i18n
+                      "discussion_bridge.admin.publisher_publication_status"
+                    }}:
+                    {{this.publicationStatus
+                      record.publication_status
+                    }}</span><small>{{i18n
+                      "discussion_bridge.admin.publisher_discussion_status"
+                    }}:
+                    {{record.discussion_status}}</small>{{#if
+                    record.delivery.attention_required
+                  }}
+                    <strong>{{i18n
+                        "discussion_bridge.admin.cms.withdrawal_attention"
+                      }}</strong>
                   {{/if}}</td><td><DButton
-                    @label="discussion_bridge.admin.publisher_edit_presentation"
                     @action={{this.beginPresentationCorrection}}
                     @actionParam={{record}}
+                    @label="discussion_bridge.admin.publisher_edit_presentation"
                   /></td></tr>
               {{#if this.editingRecord}}
                 {{#if (eq record.resource_id this.editingRecord.resource_id)}}
@@ -370,15 +399,15 @@ export default class DiscussionBridgePublishing extends Component {
                             {{on "input" this.updateCorrectedCanonicalUrl}}
                           /></label>
                         <DButton
-                          @type="submit"
-                          @label="discussion_bridge.admin.publisher_save_presentation"
-                          @disabled={{this.working}}
                           class="btn-primary"
+                          @disabled={{this.working}}
+                          @label="discussion_bridge.admin.publisher_save_presentation"
+                          @type="submit"
                         />
                         <DButton
-                          @label="discussion_bridge.admin.cancel"
                           @action={{this.cancelPresentationCorrection}}
                           @disabled={{this.working}}
+                          @label="discussion_bridge.admin.cancel"
                         />
                       </form>
                     </td></tr>

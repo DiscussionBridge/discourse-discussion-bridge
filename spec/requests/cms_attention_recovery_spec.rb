@@ -506,8 +506,9 @@ RSpec.describe DiscussionBridge::CmsAdminAttentionController, type: :request do
     expect(DiscussionBridgeCmsAttentionNotice.where(cms_work_id: @work.id).count).to eq(1)
     expect(DiscussionBridgeCmsAttentionDelivery.where(notice_id: notice.id).count).to eq(count)
     eligible.update_columns(admin: false)
-    expect(NotificationEmailer).not_to receive(:process_notification)
+    allow(NotificationEmailer).to receive(:process_notification).and_call_original
     DiscussionBridge::CmsAttentionNotifications.dispatch
+    expect(NotificationEmailer).not_to have_received(:process_notification)
     revoked = DiscussionBridgeCmsAttentionDelivery.find_by!(notice_id: notice.id, user_id: eligible.id)
     expect(revoked.skipped_at).to be_present
     expect(revoked.notification_id).to be_nil
@@ -527,8 +528,9 @@ RSpec.describe DiscussionBridge::CmsAdminAttentionController, type: :request do
       end
       original.call(*arguments)
     end
-    expect(NotificationEmailer).not_to receive(:process_notification)
+    allow(NotificationEmailer).to receive(:process_notification).and_call_original
     DiscussionBridge::CmsAttentionNotifications.dispatch
+    expect(NotificationEmailer).not_to have_received(:process_notification)
     delivery = DiscussionBridgeCmsAttentionDelivery.find_by!(notice_id: notice.id, user_id: admin.id)
     notification = Notification.find(delivery.notification_id)
     expect(callback_flags).not_to be_empty

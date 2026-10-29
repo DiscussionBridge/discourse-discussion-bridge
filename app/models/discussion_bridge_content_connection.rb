@@ -139,6 +139,7 @@ end
 #  allowed_lanes          :jsonb            not null
 #  allowed_origins        :jsonb            not null
 #  authorship_mode        :string(32)       default("fixed"), not null
+#  cms_configuration      :jsonb
 #  enabled                :boolean          default(TRUE), not null
 #  generate_topic_toc     :boolean          default(FALSE), not null
 #  last_seen_at           :datetime
@@ -155,9 +156,9 @@ end
 #
 # Indexes
 #
-#  idx_db_content_connections_author            (author_user_id)
-#  idx_db_content_connections_default_category  (default_category_id)
-#  idx_db_content_connections_name              (name) UNIQUE
-#  idx_db_content_connections_platform          (platform)
-#  idx_db_content_connections_public_id         (public_id) UNIQUE
+#  idx_db_content_connections_author     (author_user_id)
+#  idx_db_content_connections_category   (default_category_id)
+#  idx_db_content_connections_name       (name) UNIQUE
+#  idx_db_content_connections_platform   (platform)
+#  idx_db_content_connections_public_id  (public_id) UNIQUE
 #

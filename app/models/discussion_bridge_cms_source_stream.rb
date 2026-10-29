@@ -32,3 +32,34 @@ class DiscussionBridgeCmsSourceStream < ActiveRecord::Base
     true
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_source_streams
+#
+#  id                    :bigint           not null, primary key
+#  event_sequence        :bigint           default(0), not null
+#  lifecycle_error_code  :string(64)
+#  lifecycle_failed_at   :datetime
+#  publication_lane      :string(120)      not null
+#  scan_completed_at     :datetime
+#  scan_phase            :string(16)       default("topics"), not null
+#  scan_scope_signature  :string(64)
+#  scan_state            :string(16)       default("uninitialized"), not null
+#  source_scope_revision :bigint           default(0), not null
+#  created_at            :datetime         not null
+#  updated_at            :datetime         not null
+#  content_connection_id :bigint           not null
+#  scan_high_intent_id   :bigint
+#  scan_high_topic_id    :bigint
+#  scan_last_intent_id   :bigint           default(0), not null
+#  scan_last_topic_id    :bigint           default(0), not null
+#
+# Indexes
+#
+#  idx_db_cms_stream_connection_lane  (content_connection_id,publication_lane) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
+#

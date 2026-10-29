@@ -22,6 +22,14 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked fromExternalId = "";
   @tracked fromUrl = "";
 
+  get previousDisabled() {
+    return this.args.model.pagination.page <= 1;
+  }
+
+  get nextDisabled() {
+    return this.args.model.pagination.page >= this.args.model.pagination.pages;
+  }
+
   @action
   updateQuery(event) {
     this.query = event.target.value;
@@ -60,14 +68,6 @@ export default class DiscussionBridgeOperations extends Component {
   @action
   updateFromUrl(event) {
     this.fromUrl = event.target.value;
-  }
-
-  get previousDisabled() {
-    return this.args.model.pagination.page <= 1;
-  }
-
-  get nextDisabled() {
-    return this.args.model.pagination.page >= this.args.model.pagination.pages;
   }
 
   displayToken(value) {
@@ -142,10 +142,10 @@ export default class DiscussionBridgeOperations extends Component {
   <template>
     <section class="discussion-bridge-operations">
       <DPageSubheader
-        @titleLabel={{i18n "discussion_bridge.admin.bridge_records_title"}}
         @descriptionLabel={{i18n
           "discussion_bridge.admin.bridge_records_description"
         }}
+        @titleLabel={{i18n "discussion_bridge.admin.bridge_records_title"}}
       />
 
       <div class="discussion-bridge-direction-cards">
@@ -162,8 +162,8 @@ export default class DiscussionBridgeOperations extends Component {
       </div>
 
       <form
-        {{on "submit" this.filter}}
         class="discussion-bridge-operations__search"
+        {{on "submit" this.filter}}
       >
         <label>{{i18n "discussion_bridge.admin.search"}}<input
             type="search"
@@ -200,7 +200,7 @@ export default class DiscussionBridgeOperations extends Component {
               >{{connection.name}}</option>{{/each}}
           </select>
         </label>
-        <DButton @type="submit" @label="discussion_bridge.admin.apply" />
+        <DButton @label="discussion_bridge.admin.apply" @type="submit" />
       </form>
 
       <div class="discussion-bridge-operations__table-wrap">
@@ -234,9 +234,9 @@ export default class DiscussionBridgeOperations extends Component {
                     data-state={{record.state}}
                   >{{this.displayToken record.state}}</span></td>
                 <td><DButton
-                    @label="discussion_bridge.admin.view"
                     @action={{this.showRecord}}
                     @actionParam={{record}}
+                    @label="discussion_bridge.admin.view"
                   /></td>
               </tr>
             {{else}}<tr><td colspan="6">{{i18n
@@ -248,18 +248,18 @@ export default class DiscussionBridgeOperations extends Component {
 
       <div class="discussion-bridge-operations__pagination">
         <DButton
-          @label="discussion_bridge.admin.previous"
-          @disabled={{this.previousDisabled}}
           @action={{this.previousPage}}
+          @disabled={{this.previousDisabled}}
+          @label="discussion_bridge.admin.previous"
         />
         <span>{{i18n "discussion_bridge.admin.page"}}
           {{@model.pagination.page}}
           /
           {{@model.pagination.pages}}</span>
         <DButton
-          @label="discussion_bridge.admin.next"
-          @disabled={{this.nextDisabled}}
           @action={{this.nextPage}}
+          @disabled={{this.nextDisabled}}
+          @label="discussion_bridge.admin.next"
         />
       </div>
 
@@ -306,30 +306,30 @@ export default class DiscussionBridgeOperations extends Component {
               value={{connection.id}}
             >{{connection.name}}</option>{{/each}}</select>
         <input
-          required
-          type="number"
           min="1"
           placeholder={{i18n "discussion_bridge.admin.topic_id"}}
+          required
+          type="number"
           value={{this.fromTopicId}}
           {{on "input" this.updateFromTopic}}
         />
         <input
-          required
           placeholder={{i18n "discussion_bridge.admin.external_id"}}
+          required
           value={{this.fromExternalId}}
           {{on "input" this.updateFromExternal}}
         />
         <input
+          placeholder={{i18n "discussion_bridge.admin.presentation_url"}}
           required
           type="url"
-          placeholder={{i18n "discussion_bridge.admin.presentation_url"}}
           value={{this.fromUrl}}
           {{on "input" this.updateFromUrl}}
         />
         <DButton
-          @type="submit"
-          @label="discussion_bridge.admin.create_bridge_record"
           class="btn-primary"
+          @label="discussion_bridge.admin.create_bridge_record"
+          @type="submit"
         />
       </form>
     </section>

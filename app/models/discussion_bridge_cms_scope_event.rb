@@ -55,3 +55,28 @@ class DiscussionBridgeCmsScopeEvent < ActiveRecord::Base
     end
   end
 end
+
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_scope_events
+#
+#  id                       :bigint           not null, primary key
+#  changed_fields           :jsonb            not null
+#  event_origin             :string(64)       not null
+#  policy_revision          :string(128)
+#  previous_policy_revision :string(128)
+#  previous_values          :jsonb            not null
+#  reason                   :string(64)       not null
+#  values                   :jsonb            not null
+#  created_at               :datetime         not null
+#  actor_user_id            :bigint
+#  content_connection_id    :bigint           not null
+#
+# Indexes
+#
+#  idx_db_cms_scope_events_owner  (content_connection_id,created_at,id)
+#
+# Foreign Keys
+#
+#  fk_rails_...  (content_connection_id => discussion_bridge_content_connections.id)
+#

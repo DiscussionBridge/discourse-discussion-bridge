@@ -168,7 +168,7 @@ module DiscussionBridge
           cursor ||= initial_snapshot!(stream, config)
           initial_page!(cursor, stream, config)
         else
-          CmsProtocol.reject!("cursor_invalid") unless %w[changes checkpoint].include?(cursor.kind)
+          CmsProtocol.reject!("cursor_invalid") if %w[changes checkpoint].exclude?(cursor.kind)
           cursor =
             new_cursor!(
               stream,

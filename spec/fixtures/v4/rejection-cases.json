@@ -1,0 +1,289 @@
+{
+  "status": "derived reusable V4 author cases; not frozen/review/native proof",
+  "type_cases": [
+    {
+      "id": "N02_numeric_core_id",
+      "profile": "v4",
+      "type": "ResolveResult",
+      "input": {
+        "outcome": "created",
+        "reason": "record_created",
+        "resource_id": "11111111-1111-4111-8111-000000000002",
+        "topic_id": 8,
+        "topic_url": "https://forum.example/t/roadmap/8",
+        "direction": "to_discourse",
+        "source_revision": "native-source-r1",
+        "synchronized_at": "2026-10-09T18:00:00.000Z",
+        "core_fallback": false
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N03_nil_mutation",
+      "profile": "v4",
+      "type": "Claim",
+      "input": {
+        "mutation_id": "00000000-0000-0000-0000-000000000000"
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N04_unknown_field",
+      "profile": "v4",
+      "type": "Claim",
+      "input": {
+        "mutation_id": "11111111-1111-4111-8111-000000000014",
+        "enable_publication": true
+      },
+      "expected": {
+        "http": 400,
+        "code": "unknown_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N08_fractional_attempt",
+      "profile": "v4",
+      "type": "Lease",
+      "input": {
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "leased",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 1.5,
+          "lease_generation": 1,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "lease_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "lease_generation": 1,
+        "expires_at": "2026-10-09T18:05:00.000Z",
+        "server_time": "2026-10-09T18:00:00.000Z"
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N09_unsafe_integer",
+      "profile": "v4",
+      "type": "Lease",
+      "input": {
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "leased",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 1,
+          "lease_generation": 9007199254740992,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "lease_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "lease_generation": 1,
+        "expires_at": "2026-10-09T18:05:00.000Z",
+        "server_time": "2026-10-09T18:00:00.000Z"
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N10_bad_date",
+      "profile": "v4",
+      "type": "Lease",
+      "input": {
+        "work": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "mapping_id": "11111111-1111-4111-8111-000000000001",
+          "source_id": "topic:8",
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1",
+          "action": "publish_revision",
+          "state": "leased",
+          "attempt_cycle": "11111111-1111-4111-8111-000000000004",
+          "attempt": 1,
+          "lease_generation": 1,
+          "retry_at": null,
+          "last_failure_code": null
+        },
+        "lease_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "lease_generation": 1,
+        "expires_at": "2026-10-09T18:05:00.000Z",
+        "server_time": "2026-02-30T18:00:00.000Z"
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N11_noncanonical_core_id",
+      "profile": "v4",
+      "type": "ResolveResult",
+      "input": {
+        "outcome": "created",
+        "reason": "record_created",
+        "resource_id": "11111111-1111-4111-8111-000000000002",
+        "topic_id": "08",
+        "topic_url": "https://forum.example/t/roadmap/8",
+        "direction": "to_discourse",
+        "source_revision": "native-source-r1",
+        "synchronized_at": "2026-10-09T18:00:00.000Z",
+        "core_fallback": false
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N12_wrong_union_discriminator",
+      "profile": "v4",
+      "type": "Ack",
+      "input": {
+        "mutation_id": "11111111-1111-4111-8111-000000000016",
+        "stage": "synchronized",
+        "authority": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "lease_generation": 1,
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1"
+        },
+        "native_result": {
+          "kind": "other",
+          "native_id": "native:7",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/roadmap/",
+          "native_revision": "native-r1",
+          "ownership_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "05cdd1137e7eda4c7c0f67a5a744c1351139d7faa3c6e52b407b214f3136b8aa"
+          }
+        }
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N13_cross_branch_fields",
+      "profile": "v4",
+      "type": "StaticPreparation",
+      "input": {
+        "mutation_id": "11111111-1111-4111-8111-000000000032",
+        "authority": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "lease_generation": 1,
+          "source_revision": null,
+          "policy_revision": "policy-r1"
+        },
+        "transaction_id": "11111111-1111-4111-8111-000000000007",
+        "native_result": {
+          "kind": "withdraw",
+          "native_id": "native:7",
+          "external_id": "page:site-7:roadmap",
+          "canonical_url": "https://publisher.example/roadmap/",
+          "native_revision": "native-r2",
+          "ownership_receipt_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "representation": {
+            "kind": "full",
+            "source_content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        },
+        "prepared_at": "2026-10-09T18:00:00.000Z"
+      },
+      "expected": {
+        "http": 400,
+        "code": "unknown_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N14_bad_token_length",
+      "profile": "v4",
+      "type": "Renew",
+      "input": {
+        "mutation_id": "11111111-1111-4111-8111-000000000015",
+        "authority": {
+          "work_id": "11111111-1111-4111-8111-000000000003",
+          "lease_token": "example-token",
+          "lease_generation": 1,
+          "source_revision": "source-r1",
+          "policy_revision": "policy-r1"
+        }
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    },
+    {
+      "id": "N16_http_canonical",
+      "profile": "v4",
+      "type": "MappingPrepare",
+      "input": {
+        "mutation_id": "11111111-1111-4111-8111-000000000012",
+        "source_id": "topic:8",
+        "source_revision": "source-r1",
+        "policy_revision": "policy-r1",
+        "external_id": "page:site-7:roadmap",
+        "canonical_url": "http://publisher.example/roadmap/"
+      },
+      "expected": {
+        "http": 422,
+        "code": "invalid_field"
+      },
+      "check_level": "TYPE_SHAPE"
+    }
+  ],
+  "raw_json_cases": [
+    {
+      "id": "J01",
+      "profile": "v4",
+      "raw": "{\"mutation_id\":\"11111111-1111-4111-8111-000000000014\",\"mutation_id\":\"11111111-1111-4111-8111-000000000015\"}",
+      "expected": {
+        "http": 400,
+        "code": "invalid_json"
+      }
+    },
+    {
+      "id": "J02",
+      "profile": "v4",
+      "raw": "{\"mutation_id\":\"11111111-1111-4111-8111-000000000014\"} true",
+      "expected": {
+        "http": 400,
+        "code": "invalid_json"
+      }
+    }
+  ]
+}

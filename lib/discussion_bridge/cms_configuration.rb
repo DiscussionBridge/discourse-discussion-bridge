@@ -30,7 +30,8 @@ module DiscussionBridge
       CmsProtocol.validate!("Policy", policy)
       origin = config.fetch("destination_origin")
       uri = URI.parse(origin)
-      unless (uri.path.empty? || uri.path == "/") && uri.query.nil?
+      origin_only = (uri.path.empty? || uri.path == "/") && uri.query.nil?
+      unless origin_only
         CmsProtocol.reject!("invalid_field")
       end
       canonical_origin = CmsProtocol.url_key(origin).delete_suffix("/")

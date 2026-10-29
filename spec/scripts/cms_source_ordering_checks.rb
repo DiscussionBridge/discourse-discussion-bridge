@@ -7,10 +7,11 @@
 # Native coverage belongs to spec/lib/cms_source_ordering_spec.rb.
 require "json"
 require "digest"
+require_relative "../support/standalone_enumerable_helpers"
 
 class Object
   def blank? = respond_to?(:empty?) ? empty? : !self
-  def present? = !blank?
+  def present? = blank? == false
   def presence = present? ? self : nil
 end
 class String
@@ -273,8 +274,8 @@ run.call("actual changes method requests numeric ordering despite reverse insert
   page = poll(store, cursor(store, stream, config, position: 9_007_199_254_740_990, high_water: 9_007_199_254_740_993))
   expect_equal(%w[9007199254740991 9007199254740992 9007199254740993], sequences(page))
   expect_equal(9_007_199_254_740_993, retained_cursor(page.fetch("checkpoint_cursor")).position)
-  raise "Actual ordered query not invoked" unless ProducerDoubles.queries.include?([:order, :event_sequence])
-  raise "Actual lower/upper bounds not invoked" unless ProducerDoubles.queries.include?(
+  raise "Actual ordered query not invoked" if ProducerDoubles.queries.exclude?([:order, :event_sequence])
+  raise "Actual lower/upper bounds not invoked" if ProducerDoubles.queries.exclude?(
     [:where, "event_sequence > ? AND event_sequence <= ?", [9_007_199_254_740_990, 9_007_199_254_740_993]])
 end
 
@@ -321,7 +322,7 @@ run.call("initial snapshot uses source-ID ordering and permits decreasing public
   expect_equal(%w[source:a source:z], page.fetch("items").map { |event| event.fetch("source").fetch("source_id") })
   expect_equal(%w[20 10], sequences(page))
   expect_equal(20, retained_cursor(page.fetch("checkpoint_cursor")).position)
-  raise "Actual C collation query not invoked" unless ProducerDoubles.queries.include?([:order, 'source_id COLLATE "C"'])
+  raise "Actual C collation query not invoked" if ProducerDoubles.queries.exclude?([:order, 'source_id COLLATE "C"'])
 end
 
 run.call("empty initial snapshot emits changes checkpoint at its horizon") do

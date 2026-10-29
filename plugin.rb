@@ -182,7 +182,13 @@ after_initialize do
     DiscussionBridge::CmsCatalogStore.invalidate_scope!(connection, clock: clock)
   end
   DiscussionBridge::CmsNativeObserver.register(self)
-  DiscussionBridge::CmsGlobalGateObserver.register
+  # This observer must also see the plugin's disable event. Plugin::Instance#on
+  # intentionally filters disabled plugins, so use the native event here.
+  # rubocop:disable Discourse/Plugins/UsePluginInstanceOn
+  DiscourseEvent.on(:site_setting_changed) do |name, previous, current|
+    DiscussionBridge::CmsGlobalGateObserver.changed(name, previous, current)
+  end
+  # rubocop:enable Discourse/Plugins/UsePluginInstanceOn
   unless SiteSettings::LabelFormatter.singleton_class <
            DiscussionBridge::SiteSettingLabelFormatterExtension
     SiteSettings::LabelFormatter.singleton_class.prepend(

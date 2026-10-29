@@ -211,7 +211,7 @@ module DiscussionBridge
           unless snapshot_binding_valid?(snapshot) && snapshot.entries.count == snapshot.total_items
             CmsProtocol.reject!("metadata_unavailable")
           end
-          wanted = ids.to_h { |id| [Digest::SHA256.hexdigest(id), id] }
+          wanted = ids.index_by { |id| Digest::SHA256.hexdigest(id) }
           found = {}
           snapshot
             .entries

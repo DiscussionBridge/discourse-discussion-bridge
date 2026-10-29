@@ -12,3 +12,22 @@ class DiscussionBridgeCmsToSourceRevision < ActiveRecord::Base
   end
 end
 
+# == Schema Information
+#
+# Table name: discussion_bridge_cms_to_source_revisions
+#
+#  id               :bigint           not null, primary key
+#  accepted_at      :datetime         not null
+#  identity_sha256  :string(64)       not null
+#  source_revision  :string(128)      not null
+#  bridge_record_id :bigint           not null
+#
+# Indexes
+#
+#  idx_db_cms_to_source_revision  (bridge_record_id,source_revision) UNIQUE
+#
+# Foreign Keys
+#
+#  fk_rails_...  (bridge_record_id => discussion_bridge_bridge_records.id)
+#
+

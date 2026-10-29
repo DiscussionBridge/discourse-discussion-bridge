@@ -8,9 +8,10 @@ module DiscussionBridge
     def self.validate!(value, allow_blank: false)
       raise Invalid unless value.is_a?(String)
       value = value.dup.force_encoding(Encoding::UTF_8)
-      unless value.valid_encoding? && value.bytesize <= 200 &&
+      valid_name = value.valid_encoding? && value.bytesize <= 200 &&
                !value.match?(/\p{Cc}/) &&
                (allow_blank || !value.match?(/\A\p{Space}*\z/))
+      unless valid_name
         raise Invalid
       end
       value

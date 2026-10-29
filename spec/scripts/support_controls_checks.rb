@@ -3,6 +3,7 @@
 # Standalone author checks: execute the actual support control modules against
 # explicit native-framework seams. No database, Core session or account mutation.
 require "json"
+require_relative "../support/standalone_enumerable_helpers"
 
 class Object
   def deep_dup
@@ -140,7 +141,8 @@ module DiscussionBridge
       attr_accessor :calls
       def current!(connection, require_enabled:)
         calls << [connection.id, require_enabled]
-        raise Discourse::InvalidAccess unless connection.current && (!require_enabled || connection.enabled)
+        authorized = connection.current && (!require_enabled || connection.enabled)
+        raise Discourse::InvalidAccess unless authorized
         connection.configuration
       end
     end
