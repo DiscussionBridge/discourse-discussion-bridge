@@ -17,7 +17,15 @@ module DiscussionBridge
 
     # Shared transaction-level lock for all current mapping/binding writers.
     def self.with_locks(urls)
-      keys = urls.map { |url| collision_key(url) }.uniq.sort
+      # Retain every original key/lock. Also serialize domain aliases against
+      # their comparison key, without rewriting stored reservation digests.
+      keys =
+        urls
+          .flat_map do |url|
+            [collision_key(url), CmsProtocol.url_authority(url).comparison_key]
+          end
+          .uniq
+          .sort
       DiscussionBridgeCmsUrlReservation.transaction do
         keys.each do |key|
           unsigned =
@@ -65,6 +73,16 @@ module DiscussionBridge
     private
 
     def reject_binding_collision!(key, allowed_binding_id:)
+      comparison = CmsProtocol.url_authority(key).comparison_key
+      # A retired/prepared spelling may no longer be on the active binding.
+      # Its reservation still excludes an equivalent domain alias. The exact
+      # digest's ownership/state is checked separately by each native writer.
+      DiscussionBridgeCmsUrlReservation
+        .where.not(collision_key_sha256: Digest::SHA256.hexdigest(key))
+        .find_each(batch_size: BINDING_BATCH_SIZE) do |reservation|
+          candidate = comparison_key(reservation.canonical_url)
+          CmsProtocol.reject!("url_collision") if candidate == comparison
+        end
       # Preserve protected HTTPS key semantics, including exact escaped path and
       # query bytes. Read all existing active/prepared/historical bindings in
       # bounded batches, preserving exact current HTTPS collision-key bytes.
@@ -73,12 +91,18 @@ module DiscussionBridge
         .find_each(batch_size: BINDING_BATCH_SIZE) do |binding|
           candidate =
             begin
-              CmsProtocol.url_key(binding.canonical_url)
+              CmsProtocol.url_authority(binding.canonical_url).comparison_key
             rescue CmsProtocol::Error
               nil # Outside the protected CMS HTTPS collision-key space.
             end
-          CmsProtocol.reject!("url_collision") if candidate == key
+          CmsProtocol.reject!("url_collision") if candidate == comparison
         end
+    end
+
+    def comparison_key(url)
+      CmsProtocol.url_authority(url).comparison_key
+    rescue CmsProtocol::Error
+      nil # Invalid historical URLs cannot establish new URL authority.
     end
   end
 end

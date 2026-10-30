@@ -10,16 +10,18 @@ module DiscussionBridge
       CmsProtocol.validate!("Url", new_url)
       old_key = CmsProtocol.url_key(old_url)
       new_key = CmsProtocol.url_key(new_url)
-      old = URI(old_key)
-      proposed = URI(new_key)
-      unless old_key != new_key && [old.scheme, old.host, old.port] == [proposed.scheme, proposed.host, proposed.port]
+      old = CmsProtocol.url_authority(old_url)
+      proposed = CmsProtocol.url_authority(new_url)
+      unless old_key != new_key &&
+               old.comparison_origin == proposed.comparison_origin
         CmsProtocol.reject!("identity_conflict")
       end
     end
 
     def self.checked_at!(verification, prepared_at, now)
       checked = Time.iso8601(verification.fetch("checked_at"))
-      if checked < prepared_at || checked > now + CmsWorkCoordinator::LEASE_SECONDS
+      if checked < prepared_at ||
+           checked > now + CmsWorkCoordinator::LEASE_SECONDS
         CmsProtocol.reject!("invalid_field")
       end
     end
@@ -28,21 +30,28 @@ module DiscussionBridge
       ownership = input.fetch("ownership")
       proof = input.fetch("verification")
       binding = mapping.content_binding
-      unless ownership.fetch("resource_id") == binding.bridge_record.resource_id &&
-          ownership.fetch("external_id") == binding.external_id &&
-          ownership.fetch("native_id") == mapping.destination_native_id &&
-          ownership.fetch("canonical_url") == move.new_url &&
-          ownership.fetch("source_revision") == work.source_revision &&
-          proof.fetch("url") == move.new_url && proof.fetch("native_id") == mapping.destination_native_id
+      unless ownership.fetch("resource_id") ==
+               binding.bridge_record.resource_id &&
+               ownership.fetch("external_id") == binding.external_id &&
+               ownership.fetch("native_id") == mapping.destination_native_id &&
+               ownership.fetch("canonical_url") == move.new_url &&
+               ownership.fetch("source_revision") == work.source_revision &&
+               proof.fetch("url") == move.new_url &&
+               proof.fetch("native_id") == mapping.destination_native_id
         CmsProtocol.reject!("native_ownership_conflict")
       end
       unless proof.fetch("source_revision") == work.source_revision
         CmsProtocol.reject!("revision_conflict")
       end
-      unless proof.fetch("source_content_sha256") == work.source_snapshot.fetch("content_sha256")
+      unless proof.fetch("source_content_sha256") ==
+               work.source_snapshot.fetch("content_sha256")
         CmsProtocol.reject!("content_hash_mismatch")
       end
-      CmsWorkCoordinator.new(nil).send(:representation!, work, proof.fetch("representation"))
+      CmsWorkCoordinator.new(nil).send(
+        :representation!,
+        work,
+        proof.fetch("representation")
+      )
       checked_at!(proof, move.prepared_at, now)
     end
   end

@@ -7,14 +7,18 @@ require "json"
 require "strscan"
 require "time"
 require "uri"
+require_relative "cms_url_authority"
 
 module DiscussionBridge
   module CmsProtocol
     SCHEMA_SHA256 =
-      "8563a9b1346e3bf82635bd65a46bb1e25415a1003d7432f8fcb8c1c6e4f03c14"
-    CONTRACT_SHA256 = "df31c5d2fc387a8b12b388438450eccd97966de34c82b1bf417634b21a36b495"
+      "e6a15a6d70f7bc8b8ee82aa22a0b9c2ff1bbf2da6277f7087118be9e026ce5c0"
+    CONTRACT_SHA256 =
+      "808042688cbde88fac0acdf1187e4cb8c251e13025bfcf09cf3a3c361ca02003"
     contract_bytes = File.binread(File.join(__dir__, "cms_contract.json"))
-    raise "V4 current normative identity mismatch" unless Digest::SHA256.hexdigest(contract_bytes) == CONTRACT_SHA256
+    unless Digest::SHA256.hexdigest(contract_bytes) == CONTRACT_SHA256
+      raise "V4 current normative identity mismatch"
+    end
     schema_bytes = File.binread(File.join(__dir__, "cms_protocol_types.json"))
     unless Digest::SHA256.hexdigest(schema_bytes) == SCHEMA_SHA256
       raise "V4 current schema identity mismatch"
@@ -29,10 +33,7 @@ module DiscussionBridge
       end
     SCHEMA = freeze_tree.call(JSON.parse(schema_bytes))
     ERRORS =
-      SCHEMA
-        .fetch("errors")
-        .index_by { |error| error.fetch("code") }
-        .freeze
+      SCHEMA.fetch("errors").index_by { |error| error.fetch("code") }.freeze
     MAX_COUNTER = 9_007_199_254_740_991
 
     class Error < StandardError
@@ -281,7 +282,7 @@ module DiscussionBridge
           reject!("invalid_field")
         end
       when "Url"
-        url_key(value)
+        url_authority(value)
       when "Base64"
         decoded = Base64.strict_decode64(value)
         reject!("invalid_field") unless Base64.strict_encode64(decoded) == value
@@ -392,12 +393,13 @@ module DiscussionBridge
           reject!("invalid_field")
         end
       when "Connection"
-        origin = URI.parse(value.fetch("destination_origin"))
-        unless ["", "/"].include?(origin.path) && origin.query.nil?
+        unless url_authority(value.fetch("destination_origin")).origin_only?
           reject!("invalid_field")
         end
       when "Work"
-        reject!("invalid_field") if value["last_failure_code"] == "content_preservation_unavailable"
+        if value["last_failure_code"] == "content_preservation_unavailable"
+          reject!("invalid_field")
+        end
         unless (value.fetch("action") == "withdraw") ==
                  value["source_revision"].nil?
           reject!("invalid_field")
@@ -410,7 +412,10 @@ module DiscussionBridge
           reject!("invalid_field")
         end
       when "Failure", "Error"
-        reject!("invalid_field") if name == "Failure" && value.fetch("code") == "content_preservation_unavailable"
+        if name == "Failure" &&
+             value.fetch("code") == "content_preservation_unavailable"
+          reject!("invalid_field")
+        end
         error = ERRORS.fetch(value.fetch("code"))
         if name == "Error" &&
              value.fetch("retryable") != error.fetch("retryable")
@@ -433,70 +438,111 @@ module DiscussionBridge
           reject!("invalid_field")
         end
       when "AttentionPreparedTransaction"
-        valid_preparation = (value.fetch("action") == "withdraw") == value["source_revision"].nil? &&
-             value.fetch("native_result").fetch("kind") == value.fetch("action") &&
-             value["deployment_id"].nil? == value["deployed_at"].nil? &&
-             (value["deployed_at"].nil? || value["deployed_at"] >= value.fetch("prepared_at"))
-        unless valid_preparation
-          reject!("invalid_field")
-        end
+        valid_preparation =
+          (value.fetch("action") == "withdraw") ==
+            value["source_revision"].nil? &&
+            value.fetch("native_result").fetch("kind") ==
+              value.fetch("action") &&
+            value["deployment_id"].nil? == value["deployed_at"].nil? &&
+            (
+              value["deployed_at"].nil? ||
+                value["deployed_at"] >= value.fetch("prepared_at")
+            )
+        reject!("invalid_field") unless valid_preparation
       when "AttentionInspection", "AttentionRecovery"
         work = value.fetch("work")
         mapping = value.fetch("mapping")
         source = value["source"]
-        matching_identity = work.fetch("mapping_id") == mapping.fetch("mapping_id") &&
-             work.fetch("source_id") == mapping.fetch("source_id") &&
-             (work.fetch("action") != "publish_revision" || source) &&
-             (!source || source.fetch("source_id") == work.fetch("source_id") &&
-               (work.fetch("action") != "publish_revision" || source.fetch("source_revision") == work.fetch("source_revision")))
-        unless matching_identity
-          reject!("identity_conflict")
-        end
+        matching_identity =
+          work.fetch("mapping_id") == mapping.fetch("mapping_id") &&
+            work.fetch("source_id") == mapping.fetch("source_id") &&
+            (work.fetch("action") != "publish_revision" || source) &&
+            (
+              !source ||
+                source.fetch("source_id") == work.fetch("source_id") &&
+                  (
+                    work.fetch("action") != "publish_revision" ||
+                      source.fetch("source_revision") ==
+                        work.fetch("source_revision")
+                  )
+            )
+        reject!("identity_conflict") unless matching_identity
         if name == "AttentionInspection"
           reject!("invalid_field") unless work.fetch("state") == "attention"
           prepared = value["prepared_transaction"]
-          if prepared && %w[work_id action source_revision policy_revision lease_generation].any? { |key| prepared[key] != work[key] }
+          if prepared &&
+               %w[
+                 work_id
+                 action
+                 source_revision
+                 policy_revision
+                 lease_generation
+               ].any? { |key| prepared[key] != work[key] }
             reject!("identity_conflict")
           end
         else
           unless work.fetch("work_id") != value.fetch("predecessor_work_id") &&
-               work.fetch("attempt_cycle") != value.fetch("predecessor_attempt_cycle") &&
-               work.fetch("state") == "pending" && work.fetch("attempt") == 0 &&
-               work["retry_at"].nil? && work["last_failure_code"].nil?
+                   work.fetch("attempt_cycle") !=
+                     value.fetch("predecessor_attempt_cycle") &&
+                   work.fetch("state") == "pending" &&
+                   work.fetch("attempt") == 0 && work["retry_at"].nil? &&
+                   work["last_failure_code"].nil?
             reject!("invalid_field")
           end
           if value.fetch("mode") == "settle_restored_baseline"
             baseline = value["native_baseline"]
             proof = value["verification"]
-            unless baseline && proof && baseline.fetch("native_id") == proof.fetch("native_id") &&
-                 baseline.fetch("canonical_url") == proof.fetch("url")
+            unless baseline && proof &&
+                     baseline.fetch("native_id") == proof.fetch("native_id") &&
+                     baseline.fetch("canonical_url") == proof.fetch("url")
               reject!("invalid_field")
             end
           end
         end
       when "AttentionInspectionPage", "AttentionRecoveryPage"
         items = value.fetch("items")
-        unless items.each_cons(2).all? { |left, right| right.fetch("sequence") > left.fetch("sequence") } &&
-             (items.empty? ? !value.fetch("has_more") : value.fetch("next_after") == items.last.fetch("sequence"))
+        unless items
+                 .each_cons(2)
+                 .all? { |left, right|
+                   right.fetch("sequence") > left.fetch("sequence")
+                 } &&
+                 (
+                   if items.empty?
+                     !value.fetch("has_more")
+                   else
+                     value.fetch("next_after") == items.last.fetch("sequence")
+                   end
+                 )
           reject!("invalid_field")
         end
       when "AttentionObservation"
         %w[ownership native_result verification].each do |field|
           item = value[field]
-          if item && (value["native_id"].nil? || item.fetch("native_id") != value["native_id"])
+          if item &&
+               (
+                 value["native_id"].nil? ||
+                   item.fetch("native_id") != value["native_id"]
+               )
             reject!("identity_conflict")
           end
         end
       when "AttentionInspectionResult"
-        if value.fetch("status") == "ready" && (value["observed_at"].nil? || value.fetch("issue") != "none")
+        if value.fetch("status") == "ready" &&
+             (value["observed_at"].nil? || value.fetch("issue") != "none")
           reject!("invalid_field")
         end
       when "AttentionCheckSelections", "AttentionRetrySelections"
         key = name == "AttentionCheckSelections" ? "work_id" : "inspection_id"
-        reject!("invalid_field") unless value.map { |item| item.fetch(key) }.uniq.size == value.size
+        unless value.map { |item| item.fetch(key) }.uniq.size == value.size
+          reject!("invalid_field")
+        end
       when "AttentionAdminItemResult"
-        if value.fetch("status") == "queued" && (value["inspection_id"].nil? || value["recovery_id"].nil? ||
-             value["successor_work_id"].nil? || value["successor_work_id"] == value.fetch("work_id"))
+        if value.fetch("status") == "queued" &&
+             (
+               value["inspection_id"].nil? || value["recovery_id"].nil? ||
+                 value["successor_work_id"].nil? ||
+                 value["successor_work_id"] == value.fetch("work_id")
+             )
           reject!("invalid_field")
         end
       when "ResolveResult"
@@ -525,7 +571,9 @@ module DiscussionBridge
     end
 
     def self.validate_attention_feed_page!(type, page, after)
-      reject!("invalid_field") if %w[AttentionInspectionPage AttentionRecoveryPage].exclude?(type)
+      if %w[AttentionInspectionPage AttentionRecoveryPage].exclude?(type)
+        reject!("invalid_field")
+      end
       validate!("UInt", after)
       validate!(type, page)
       if page.fetch("items").any? { |item| item.fetch("sequence") <= after } ||
@@ -544,7 +592,9 @@ module DiscussionBridge
            !%w[V4-02 V4-29].include?(route_id)
         reject!("invalid_field")
       end
-      reject!("invalid_field") unless ERRORS.fetch(value.fetch("code")).fetch("http") == status
+      unless ERRORS.fetch(value.fetch("code")).fetch("http") == status
+        reject!("invalid_field")
+      end
       value
     end
 
@@ -605,24 +655,22 @@ module DiscussionBridge
     end
 
     def self.url_key(value)
-      reject!("invalid_field") if value.match?(/%(?![0-9a-fA-F]{2})/)
-      uri = URI.parse(value)
-      unless uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil? &&
-               uri.fragment.nil?
+      url_authority(value).legacy_key
+    end
+
+    # Comparison facts never replace the caller's URL, stored key or receipt.
+    # Direct native callers get the same ingress bound as typed Url values.
+    def self.url_authority(value)
+      unless value.is_a?(String) &&
+               value.bytesize <=
+                 SCHEMA.fetch("types").fetch("Url").fetch("utf8_maximum_bytes")
         reject!("invalid_field")
       end
-      path = uri.path.presence || "/"
-      if path
-           .split("/")
-           .any? { |segment|
-             %w[. ..].include?(URI::DEFAULT_PARSER.unescape(segment))
-           }
-        reject!("invalid_field")
-      end
-      port = uri.port == 443 ? "" : ":#{uri.port}"
-      query = uri.query.nil? ? "" : "?#{uri.query}"
-      "https://#{uri.host.downcase}#{port}#{path}#{query}"
-    rescue URI::InvalidURIError
+      CmsUrlAuthority.parse(
+        value,
+        policy: SCHEMA.fetch("types").fetch("Url").fetch("domain_policy")
+      )
+    rescue CmsUrlAuthority::Invalid
       reject!("invalid_field")
     end
 

@@ -1,5 +1,5 @@
 {
-  "candidate_id": "discussionbridge-v4-core-20261025-r6",
+  "candidate_id": "discussionbridge-v4-core-20261029-r7",
   "implementation_version": "0.4.0-alpha.1",
   "wire_version": "v4",
   "status": "implementation_candidate_not_exact_approved_not_frozen",
@@ -8,6 +8,13 @@
     "v4": "Phil: 'or move to v4 in case v3 info surfaces later that way we are on clean work'; 'I vote move to v4'. Root commissioned one clean coherent V4 candidate.",
     "scope": "Current approved core/native semantics + approved envelope-only/owned canonical Read More; no earlier dev/deployment compatibility; future baseline upgrades retained.",
     "exact_candidate_approval": false,
+    "url_domain_policy": {
+      "human_response": "Yes",
+      "human_message_id": "01a18835-442c-7313-8f11-2285864f97f0",
+      "source_thread": "019fa3bb-0ac1-7302-a079-4d99256cd175",
+      "approved_scope": "One pinned safe domain-validation policy across JavaScript, PHP and the Discourse receiver; nontransitional UTS46 with Bidi/Joiner checks and invalid-ACE rejection, existing bounded numeric IPv4/IPv6 rules, no new mandatory PHP hosting extensions. Preserve original URL bytes, record/topic identities and exact receipts; test origin/collision/reservation paths. No stored-state rewrite, unrelated transport amendment, installation or release by inference.",
+      "implementation_selection": "Joint engineering selection: Unicode 17.0.0 data and matching strict options, preserving existing supported runtime floors. Local rawHost/asciiHost/effectivePort comparison facts are not replacement hrefs, stored keys, wire fields or ownership grants."
+    },
     "content_preservation": "Root relays Phil: 'The source content should be maintained as much as possible'; 'ommitting a video might destroy the content as you suggest'; 'agreed' approves native player/embed preservation, explicit unsupported limitation/fallback, no link/caption equivalence and source-preserving renderer opt-out. The three preparation approvals and active-function preservation below are settled; exact execution permissions/mechanisms, URI/media/provider/fallback/default and true-absence rules remain unselected.",
     "active_function_preservation": {
       "human_response": "do \"My recommendation .....\"",
@@ -304,7 +311,25 @@
     "Url": {
       "kind": "string",
       "format": "absolute HTTPS URL without userinfo or fragment",
-      "utf8_maximum_bytes": 2048
+      "utf8_maximum_bytes": 2048,
+      "domain_policy": {
+        "id": "db-url-uts46-17-1",
+        "unicode_version": "17.0.0",
+        "check_hyphens": false,
+        "check_bidi": true,
+        "check_joiners": true,
+        "use_std3_ascii_rules": false,
+        "transitional_processing": false,
+        "verify_dns_length": false,
+        "ignore_invalid_punycode": false,
+        "preserve_input_url": true,
+        "authority_facts_only": true
+      },
+      "rules": [
+        "Percent-decode the host once with strict UTF8, apply the pinned domain policy, and reject empty or forbidden decoded/mapped domain code points (C0, space, DEL, percent, # / : < > ? @ [ backslash ] ^ |). Bracketed IPv6 uses its existing IP-literal rule instead of domain processing; numeric domains retain the existing bounded WHATWG IPv4 validation.",
+        "The original URL remains byte-exact. Local rawHost, validated asciiHost and effectivePort are comparison facts only; they do not serialize a replacement URL, re-key stored reservations, normalize article targets or grant source/connection/ownership authority.",
+        "Malformed ACE (including an empty or ASCII-only decoded Punycode label), invalid Bidi and invalid ContextJ are rejected consistently, even if a native URL parser accepts them. Native parser Unicode versions and later URL-standard ASCII bypasses do not override this fixed policy."
+      ]
     },
     "Sha256": {
       "kind": "string",

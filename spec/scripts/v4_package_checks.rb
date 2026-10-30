@@ -8,8 +8,8 @@ root = File.expand_path("../..", __dir__)
 plugin = File.read(File.join(root, "plugin.rb"))
 contract_path = File.join(root, "lib/discussion_bridge/cms_contract.json")
 schema_path = File.join(root, "lib/discussion_bridge/cms_protocol_types.json")
-raise "contract pin" unless Digest::SHA256.file(contract_path).hexdigest == "df31c5d2fc387a8b12b388438450eccd97966de34c82b1bf417634b21a36b495"
-raise "schema pin" unless Digest::SHA256.file(schema_path).hexdigest == "8563a9b1346e3bf82635bd65a46bb1e25415a1003d7432f8fcb8c1c6e4f03c14"
+raise "contract pin" unless Digest::SHA256.file(contract_path).hexdigest == "808042688cbde88fac0acdf1187e4cb8c251e13025bfcf09cf3a3c361ca02003"
+raise "schema pin" unless Digest::SHA256.file(schema_path).hexdigest == "e6a15a6d70f7bc8b8ee82aa22a0b9c2ff1bbf2da6277f7087118be9e026ce5c0"
 contract = JSON.parse(File.read(contract_path))
 descriptor = JSON.parse(File.read(File.join(root, "discussionbridge-release.json")))
 raise "descriptor candidate" unless descriptor.fetch("candidate_id") == contract.fetch("candidate_id")

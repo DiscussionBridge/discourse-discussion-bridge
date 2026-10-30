@@ -7,8 +7,18 @@ module DiscussionBridge
   # Native receiver authority mutation only. No source discovery, policy
   # selection translation, retry reset, CMS write or credential material audit.
   class CmsAuthorityLifecycle
-    SCOPE_FIELDS = %w[enabled platform allowed_origins allowed_directions allowed_lanes].freeze
-    CATALOG_CONFIGURATION_FIELDS = %w[profile destination_origin publication_lane].freeze
+    SCOPE_FIELDS = %w[
+      enabled
+      platform
+      allowed_origins
+      allowed_directions
+      allowed_lanes
+    ].freeze
+    CATALOG_CONFIGURATION_FIELDS = %w[
+      profile
+      destination_origin
+      publication_lane
+    ].freeze
     ADMIN_FIELDS = %w[
       name
       platform
@@ -30,22 +40,40 @@ module DiscussionBridge
       attr_accessor :catalog_invalidator
     end
 
-    def self.admin_update!(connection_id:, attributes:, actor:, clock: -> { Time.current })
+    def self.admin_update!(
+      connection_id:,
+      attributes:,
+      actor:,
+      clock: -> { Time.current }
+    )
       administrator!(actor)
-      unless attributes.is_a?(Hash) && (attributes.keys.map(&:to_s) - ADMIN_FIELDS).empty?
+      unless attributes.is_a?(Hash) &&
+               (attributes.keys.map(&:to_s) - ADMIN_FIELDS).empty?
         raise ArgumentError, "Unknown native connection update attribute"
       end
       DiscussionBridgeContentConnection.transaction do
         connection =
-          DiscussionBridgeContentConnection.lock.find(CmsSourceLifecycle.native_id!(connection_id))
+          DiscussionBridgeContentConnection.lock.find(
+            CmsSourceLifecycle.native_id!(connection_id)
+          )
         administrator!(actor) # Check actual actor again after the lock wait.
-        connection.instance_variable_set(:@discussion_bridge_cms_scope_actor, actor)
-        connection.instance_variable_set(:@discussion_bridge_cms_scope_clock, clock)
+        connection.instance_variable_set(
+          :@discussion_bridge_cms_scope_actor,
+          actor
+        )
+        connection.instance_variable_set(
+          :@discussion_bridge_cms_scope_clock,
+          clock
+        )
         begin
           connection.update!(attributes)
         ensure
-          connection.remove_instance_variable(:@discussion_bridge_cms_scope_actor)
-          connection.remove_instance_variable(:@discussion_bridge_cms_scope_clock)
+          connection.remove_instance_variable(
+            :@discussion_bridge_cms_scope_actor
+          )
+          connection.remove_instance_variable(
+            :@discussion_bridge_cms_scope_clock
+          )
         end
         connection
       end
@@ -68,7 +96,7 @@ module DiscussionBridge
            record.cms_configuration != clean.cms_configuration
         record.errors.add(
           :cms_configuration,
-          "must be changed separately through native CMS configuration",
+          "must be changed separately through native CMS configuration"
         )
         raise ActiveRecord::RecordInvalid, record
       end
@@ -76,25 +104,31 @@ module DiscussionBridge
       actor = record.instance_variable_get(:@discussion_bridge_cms_scope_actor)
       administrator!(actor) if actor
       clock =
-        record.instance_variable_get(:@discussion_bridge_cms_scope_clock) || -> { Time.current }
-      previous_revision, revision, revised = revised_configuration(clean.cms_configuration)
+        record.instance_variable_get(:@discussion_bridge_cms_scope_clock) ||
+          -> { Time.current }
+      previous_revision, revision, revised =
+        revised_configuration(clean.cms_configuration)
       # Scope changes retain the current stored selections, even when the
       # caller's untouched configuration is stale. Malformed trees stay exact.
-      record.cms_configuration = revised unless revised == clean.cms_configuration
-      state = scope_admits_selection?(after, revised) ? "superseded" : "cancelled"
-      reason = after.fetch("enabled") ? "source_scope_changed" : "connection_disabled"
+      record.cms_configuration = revised unless revised ==
+        clean.cms_configuration
+      state =
+        scope_admits_selection?(after, revised) ? "superseded" : "cancelled"
+      reason =
+        after.fetch("enabled") ? "source_scope_changed" : "connection_disabled"
       invalidate!(clean, reason: reason, unfinished_state: state, clock: clock)
       scope_event!(
         clean,
         actor: actor,
-        origin: actor ? "native_admin_scope_mutation" : "native_model_scope_mutation",
+        origin:
+          actor ? "native_admin_scope_mutation" : "native_model_scope_mutation",
         reason: reason,
         fields: changed,
         before: before.slice(*changed),
         after: after.slice(*changed),
         previous_revision: previous_revision,
         revision: revision,
-        clock: clock,
+        clock: clock
       )
       wake_after_commit(clean.id, clock: clock)
       nil
@@ -111,8 +145,12 @@ module DiscussionBridge
       topic_selection_authorization: nil
     )
       if topic_selection_authorization
-        topic_selection_authorization.authorize_configuration!(actor, connection,
-          previous_configuration: previous_configuration, configuration: connection.cms_configuration)
+        topic_selection_authorization.authorize_configuration!(
+          actor,
+          connection,
+          previous_configuration: previous_configuration,
+          configuration: connection.cms_configuration
+        )
       else
         administrator!(actor)
       end
@@ -125,7 +163,8 @@ module DiscussionBridge
         reason: "policy_changed",
         unfinished_state: enabled ? "superseded" : "cancelled",
         clock: clock,
-        invalidate_catalog: catalog_configuration_changed?(previous_configuration, configuration),
+        invalidate_catalog:
+          catalog_configuration_changed?(previous_configuration, configuration)
       )
       wake_after_commit(connection.id, clock: clock)
       nil
@@ -134,7 +173,8 @@ module DiscussionBridge
     def self.administrator!(actor)
       valid = actor.is_a?(User) && actor.persisted? && actor.id.positive?
       actor.reload if valid
-      valid &&= actor.admin? && actor.active? && !actor.staged? && !actor.suspended?
+      valid &&=
+        actor.admin? && actor.active? && !actor.staged? && !actor.suspended?
       raise Discourse::InvalidAccess unless valid
       true
     rescue ActiveRecord::RecordNotFound
@@ -145,7 +185,9 @@ module DiscussionBridge
     # installed mutations require the complete private schema; no silent skip.
     def self.schema_ready?
       DiscussionBridgeCmsScopeEvent.table_exists? &&
-        DiscussionBridgeCmsSourceCursor.column_names.include?("invalidated_at") &&
+        DiscussionBridgeCmsSourceCursor.column_names.include?(
+          "invalidated_at"
+        ) &&
         DiscussionBridgeCmsReadSnapshot.column_names.include?("invalidated_at")
     end
 
@@ -154,7 +196,11 @@ module DiscussionBridge
     end
 
     def self.actual_write_fields(record)
-      record.class.partial_updates? ? record.changes_to_save.keys : record.attribute_names
+      if record.class.partial_updates?
+        record.changes_to_save.keys
+      else
+        record.attribute_names
+      end
     end
 
     def self.scope_facts(record)
@@ -162,7 +208,9 @@ module DiscussionBridge
     end
 
     def self.revised_configuration(configuration)
-      return nil, nil, configuration unless typed_stored_configuration?(configuration)
+      unless typed_stored_configuration?(configuration)
+        return nil, nil, configuration
+      end
       previous = configuration.fetch("policy").fetch("policy_revision")
       revision = SecureRandom.uuid
       revised = configuration.deep_dup
@@ -171,7 +219,8 @@ module DiscussionBridge
     end
 
     def self.typed_stored_configuration?(configuration)
-      unless configuration.is_a?(Hash) && configuration.keys.sort == CmsConfiguration::FIELDS.sort
+      unless configuration.is_a?(Hash) &&
+               configuration.keys.sort == CmsConfiguration::FIELDS.sort
         return false
       end
       {
@@ -179,16 +228,22 @@ module DiscussionBridge
         "destination_origin" => "Url",
         "publication_lane" => "Lane",
         "native_capabilities" => "NativeCapabilities",
-        "policy" => "Policy",
-      }.each { |field, type| CmsProtocol.validate!(type, configuration.fetch(field)) }
+        "policy" => "Policy"
+      }.each do |field, type|
+        CmsProtocol.validate!(type, configuration.fetch(field))
+      end
       true
     rescue CmsProtocol::Error, KeyError
       false
     end
 
     def self.scope_admits_selection?(scope, configuration)
-      return false unless scope.fetch("enabled") && typed_stored_configuration?(configuration)
-      unless configuration.fetch("policy").fetch("enabled") && CmsSourceLifecycle.globally_enabled?
+      unless scope.fetch("enabled") &&
+               typed_stored_configuration?(configuration)
+        return false
+      end
+      unless configuration.fetch("policy").fetch("enabled") &&
+               CmsSourceLifecycle.globally_enabled?
         return false
       end
       profile = configuration.fetch("profile")
@@ -196,13 +251,20 @@ module DiscussionBridge
       scope.fetch("platform") == platform &&
         scope.fetch("allowed_directions").include?("from_discourse") &&
         scope.fetch("allowed_origins").include?(
-          CmsProtocol.url_key(configuration.fetch("destination_origin")).delete_suffix("/"),
-        ) && scope.fetch("allowed_lanes").include?(configuration.fetch("publication_lane"))
+          CmsProtocol.url_authority(
+            configuration.fetch("destination_origin")
+          ).comparison_origin
+        ) &&
+        scope.fetch("allowed_lanes").include?(
+          configuration.fetch("publication_lane")
+        )
     end
 
     def self.catalog_configuration_changed?(previous, current)
       return true unless previous.is_a?(Hash)
-      CATALOG_CONFIGURATION_FIELDS.any? { |field| previous[field] != current.fetch(field) }
+      CATALOG_CONFIGURATION_FIELDS.any? do |field|
+        previous[field] != current.fetch(field)
+      end
     end
 
     def self.invalidate!(
@@ -216,7 +278,7 @@ module DiscussionBridge
         connection,
         reason: reason,
         unfinished_state: unfinished_state,
-        clock: clock,
+        clock: clock
       )
       invalidate_read_authority!(connection, clock: clock)
       catalog_invalidator&.call(connection, clock: clock) if invalidate_catalog
@@ -224,13 +286,16 @@ module DiscussionBridge
 
     def self.invalidate_read_authority!(connection, clock:)
       at = clock.call
-      DiscussionBridgeCmsReadSnapshot.where(content_connection_id: connection.id).update_all(
-        expires_at: at,
-        invalidated_at: at,
-      )
+      DiscussionBridgeCmsReadSnapshot.where(
+        content_connection_id: connection.id
+      ).update_all(expires_at: at, invalidated_at: at)
       DiscussionBridgeCmsSourceCursor
         .joins(:cms_source_stream)
-        .where(discussion_bridge_cms_source_streams: { content_connection_id: connection.id })
+        .where(
+          discussion_bridge_cms_source_streams: {
+            content_connection_id: connection.id
+          }
+        )
         .update_all(expires_at: at, invalidated_at: at, updated_at: at)
     end
 
@@ -256,7 +321,7 @@ module DiscussionBridge
         values: after,
         previous_policy_revision: previous_revision,
         policy_revision: revision,
-        created_at: clock.call,
+        created_at: clock.call
       )
     end
 
