@@ -336,19 +336,31 @@ RSpec.describe DiscussionBridge::CmsUrlReservation do
           16
         ].to_i(16)
       key -= 1 << 64 if key >= 1 << 63
-      acquired =
-        Thread
-          .new do
-            ActiveRecord::Base.connection_pool.with_connection do |connection|
-              connection.transaction(requires_new: true) do
-                connection.select_value(
-                  "SELECT pg_try_advisory_xact_lock(#{key}::bigint)"
-                )
-              end
-            end
-          end
-          .value
-      expect(acquired).to eq(false)
+      # Core's transactional-fixture pool shares its connection across threads.
+      # Use a separate libpq connection instead of deadlocking that pool.
+      config = ActiveRecord::Base.connection_db_config.configuration_hash
+      database =
+        PG.connect(
+          {
+            dbname: config.fetch(:database),
+            host: config[:host],
+            port: config[:port],
+            user: config[:username],
+            password: config[:password],
+            connect_timeout: 3
+          }.compact
+        )
+      begin
+        database.exec("SET statement_timeout = 3000")
+        expect(
+          database.exec_params(
+            "SELECT pg_try_advisory_xact_lock($1::bigint)",
+            [key]
+          ).getvalue(0, 0)
+        ).to eq("f")
+      ensure
+        database.close
+      end
     end
     expected =
       [old, comparison].uniq.sort.map do |key|

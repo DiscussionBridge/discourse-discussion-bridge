@@ -42,6 +42,7 @@ jobs:
           bundle exec ruby spec/scripts/v4_package_checks.rb
           bundle exec ruby spec/scripts/v4_idna_loader_checks.rb
           bundle exec ruby spec/scripts/v4_url_authority_checks.rb
+          bundle exec ruby spec/scripts/v4_url_protocol_checks.rb
           bundle exec ruby spec/scripts/cms_source_ordering_checks.rb
           bundle exec ruby spec/scripts/source_move_projection_checks.rb
           bundle exec ruby spec/scripts/support_controls_checks.rb

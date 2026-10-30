@@ -694,17 +694,22 @@ RSpec.describe DiscussionBridge::CmsAdminAttentionController, type: :request do
   end
 
   it "returns authorized international-domain attention rows without leaking a previous origin" do
+    old_work = attention!
+    sign_in(admin)
+    native_check(old_work)
     @connection.update!(
       allowed_origins: %w[https://site.example https://xn--9ca.example]
     )
     config = @connection.cms_configuration.deep_dup
     config["destination_origin"] = "https://é.example"
     @connection.update!(cms_configuration: config)
+    international_topic = Fabricate(:topic, user: admin)
+    Fabricate(:post, topic: international_topic, user: admin, post_number: 1)
     result =
       DiscussionBridge::FromDiscourseRecordCreator.call(
         user: admin,
         connection_id: @connection.id,
-        topic_id: topic.id,
+        topic_id: international_topic.id,
         external_id: "international-attention",
         canonical_url: "https://%C3%A9.example/article/"
       )
