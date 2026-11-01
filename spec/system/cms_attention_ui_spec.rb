@@ -262,6 +262,94 @@ RSpec.describe "DiscussionBridge native attention administration" do
     JS
   end
 
+  def accept_native_catalog(connection, kind, items)
+    # Exercise real typed upload/finalize and stored catalog reads. A populated
+    # native catalog previously crashed the template before its Save button.
+    store = DiscussionBridge::CmsCatalogStore.new(connection,
+      authenticated_secret_digest: connection.secret_digest)
+    upload = store.begin_upload({ "mutation_id" => SecureRandom.uuid,
+      "kind" => kind, "native_revision" => "native:catalog-ui", "total_items" => items.length }).body
+    upload_id = upload.fetch("upload_id")
+    store.append_page(upload_id, { "mutation_id" => SecureRandom.uuid,
+      "page" => 0, "items" => items })
+    store.finalize(upload_id, { "mutation_id" => SecureRandom.uuid,
+      "upload_id" => upload_id, "expected_total_items" => items.length })
+  end
+
+  def populated_catalog_connection
+    connection, = issue_connection(profile: "wordpress")
+    accept_native_catalog(connection, "authors", [
+      { "id" => "author:1", "label" => "Available author", "available" => true },
+      { "id" => "author:2", "label" => "Unavailable author", "available" => false },
+    ])
+    accept_native_catalog(connection, "taxonomy", [
+      { "id" => "category:1", "label" => "Available category", "available" => true },
+    ])
+    connection
+  end
+
+  it "renders populated author and taxonomy catalogs, then saves and reloads exact selections" do
+    connection = populated_catalog_connection
+    original = connection.reload.cms_configuration.deep_dup
+    open_panel(connection)
+    within(card(connection)) do
+      expect(page).to have_button("Save CMS configuration", disabled: false)
+      expect(page).to have_content("Available category")
+      expect(find("label", text: "Unavailable author").find("input")).to be_disabled
+      expect(find("label", text: "Available author").find("input")).not_to be_checked
+      expect(find("label", text: "Available category").find("input")).not_to be_checked
+    end
+    expect(connection.reload.cms_configuration).to eq(original)
+    within(card(connection)) do
+      find("label", text: "Available author").find("input").check
+      find("label", text: "Available category").find("input").check
+      click_button "Save CMS configuration"
+      expect(page).to have_content("CMS configuration saved.")
+    end
+    policy = connection.reload.cms_configuration.fetch("policy")
+    expect(policy.fetch("author_ids")).to eq(["author:1"])
+    expect(policy.fetch("taxonomy_ids")).to eq(["category:1"])
+    expect(policy.except("policy_revision", "author_ids", "taxonomy_ids"))
+      .to eq(original.fetch("policy").except("policy_revision", "author_ids", "taxonomy_ids"))
+    within(card(connection)) do
+      click_button "Reload stored CMS configuration"
+      expect(find("label", text: "Available author").find("input")).to be_checked
+      expect(find("label", text: "Available category").find("input")).to be_checked
+      expect(find("label", text: "Unavailable author").find("input")).to be_disabled
+      expect(page).to have_button("Save CMS configuration", disabled: false)
+    end
+  end
+
+  it "keeps native configuration checkboxes compact and beside their labels on desktop and mobile" do
+    connection = populated_catalog_connection
+    open_panel(connection)
+    original_size = page.current_window.size
+    [1240, 390].each do |width|
+      page.current_window.resize_to(width, 900)
+      within(card(connection)) do
+        expect(page).to have_button("Save CMS configuration", disabled: false)
+        choices = find_all(".discussion-bridge-add-connection .discussion-bridge-direction-option")
+        expect(choices.length).to be >= 8
+        choices.each do |choice|
+          bounds = choice.evaluate_script(<<~JS)
+            (() => {
+              const box = this.querySelector('input[type=checkbox]').getBoundingClientRect();
+              const text = this.querySelector('span').getBoundingClientRect();
+              return { width: box.width, height: box.height, gap: text.left - box.right,
+                overlapsVertically: text.top <= box.bottom && text.bottom >= box.top };
+            })()
+          JS
+          expect(bounds.fetch("width")).to be_between(8, 32)
+          expect(bounds.fetch("height")).to be_between(8, 32)
+          expect(bounds.fetch("gap")).to be_between(0, 16)
+          expect(bounds.fetch("overlapsVertically")).to eq(true)
+        end
+      end
+    end
+  ensure
+    page.current_window.resize_to(*original_size) if original_size
+  end
+
   it "renders per-item Check results without admitting work or resetting attention" do
     blocked_mapping = publication(@connection, "blocked")
     blocked_work = attention!(blocked_mapping)

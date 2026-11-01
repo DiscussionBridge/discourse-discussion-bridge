@@ -265,6 +265,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
     return this.busy || !this.loaded || this.revisionConflict;
   }
 
+  @action
   metadataSelected(field, id) {
     return this[field].includes(id);
   }
@@ -1264,7 +1265,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                           "discussion_bridge.admin.cms.catalog_stale"
                         }}</p>{{/if}}
                     {{#each catalog.items as |entry|}}
-                      <label><input
+                      <label class="discussion-bridge-direction-option"><input
                           checked={{this.metadataSelected
                             catalog.field
                             entry.id
@@ -1276,12 +1277,12 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                             (fn this.updateMetadata catalog.field entry.id)
                           }}
                         />
-                        {{entry.label}}
-                        ·
-                        <code>{{entry.id}}</code>
-                        {{#unless entry.available}}{{i18n
-                            "discussion_bridge.admin.cms.catalog_item_unavailable"
-                          }}{{/unless}}</label>
+                        <span>{{entry.label}}
+                          ·
+                          <code>{{entry.id}}</code>
+                          {{#unless entry.available}}{{i18n
+                              "discussion_bridge.admin.cms.catalog_item_unavailable"
+                            }}{{/unless}}</span></label>
                     {{/each}}
                     <DButton
                       @action={{fn
