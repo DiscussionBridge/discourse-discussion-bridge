@@ -1088,7 +1088,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                   <legend>{{i18n
                       "discussion_bridge.admin.cms.supported_presentations"
                     }}</legend>
-                  {{#each this.modes as |mode|}}
+                  {{#each this.modes key="value" as |mode|}}
                     <label class="discussion-bridge-direction-option">
                       <input
                         checked={{this.selected
@@ -1179,7 +1179,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                     <p>{{i18n
                         "discussion_bridge.admin.cms.category_eligibility"
                       }}</p>
-                    {{#each this.sourceCategories as |category|}}
+                    {{#each this.sourceCategories key="id" as |category|}}
                       <label class="discussion-bridge-direction-option">
                         <input
                           checked={{this.selected "categoryIds" category.id}}
@@ -1246,7 +1246,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                     "discussion_bridge.admin.cms.catalog_refresh_help"
                   }}</p>
                 <p>{{i18n "discussion_bridge.admin.cms.empty_metadata"}}</p>
-                {{#each this.catalogPanels as |catalog|}}
+                {{#each this.catalogPanels key="kind" as |catalog|}}
                   <h6>{{catalog.label}}</h6>
                   <DButton
                     @action={{fn this.reloadCatalog catalog.kind}}
@@ -1264,7 +1264,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                     {{#if catalog.stale}}<p role="status">{{i18n
                           "discussion_bridge.admin.cms.catalog_stale"
                         }}</p>{{/if}}
-                    {{#each catalog.items as |entry|}}
+                    {{#each catalog.items key="id" as |entry|}}
                       <label class="discussion-bridge-direction-option"><input
                           checked={{this.metadataSelected
                             catalog.field

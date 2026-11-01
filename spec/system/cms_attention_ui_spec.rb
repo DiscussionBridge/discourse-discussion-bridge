@@ -301,7 +301,10 @@ RSpec.describe "DiscussionBridge native attention administration" do
     end
     expect(connection.reload.cms_configuration).to eq(original)
     within(card(connection)) do
-      find("label", text: "Available author").find("input").check
+      author_checkbox = find("label", text: "Available author").find("input")
+      author_checkbox.check
+      expect(author_checkbox).to be_checked
+      expect(author_checkbox.evaluate_script("this === document.activeElement")).to eq(true)
       find("label", text: "Available category").find("input").check
       click_button "Save CMS configuration"
       expect(page).to have_content("CMS configuration saved.")
