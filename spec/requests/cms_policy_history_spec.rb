@@ -186,6 +186,29 @@ describe DiscussionBridge::CmsPolicyHistoryController do
     expect(response.parsed_body["code"]).to eq("metadata_unavailable")
   end
 
+  it "bounds encoded bytes without truncating a policy change or its continuation" do
+    13.times do |index|
+      ids = 150.times.map { |number| "#{index}-#{number}".rjust(255, "a") }
+      @revisions << configure(authors: ids)
+    end
+    after_revision = @revisions.first
+    observed = []
+    13.times do
+      history(after_revision)
+      expect(response).to have_http_status(:ok)
+      expect(response.body.bytesize).to be <= 262_144
+      body = response.parsed_body
+      expect(body.fetch("items").size).to be_between(1, 20)
+      observed.concat(
+        body.fetch("items").map { |item| item.fetch("policy_revision") }
+      )
+      break unless body.fetch("next_policy_revision")
+      expect(body.fetch("next_policy_revision")).not_to eq(after_revision)
+      after_revision = body.fetch("next_policy_revision")
+    end
+    expect(observed).to eq(@revisions.drop(1))
+  end
+
   it "requires live scoped credentials and rejects duplicate, unknown, missing and oversized query fields" do
     get "/discussion-bridge/v4/policy-history.json", headers: @headers
     expect(response.parsed_body["code"]).to eq("invalid_field")

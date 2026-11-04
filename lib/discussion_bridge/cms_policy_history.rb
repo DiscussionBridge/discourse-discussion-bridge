@@ -34,8 +34,10 @@ module DiscussionBridge
           .to_a
       items = []
       previous = after_revision
+      previous_configuration = first.configuration
       rows.each do |row|
-        unless row.previous_policy_revision == previous
+        unless row.previous_policy_revision == previous &&
+                 row.previous_configuration == previous_configuration
           CmsProtocol.reject!("metadata_unavailable")
         end
         policy = row.configuration.fetch("policy")
@@ -46,7 +48,7 @@ module DiscussionBridge
           policy.slice("policy_revision", "author_ids", "taxonomy_ids").merge(
             "previous_policy_revision" => row.previous_policy_revision
           )
-        CmsProtocol.validate!("PolicyHistoryEvent", item)
+        validate_history!("PolicyHistoryEvent", item)
         continuation = row.id == last.id ? nil : row.policy_revision
         candidate = envelope(query, items + [item], continuation)
         if JSON.generate(candidate).bytesize > MAXIMUM_BYTES
@@ -55,6 +57,7 @@ module DiscussionBridge
         end
         items << item
         previous = row.policy_revision
+        previous_configuration = row.configuration
       end
       # Detect a missing final event or a deleted gap even on a short page.
       if items.empty? && after_revision != through_revision
@@ -66,13 +69,19 @@ module DiscussionBridge
       end
       body =
         envelope(query, items, previous == through_revision ? nil : previous)
-      CmsProtocol.validate!("PolicyHistoryPage", body)
+      validate_history!("PolicyHistoryPage", body)
       body
     rescue KeyError, TypeError
       CmsProtocol.reject!("metadata_unavailable")
     end
 
     private
+
+    def validate_history!(type, value)
+      CmsProtocol.validate!(type, value)
+    rescue CmsProtocol::Error
+      CmsProtocol.reject!("metadata_unavailable")
+    end
 
     def events
       DiscussionBridgeCmsConfigurationEvent.where(
