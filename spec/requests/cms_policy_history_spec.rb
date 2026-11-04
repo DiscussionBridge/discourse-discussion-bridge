@@ -324,8 +324,14 @@ describe DiscussionBridge::CmsPolicyHistoryController do
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body.fetch("after_policy_revision")).to eq(unicode)
     %w[%FF %C0%AF %ED%A0%80 %E2%82 % %0G].each do |bad|
-      get "/discussion-bridge/v4/policy-history.json?after_policy_revision=#{bad}&through_policy_revision=r2",
-          headers: @headers
+      # Preserve the raw query at Rack's boundary: the integration driver's URI
+      # builder itself refuses malformed percent escapes before dispatch.
+      get "/discussion-bridge/v4/policy-history.json",
+          headers: @headers,
+          env: {
+            "QUERY_STRING" =>
+              "after_policy_revision=#{bad}&through_policy_revision=r2"
+          }
       expect(response.parsed_body.fetch("code")).to eq("invalid_field")
     end
     get "/discussion-bridge/v4/policy-history.json?%61fter_policy_revision=a&after_policy_revision=b&through_policy_revision=c",

@@ -23,7 +23,7 @@ module DiscussionBridge
         .split("&", -1)
         .each do |member|
           CmsProtocol.reject!("invalid_field") if member.empty?
-          CmsProtocol.reject!("invalid_field") unless member.include?("=")
+          CmsProtocol.reject!("invalid_field") if member.exclude?("=")
         end
       # The parent has already decoded once, without replacing invalid UTF-8,
       # and rejected duplicate decoded names. Do not decode a second time.
