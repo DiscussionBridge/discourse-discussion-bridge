@@ -94,11 +94,18 @@ module DiscussionBridge
 
     def validate_transport
       query = request.query_string
+      @transport_query_pairs = []
       unless query.empty?
         if query.match?(/%(?![0-9a-fA-F]{2})/)
           CmsProtocol.reject!("invalid_field")
         end
-        pairs = URI.decode_www_form(query, Encoding::UTF_8)
+        # Preserve wire bytes: decode_www_form in UTF-8 scrubs invalid bytes
+        # before valid_encoding? can see them, changing opaque identities.
+        pairs = URI.decode_www_form(query, Encoding::ASCII_8BIT)
+        pairs.each do |key, value|
+          key.force_encoding(Encoding::UTF_8)
+          value.force_encoding(Encoding::UTF_8)
+        end
         if pairs.any? { |key, value|
              !key.valid_encoding? || !value.valid_encoding?
            }
@@ -107,6 +114,7 @@ module DiscussionBridge
         if pairs.map(&:first).uniq.size != pairs.size
           CmsProtocol.reject!("invalid_field")
         end
+        @transport_query_pairs = pairs
         @unexpected_query = true
       end
       encoding = request.headers["Content-Encoding"]

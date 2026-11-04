@@ -36,14 +36,12 @@ module DiscussionBridge
       previous = after_revision
       previous_configuration = first.configuration
       rows.each do |row|
+        unique_revision!(row)
         unless row.previous_policy_revision == previous &&
                  row.previous_configuration == previous_configuration
           CmsProtocol.reject!("metadata_unavailable")
         end
-        policy = row.configuration.fetch("policy")
-        unless policy.fetch("policy_revision") == row.policy_revision
-          CmsProtocol.reject!("metadata_unavailable")
-        end
+        policy = policy_for!(row)
         item =
           policy.slice("policy_revision", "author_ids", "taxonomy_ids").merge(
             "previous_policy_revision" => row.previous_policy_revision
@@ -93,10 +91,32 @@ module DiscussionBridge
       found = events.where(policy_revision: revision).limit(2).to_a
       CmsProtocol.reject!("metadata_unavailable") unless found.size == 1
       row = found.first
-      unless row.configuration.dig("policy", "policy_revision") == revision
+      policy_for!(row)
+      row
+    end
+
+    # Check against retained history, not just this page. Otherwise a repeated
+    # intermediate revision on a different page can look like a valid chain.
+    # The indexed lookup stops after two rows; it does not scan the interval.
+    def unique_revision!(row)
+      ids =
+        events.where(policy_revision: row.policy_revision).limit(2).pluck(:id)
+      CmsProtocol.reject!("metadata_unavailable") unless ids == [row.id]
+    end
+
+    def policy_for!(row)
+      configuration = row.configuration
+      unless configuration.is_a?(Hash) && configuration["policy"].is_a?(Hash)
         CmsProtocol.reject!("metadata_unavailable")
       end
-      row
+      policy = configuration.fetch("policy")
+      unless policy["policy_revision"] == row.policy_revision
+        CmsProtocol.reject!("metadata_unavailable")
+      end
+      validate_history!("Revision", policy["policy_revision"])
+      validate_history!("IdList", policy["author_ids"])
+      validate_history!("IdList", policy["taxonomy_ids"])
+      policy
     end
 
     def envelope(query, items, continuation)

@@ -18,18 +18,16 @@ module DiscussionBridge
         CmsProtocol.reject!("invalid_field")
       end
       super
-      @history_query = {}
       request
         .query_string
         .split("&", -1)
         .each do |member|
           CmsProtocol.reject!("invalid_field") if member.empty?
-          key, value = member.split("=", 2)
-          CmsProtocol.reject!("invalid_field") unless value
-          pair = URI.decode_www_form("#{key}=#{value}", Encoding::UTF_8).first
-          CmsProtocol.reject!("invalid_field") unless pair
-          @history_query[pair.first] = pair.last
+          CmsProtocol.reject!("invalid_field") unless member.include?("=")
         end
+      # The parent has already decoded once, without replacing invalid UTF-8,
+      # and rejected duplicate decoded names. Do not decode a second time.
+      @history_query = @transport_query_pairs.to_h
     end
 
     def validate_typed_input

@@ -77,6 +77,30 @@ describe DiscussionBridge::CmsPolicyHistoryController do
         headers: headers
   end
 
+  def repeat_revision!(position, earlier)
+    event =
+      DiscussionBridgeCmsConfigurationEvent.find_by!(
+        policy_revision: @revisions[position]
+      )
+    following =
+      DiscussionBridgeCmsConfigurationEvent.find_by!(
+        previous_policy_revision: event.policy_revision
+      )
+    configuration = event.configuration.deep_dup
+    configuration["policy"]["policy_revision"] = @revisions[earlier]
+    event.update!(
+      policy_revision: @revisions[earlier],
+      configuration: configuration
+    )
+    following.update!(
+      previous_policy_revision: @revisions[earlier],
+      previous_configuration: configuration
+    )
+    expect(following.reload.previous_configuration).to eq(
+      event.reload.configuration
+    )
+  end
+
   it "returns the complete clear and reselect chain, not actor/configuration details, without writes" do
     author_id = "a" * 24
     @revisions << configure(authors: [author_id], tags: ["b" * 24])
@@ -207,6 +231,111 @@ describe DiscussionBridge::CmsPolicyHistoryController do
       after_revision = body.fetch("next_policy_revision")
     end
     expect(observed).to eq(@revisions.drop(1))
+  end
+
+  it "refuses a repeated intermediate revision across count-based pages, including on continuation" do
+    25.times { |index| @revisions << configure(authors: ["author-#{index}"]) }
+    history
+    expect(response).to have_http_status(:ok)
+    continuation = response.parsed_body.fetch("next_policy_revision")
+    expect(continuation).to eq(@revisions[20])
+    repeat_revision!(21, 1)
+    history(continuation)
+    expect(response.parsed_body.fetch("code")).to eq("metadata_unavailable")
+    history
+    expect(response.parsed_body.fetch("code")).to eq("metadata_unavailable")
+  end
+
+  it "refuses the same ambiguity across byte-based pages without rewriting retained history" do
+    13.times do |index|
+      @revisions << configure(
+        authors: 150.times.map { |n| "#{index}-#{n}".rjust(255, "a") }
+      )
+    end
+    history
+    expect(response).to have_http_status(:ok)
+    first = response.parsed_body
+    expect(first.fetch("items").length).to be < 10
+    continuation = first.fetch("next_policy_revision")
+    repeat_revision!(10, 1)
+    retained =
+      DiscussionBridgeCmsConfigurationEvent.order(:id).pluck(:configuration)
+    13.times do
+      history(continuation)
+      break if response.parsed_body["code"]
+      continuation = response.parsed_body.fetch("next_policy_revision")
+    end
+    expect(response.parsed_body.fetch("code")).to eq("metadata_unavailable")
+    expect(
+      DiscussionBridgeCmsConfigurationEvent.order(:id).pluck(:configuration)
+    ).to eq(retained)
+  end
+
+  it "returns typed unavailability for malformed anchor and intermediate JSON shapes" do
+    @revisions << configure(authors: ["selected"])
+    @revisions << configure
+    [0, 1].each do |position|
+      event =
+        DiscussionBridgeCmsConfigurationEvent.find_by!(
+          policy_revision: @revisions[position]
+        )
+      original = event.configuration.deep_dup
+      [
+        123,
+        nil,
+        [],
+        {},
+        { "policy" => nil },
+        { "policy" => [] },
+        {
+          "policy" => {
+            "policy_revision" => @revisions[position],
+            "author_ids" => 123,
+            "taxonomy_ids" => []
+          }
+        }
+      ].each do |malformed|
+        event
+          .class
+          .where(id: event.id)
+          .update_all(
+            "configuration = #{event.class.connection.quote(JSON.generate(malformed))}::jsonb"
+          )
+        history
+        expect(response.parsed_body.fetch("code")).to eq("metadata_unavailable")
+        event.update_columns(configuration: original)
+      end
+    end
+    history
+    expect(response).to have_http_status(:ok)
+  end
+
+  it "rejects malformed UTF-8 without replacing or decoding an identity twice" do
+    original = @revisions.first
+    event =
+      DiscussionBridgeCmsConfigurationEvent.find_by!(policy_revision: original)
+    unicode = "policy:雪+%FF"
+    configuration = event.configuration.deep_dup
+    configuration["policy"]["policy_revision"] = unicode
+    event.update!(policy_revision: unicode, configuration: configuration)
+    @connection.update!(cms_configuration: configuration)
+    @revisions = [unicode]
+    history
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("after_policy_revision")).to eq(unicode)
+    %w[%FF %C0%AF %ED%A0%80 %E2%82 % %0G].each do |bad|
+      get "/discussion-bridge/v4/policy-history.json?after_policy_revision=#{bad}&through_policy_revision=r2",
+          headers: @headers
+      expect(response.parsed_body.fetch("code")).to eq("invalid_field")
+    end
+    get "/discussion-bridge/v4/policy-history.json?%61fter_policy_revision=a&after_policy_revision=b&through_policy_revision=c",
+        headers: @headers
+    expect(response.parsed_body.fetch("code")).to eq("invalid_field")
+    get "/discussion-bridge/v4/work/not-a-work.json?x=%FF", headers: @headers
+    expect(response.parsed_body.fetch("code")).to eq("invalid_field")
+    expect(
+      DiscussionBridgeCmsConfigurationEvent.find(event.id).configuration
+    ).to eq(configuration)
   end
 
   it "requires live scoped credentials and rejects duplicate, unknown, missing and oversized query fields" do
