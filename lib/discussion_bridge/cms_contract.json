@@ -53,6 +53,11 @@
       "scope": "The revised evidence-aware To V4-02 invalid_field/422 recovery only. Missing historical raw/decoded response fields remain UNKNOWN and are not a retrospective full-Error eligibility gate. No wider permanent-error/To29/From Work, new wire/UI, public failure receipt/cache/TTL or automatic retry authority.",
       "provenance": "Direct Phil approval immediately after Root recommendation, relayed by Root and recorded in Contract checkpoint before this r5 application. Earlier Discuss first and you suggest? responses were not approval; this later approved response controls. No separate call ID was supplied."
     },
+    "policy_history": {
+      "human_response": "Approve the scoped read-only history API",
+      "decision_id": "call_fbd6ac85c29f4894adf91d0a65d53282",
+      "approved_scope": "Bounded read-only own-connection policy-selection history for offline author/taxonomy clear-and-reselect recovery. No new write permissions, identity/receipt rewriting, privileged actor/configuration disclosure or installation authority."
+    },
     "attention_recovery": {
       "human_response": "Use this proposal. Implement AR1, AR2 and AR6 in one bounded batch, add and run focused regressions, and update the plan and checkpoint. Preserve approved decisions and the WordPress override. No commits, pushes or deployments.",
       "adopted_proposal": "../../../planning/V4_AR1_AR2_AR6_PROPOSAL_20261025.md",
@@ -775,6 +780,43 @@
       "values": [
         "categories",
         "all_public"
+      ]
+    },
+    "PolicyHistoryQuery": {
+      "kind": "object",
+      "unknown_fields": "reject",
+      "fields": {
+        "after_policy_revision": { "type": "Revision", "required": true },
+        "through_policy_revision": { "type": "Revision", "required": true }
+      }
+    },
+    "PolicyHistoryEvent": {
+      "kind": "object",
+      "unknown_fields": "reject",
+      "fields": {
+        "previous_policy_revision": { "type": "Revision", "required": true },
+        "policy_revision": { "type": "Revision", "required": true },
+        "author_ids": { "type": "IdList", "required": true },
+        "taxonomy_ids": { "type": "IdList", "required": true }
+      }
+    },
+    "PolicyHistoryItems": {
+      "kind": "array", "items": "PolicyHistoryEvent", "maximum_items": 20
+    },
+    "PolicyHistoryPage": {
+      "kind": "object",
+      "unknown_fields": "reject",
+      "fields": {
+        "connection_id": { "type": "ConnectionId", "required": true },
+        "after_policy_revision": { "type": "Revision", "required": true },
+        "through_policy_revision": { "type": "Revision", "required": true },
+        "items": { "type": "PolicyHistoryItems", "required": true },
+        "next_policy_revision": { "type": "Revision", "required": true, "nullable": true }
+      },
+      "rules": [
+        "V4-37 is read-only, authenticated to its own enabled Content Connection with current From scope; publication may be off. through_policy_revision must equal current policy_revision under the connection lock, or revision_conflict. after_policy_revision must be an exact retained revision of this connection no later than through; unknown, duplicate, missing or discontinuous retained history returns metadata_unavailable, never an invented empty interval.",
+        "Events are ordered from the exclusive after revision through the inclusive current revision. Each predecessor equals the previous event revision, starting at after_policy_revision. Return at most 20 events and 262144 encoded JSON bytes; a single infeasible event returns metadata_unavailable. next_policy_revision is the last emitted revision when more remain, otherwise null and the final revision equals through. after=through returns an empty terminal page only after validating the retained anchor. Continue with next as after and the SAME through; concurrent policy change refuses the continuation rather than mixing histories.",
+        "Only exact revision/author_ids/taxonomy_ids projections are exposed. No actor identity, secret, native capabilities, previous configuration or other connection history. No cursor grants, write/mutation receipt, lease, field-write ownership or proof of native content is created. Adapters must retain and validate the complete chain before relying on a clear; missing history fails closed. An empty author/taxonomy selection returns that field to native control, not an empty native assignment; subsequent explicit selection may retake it under ordinary current authority and native CAS."
       ]
     },
     "Connection": {
@@ -4029,6 +4071,17 @@
       "rules": [
         "Exact known successor Work only; current scope/source/policy/ownership and increasing fence. Return204 if it cannot currently be claimed; never a different Work. Same mutation/path replay follows exact receipt; changed selection conflicts. Native reread under fresh lease remains mandatory."
       ]
+    },
+    {
+      "id": "V4-37",
+      "method": "GET",
+      "path": "/discussion-bridge/v4/policy-history.json",
+      "authorization": "content_connection_current_from_scope_read_only",
+      "input": null,
+      "query": "PolicyHistoryQuery",
+      "response": "PolicyHistoryPage",
+      "success_http": [200],
+      "rules": ["Own-connection read-only policy-selection history; PolicyHistoryPage rules apply. No writes or new authority."]
     }
   ],
   "transport": {

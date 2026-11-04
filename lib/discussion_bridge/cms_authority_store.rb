@@ -45,6 +45,15 @@ module DiscussionBridge
       read_descriptor { |configuration| response("Policy", configuration.fetch("policy")) }
     end
 
+    def policy_history(query)
+      read_descriptor do |configuration|
+        response(
+          "PolicyHistoryPage",
+          CmsPolicyHistory.new(@connection, configuration).page(query)
+        )
+      end
+    end
+
     # Native administration may inspect an off/disabled or scope-stale stored
     # configuration for reconciliation; no adapter authorization is derived here.
     def administrative_configuration(actor:)

@@ -12,9 +12,9 @@ require_relative "cms_url_authority"
 module DiscussionBridge
   module CmsProtocol
     SCHEMA_SHA256 =
-      "e6a15a6d70f7bc8b8ee82aa22a0b9c2ff1bbf2da6277f7087118be9e026ce5c0"
+      "b6ab0efa3247f9c93a76ccb591a2ed9a5b0fd4805427f87e67c72a23b88edd0a"
     CONTRACT_SHA256 =
-      "808042688cbde88fac0acdf1187e4cb8c251e13025bfcf09cf3a3c361ca02003"
+      "98d7904e987fbe306a51632d1fb37d6f78564915d127145027b992ec9a2723dc"
     contract_bytes = File.binread(File.join(__dir__, "cms_contract.json"))
     unless Digest::SHA256.hexdigest(contract_bytes) == CONTRACT_SHA256
       raise "V4 current normative identity mismatch"
@@ -499,6 +499,29 @@ module DiscussionBridge
             end
           end
         end
+      when "PolicyHistoryPage"
+        previous = value.fetch("after_policy_revision")
+        seen = [previous]
+        value
+          .fetch("items")
+          .each do |item|
+            if item.fetch("previous_policy_revision") != previous ||
+                 seen.include?(item.fetch("policy_revision")) ||
+                 previous == value.fetch("through_policy_revision")
+              reject!("invalid_field")
+            end
+            previous = item.fetch("policy_revision")
+            seen << previous
+          end
+        continuation = value.fetch("next_policy_revision")
+        valid =
+          if continuation.nil?
+            previous == value.fetch("through_policy_revision")
+          else
+            value.fetch("items").any? && continuation == previous &&
+              previous != value.fetch("through_policy_revision")
+          end
+        reject!("invalid_field") unless valid
       when "AttentionInspectionPage", "AttentionRecoveryPage"
         items = value.fetch("items")
         unless items

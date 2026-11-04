@@ -8,8 +8,8 @@ root = File.expand_path("../..", __dir__)
 plugin = File.read(File.join(root, "plugin.rb"))
 contract_path = File.join(root, "lib/discussion_bridge/cms_contract.json")
 schema_path = File.join(root, "lib/discussion_bridge/cms_protocol_types.json")
-raise "contract pin" unless Digest::SHA256.file(contract_path).hexdigest == "808042688cbde88fac0acdf1187e4cb8c251e13025bfcf09cf3a3c361ca02003"
-raise "schema pin" unless Digest::SHA256.file(schema_path).hexdigest == "e6a15a6d70f7bc8b8ee82aa22a0b9c2ff1bbf2da6277f7087118be9e026ce5c0"
+raise "contract pin" unless Digest::SHA256.file(contract_path).hexdigest == "98d7904e987fbe306a51632d1fb37d6f78564915d127145027b992ec9a2723dc"
+raise "schema pin" unless Digest::SHA256.file(schema_path).hexdigest == "b6ab0efa3247f9c93a76ccb591a2ed9a5b0fd4805427f87e67c72a23b88edd0a"
 contract = JSON.parse(File.read(contract_path))
 descriptor = JSON.parse(File.read(File.join(root, "discussionbridge-release.json")))
 raise "descriptor candidate" unless descriptor.fetch("candidate_id") == contract.fetch("candidate_id")
@@ -30,7 +30,7 @@ actual = plugin.scan(/^    (get|post|put) "(\/v4\/[^\"]+)" => "([^\"]+)"/).map d
   raise "missing action #{handler}" unless inherited_work_action || source.match?(/\bdef #{Regexp.escape(action)}\b/)
   [method.upcase, path]
 end.sort
-raise "V4 route mismatch" unless actual == expected && actual.length == 36
+raise "V4 route mismatch" unless actual == expected && actual.length == 37
 raise "old wire route" if plugin.match?(%r{["']/v[12]/})
 requires = plugin.scan(/require_relative "([^"]+)"/).flatten
 requires.each { |path| raise "missing loader member #{path}" unless File.file?(File.join(root, "#{path}.rb")) }
