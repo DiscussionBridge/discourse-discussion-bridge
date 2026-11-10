@@ -4,6 +4,10 @@ module DiscussionBridge
   class TopicCreator
     Creation = Data.define(:topic, :post_creator)
 
+    def initialize(source_link_label: nil)
+      @source_link_label = source_link_label
+    end
+
     def call(request:, policy:)
       actor = User.find(policy.operating_actor_id)
       author = User.find(policy.effective_actor_id)
@@ -120,7 +124,12 @@ module DiscussionBridge
         parts.unshift('<div data-theme-toc="true"></div>')
       end
       parts << credit if credit.present?
-      parts << "---\n\nOriginally published at [#{source_url}](#{source_url})"
+      source_link = if @source_link_label
+        "[#{@source_link_label}](#{source_url})"
+      else
+        "Originally published at [#{source_url}](#{source_url})"
+      end
+      parts << "---\n\n#{source_link}"
       parts.join("\n\n")
     end
   end
