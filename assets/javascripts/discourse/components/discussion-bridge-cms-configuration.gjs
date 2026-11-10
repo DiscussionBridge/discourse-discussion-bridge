@@ -42,7 +42,6 @@ function emptyForm() {
 }
 
 export default class DiscussionBridgeCmsConfiguration extends Component {
-  @tracked opened = false;
   @tracked loading = false;
   @tracked saving = false;
   @tracked loaded = false;
@@ -555,21 +554,11 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
     this.notice = "";
   }
 
-  @action
-  async open() {
-    this.opened = true;
-    await this.loadConfiguration();
-  }
-
-  @action
-  close() {
-    this.loadSequence++;
-    this.previewSequence++;
-    this.catalogSequences.authors++;
-    this.catalogSequences.taxonomy++;
-    this.opened = false;
-    this.loading = false;
-    this.loadingPreview = false;
+  constructor() {
+    super(...arguments);
+    if (this.profiles.length) {
+      this.loadConfiguration();
+    }
   }
 
   applyConfiguration(configuration) {
@@ -760,249 +749,18 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
   <template>
     {{#if this.profiles.length}}
       <section class="discussion-bridge-cms-configuration">
-        {{#if this.opened}}
-          <h4>{{i18n "discussion_bridge.admin.cms.title"}}</h4>
-          <p>{{i18n "discussion_bridge.admin.cms.description"}}</p>
-          <section class="discussion-bridge-cms-preview">
-            <h5>{{i18n "discussion_bridge.admin.cms.preview_title"}}</h5>
-            <p>{{i18n "discussion_bridge.admin.cms.preview_help"}}</p>
-            <label>{{i18n "discussion_bridge.admin.cms.preview_topic"}}
-              <input
-                value={{this.previewTopicId}}
-                {{on "input" this.updatePreviewTopic}}
-              />
-            </label>
-            <DButton
-              @action={{this.loadPreview}}
-              @disabled={{this.previewDisabled}}
-              @label="discussion_bridge.admin.cms.preview_load"
-            />
-            {{#if this.preview}}
-              <h6>{{this.preview.title}}</h6>
-              <p><a href={{this.preview.native_source_url}}>{{i18n
-                    "discussion_bridge.admin.cms.preview_full_source"
-                  }}</a></p>
-              <p>{{i18n "discussion_bridge.admin.cms.preview_plan"}}:
-                {{this.previewMode this.preview.presentation_mode}}
-                ·
-                {{this.preview.native_capabilities.native_revision}}
-                ·
-                {{this.preview.policy_revision}}</p>
-              <p>{{i18n "discussion_bridge.admin.cms.preview_eligibility"}}:
-                {{this.previewFlag this.preview.selection_eligible}}
-                /
-                {{this.previewFlag this.preview.publication_enabled}}
-                /
-                {{this.previewFlag this.preview.publication_eligible}}</p>
-              <p>{{i18n "discussion_bridge.admin.cms.preview_native"}}:
-                {{this.preview.native_first_post_id}}
-                /
-                {{this.preview.native_version}}
-                /
-                {{this.previewFlag this.preview.wiki}}</p>
-              <p>{{i18n "discussion_bridge.admin.cms.selected_author_ids"}}:
-                {{this.preview.author_ids}}</p>
-              <p>{{i18n "discussion_bridge.admin.cms.selected_taxonomy_ids"}}:
-                {{this.preview.taxonomy_ids}}</p>
-              {{#unless this.preview.selection_availability.available}}<p
-                  role="status"
-                >{{i18n
-                    "discussion_bridge.admin.cms.catalog_attention"
-                  }}</p>{{/unless}}
-              {{#if this.preview.source}}
-                <p>{{this.preview.source.content_bytes}}
-                  ·
-                  <code>{{this.preview.source.content_sha256}}</code></p>
-                <p>{{this.preview.source.source_created_at}}
-                  ·
-                  {{this.preview.source.source_updated_at}}</p>
-                <p>{{i18n "discussion_bridge.admin.cms.preview_text"}}</p>
-                <pre>{{this.preview.source_text}}</pre>
-                {{#if this.preview.source_text_truncated}}<p>{{i18n
-                      "discussion_bridge.admin.cms.preview_excerpt"
-                    }}</p>{{/if}}
-              {{else}}<p>{{i18n
-                    "discussion_bridge.admin.cms.preview_unselected"
-                  }}</p>{{/if}}
-            {{/if}}
-          </section>
-          <section class="discussion-bridge-cms-delivery">
-            <h5>{{i18n "discussion_bridge.admin.cms.delivery_title"}}</h5>
-            <p>{{i18n "discussion_bridge.admin.cms.delivery_help"}}</p>
-            <p>{{i18n "discussion_bridge.admin.cms.attention_help"}}</p>
-            <DButton
-              @action={{fn this.checkAttention null}}
-              @disabled={{this.checkAttentionDisabled}}
-              @label="discussion_bridge.admin.cms.check_selected"
-            />
-            <DButton
-              @action={{fn this.retryAttention null false}}
-              @disabled={{this.retryAttentionDisabled}}
-              @label="discussion_bridge.admin.cms.retry_selected"
-            />
-            <DButton
-              @action={{fn this.retryAttention null true}}
-              @disabled={{this.settleAttentionDisabled}}
-              @label="discussion_bridge.admin.cms.settle_selected"
-            />
-            {{#each this.attentionResults as |result|}}
-              <p role="status"><code>{{result.work_id}}</code>
-                ·
-                {{this.inspectionStatus result.status}}
-                ·
-                {{result.issue}}</p>
-            {{/each}}
-            {{#if this.loadingDelivery}}
-              <p role="status">{{i18n
-                  "discussion_bridge.admin.cms.delivery_loading"
-                }}</p>
-            {{else if this.deliveryAvailable}}
-              {{#each this.deliveries as |delivery|}}
-                <article data-mapping-id={{delivery.mapping_id}}>
-                  <h6>{{delivery.topic_title}}</h6>
-                  <p><code>{{delivery.mapping_id}}</code>
-                    ·
-                    {{this.deliveryStatus delivery.publication_status}}</p>
-                  {{#if delivery.attention_required}}
-                    <p role="status"><strong>{{i18n
-                          "discussion_bridge.admin.cms.withdrawal_attention"
-                        }}</strong></p>
-                  {{/if}}
-                  {{#if delivery.attention_recovery.metadata_restored}}
-                    <p role="status">{{i18n
-                        "discussion_bridge.admin.cms.metadata_restored"
-                      }}</p>
-                  {{/if}}
-                  {{#if delivery.attention_recovery.can_check}}
-                    <label><input
-                        checked={{this.attentionSelected delivery.work.work_id}}
-                        disabled={{this.attentionBusy}}
-                        type="checkbox"
-                        {{on
-                          "change"
-                          (fn this.selectAttention delivery.work.work_id)
-                        }}
-                      />
-                      {{i18n "discussion_bridge.admin.cms.select_attention"}}:
-                      {{delivery.topic_title}}</label>
-                    <DButton
-                      @action={{fn this.checkAttention delivery}}
-                      @disabled={{this.attentionBusy}}
-                      @label="discussion_bridge.admin.cms.check_native"
-                    />
-                    {{#if delivery.attention_recovery.inspection}}
-                      <p role="status">{{this.inspectionStatus
-                          delivery.attention_recovery.inspection.status
-                        }}
-                        ·
-                        {{delivery.attention_recovery.inspection.issue}}
-                        ·
-                        {{delivery.attention_recovery.inspection.observed_at}}</p>
-                      {{#if
-                        (eq
-                          delivery.attention_recovery.inspection.status "ready"
-                        )
-                      }}
-                        {{#if delivery.attention_recovery.settlement_required}}
-                          <p>{{i18n
-                              "discussion_bridge.admin.cms.settlement_effect"
-                            }}</p>
-                          <DButton
-                            @action={{fn this.retryAttention delivery true}}
-                            @disabled={{this.attentionBusy}}
-                            @label="discussion_bridge.admin.cms.settle_retry"
-                          />
-                        {{else}}
-                          <DButton
-                            @action={{fn this.retryAttention delivery false}}
-                            @disabled={{this.attentionBusy}}
-                            @label="discussion_bridge.admin.cms.retry_one"
-                          />
-                        {{/if}}
-                      {{/if}}
-                    {{/if}}
-                  {{/if}}
-                  <dl>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_eligibility"
-                      }}</dt>
-                    <dd>{{#if delivery.publication_eligible}}
-                        {{i18n "discussion_bridge.admin.cms.delivery_eligible"}}
-                      {{else}}{{i18n
-                          "discussion_bridge.admin.cms.delivery_ineligible"
-                        }}{{/if}}
-                      ·
-                      {{delivery.scope_issue}}</dd>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_source_dates"
-                      }}</dt>
-                    <dd>{{delivery.source_created_at}}
-                      ·
-                      {{delivery.source_updated_at}}</dd>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_desired"
-                      }}</dt>
-                    <dd><code>{{delivery.desired_source_revision}}</code></dd>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_synchronized"
-                      }}</dt>
-                    <dd><code>{{delivery.synchronized_source_revision}}</code>
-                      ·
-                      {{delivery.synchronized_at}}</dd>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_verified"
-                      }}</dt>
-                    <dd><code
-                      >{{delivery.publicly_verified_source_revision}}</code>
-                      ·
-                      {{delivery.publicly_verified_at}}</dd>
-                    <dt>{{i18n
-                        "discussion_bridge.admin.cms.delivery_work"
-                      }}</dt>
-                    <dd>{{this.workAction delivery.work.action}}
-                      ·
-                      {{this.deliveryStatus delivery.work.state}}
-                      ·
-                      {{delivery.work.attempt}}
-                      /
-                      {{delivery.work.attempt_ceiling}}
-                      ·
-                      {{delivery.work.retry_at}}
-                      ·
-                      {{delivery.work.last_failure_code}}</dd>
-                  </dl>
-                </article>
-              {{else}}
-                <p>{{i18n "discussion_bridge.admin.cms.delivery_empty"}}</p>
-              {{/each}}
-              <DButton
-                @action={{this.previousDelivery}}
-                @disabled={{this.deliveryPreviousDisabled}}
-                @label="discussion_bridge.admin.cms.delivery_previous"
-              />
-              <span>{{this.deliveryPage}} / {{this.deliveryPages}}</span>
-              <DButton
-                @action={{this.nextDelivery}}
-                @disabled={{this.deliveryNextDisabled}}
-                @label="discussion_bridge.admin.cms.delivery_next"
-              />
-            {{else}}
-              <p>{{i18n "discussion_bridge.admin.cms.delivery_failed"}}</p>
-            {{/if}}
-            <DButton
-              @action={{this.reloadDelivery}}
-              @disabled={{this.loadingDelivery}}
-              @label="discussion_bridge.admin.cms.delivery_refresh"
-            />
-          </section>
-          {{#if this.notice}}<p role="status">{{this.notice}}</p>{{/if}}
-          {{#if this.loading}}
-            <p role="status">{{i18n "discussion_bridge.admin.cms.loading"}}</p>
-          {{else if this.loaded}}
-            <form
-              class="discussion-bridge-add-connection"
-              {{on "submit" this.save}}
-            >
+        <h3>{{i18n "discussion_bridge.admin.cms.title"}}</h3>
+        <p>{{i18n "discussion_bridge.admin.cms.description"}}</p>
+        {{#if this.notice}}<p role="status">{{this.notice}}</p>{{/if}}
+        {{#if this.loading}}
+          <p role="status">{{i18n "discussion_bridge.admin.cms.loading"}}</p>
+        {{else if this.loaded}}
+          <form
+            class="discussion-bridge-add-connection"
+            {{on "submit" this.save}}
+          >
+            <fieldset>
+              <legend>{{i18n "discussion_bridge.admin.cms.platform_destination"}}</legend>
               <label>{{i18n "discussion_bridge.admin.cms.profile"}}
                 <select required {{on "change" (fn this.updateText "profile")}}>
                   <option selected={{eq this.form.profile ""}} value="">{{i18n
@@ -1053,296 +811,520 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                   {{/each}}
                 </select>
               </label>
+            </fieldset>
+            <fieldset>
+              <legend>{{i18n
+                  "discussion_bridge.admin.cms.native_capabilities"
+                }}</legend>
+              <p>{{i18n "discussion_bridge.admin.cms.capabilities_help"}}</p>
+              <label>{{i18n "discussion_bridge.admin.cms.native_revision"}}
+                <input
+                  required
+                  value={{this.form.nativeRevision}}
+                  {{on "input" (fn this.updateText "nativeRevision")}}
+                />
+              </label>
+              <label>{{i18n "discussion_bridge.admin.cms.publication_kind"}}
+                <select
+                  required
+                  {{on "change" (fn this.updateText "publicationKind")}}
+                >
+                  <option
+                    selected={{eq this.form.publicationKind ""}}
+                    value=""
+                  >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
+                  <option
+                    selected={{eq this.form.publicationKind "dynamic"}}
+                    value="dynamic"
+                  >{{i18n "discussion_bridge.admin.cms.dynamic"}}</option>
+                  <option
+                    selected={{eq this.form.publicationKind "static"}}
+                    value="static"
+                  >{{i18n "discussion_bridge.admin.cms.static"}}</option>
+                </select>
+              </label>
               <fieldset>
                 <legend>{{i18n
-                    "discussion_bridge.admin.cms.native_capabilities"
+                    "discussion_bridge.admin.cms.supported_presentations"
                   }}</legend>
-                <p>{{i18n "discussion_bridge.admin.cms.capabilities_help"}}</p>
-                <label>{{i18n "discussion_bridge.admin.cms.native_revision"}}
-                  <input
-                    required
-                    value={{this.form.nativeRevision}}
-                    {{on "input" (fn this.updateText "nativeRevision")}}
-                  />
-                </label>
-                <label>{{i18n "discussion_bridge.admin.cms.publication_kind"}}
-                  <select
-                    required
-                    {{on "change" (fn this.updateText "publicationKind")}}
-                  >
-                    <option
-                      selected={{eq this.form.publicationKind ""}}
-                      value=""
-                    >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
-                    <option
-                      selected={{eq this.form.publicationKind "dynamic"}}
-                      value="dynamic"
-                    >{{i18n "discussion_bridge.admin.cms.dynamic"}}</option>
-                    <option
-                      selected={{eq this.form.publicationKind "static"}}
-                      value="static"
-                    >{{i18n "discussion_bridge.admin.cms.static"}}</option>
-                  </select>
-                </label>
-                <fieldset>
-                  <legend>{{i18n
-                      "discussion_bridge.admin.cms.supported_presentations"
-                    }}</legend>
-                  {{#each this.modes key="value" as |mode|}}
-                    <label class="discussion-bridge-direction-option">
-                      <input
-                        checked={{this.selected
+                {{#each this.modes key="value" as |mode|}}
+                  <label class="discussion-bridge-direction-option">
+                    <input
+                      checked={{this.selected
+                        "supportedPresentations"
+                        mode.value
+                      }}
+                      type="checkbox"
+                      {{on
+                        "change"
+                        (fn
+                          this.updateSelection
                           "supportedPresentations"
                           mode.value
-                        }}
+                        )
+                      }}
+                    />
+                    <span>{{mode.label}}</span>
+                  </label>
+                {{/each}}
+              </fieldset>
+              <label>{{i18n "discussion_bridge.admin.cms.complete_content"}}
+                <select
+                  required
+                  {{on "change" (fn this.updateText "completeContent")}}
+                >
+                  <option
+                    selected={{eq this.form.completeContent ""}}
+                    value=""
+                  >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
+                  <option
+                    selected={{eq this.form.completeContent "true"}}
+                    value="true"
+                  >{{i18n "discussion_bridge.admin.cms.supported"}}</option>
+                  <option
+                    selected={{eq this.form.completeContent "false"}}
+                    value="false"
+                  >{{i18n "discussion_bridge.admin.cms.unsupported"}}</option>
+                </select>
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>{{i18n
+                  "discussion_bridge.admin.cms.publication_policy"
+                }}</legend>
+              <label class="discussion-bridge-direction-option">
+                <input
+                  checked={{this.form.enabled}}
+                  disabled={{this.enableDisabled}}
+                  type="checkbox"
+                  {{on "change" (fn this.updateBoolean "enabled")}}
+                />
+                <span>{{i18n
+                    "discussion_bridge.admin.cms.enable_publication"
+                  }}</span>
+              </label>
+              {{#unless this.canPublishFrom}}<p>{{i18n
+                    "discussion_bridge.admin.cms.from_required"
+                  }}</p>{{/unless}}
+              {{#unless @connection.enabled}}<p>{{i18n
+                    "discussion_bridge.admin.cms.connection_disabled"
+                  }}</p>{{/unless}}
+              <label>{{i18n "discussion_bridge.admin.cms.source_selection"}}
+                <select
+                  required
+                  {{on "change" (fn this.updateText "sourceSelection")}}
+                >
+                  <option
+                    selected={{eq this.form.sourceSelection ""}}
+                    value=""
+                  >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
+                  <option
+                    selected={{eq this.form.sourceSelection "categories"}}
+                    value="categories"
+                  >{{i18n
+                      "discussion_bridge.admin.cms.selected_categories"
+                    }}</option>
+                  <option
+                    selected={{eq this.form.sourceSelection "all_public"}}
+                    value="all_public"
+                  >{{i18n "discussion_bridge.admin.cms.all_public"}}</option>
+                </select>
+              </label>
+              {{#if (eq this.form.sourceSelection "categories")}}
+                <fieldset>
+                  <legend>{{i18n
+                      "discussion_bridge.admin.cms.categories"
+                    }}</legend>
+                  <p>{{i18n
+                      "discussion_bridge.admin.cms.category_eligibility"
+                    }}</p>
+                  {{#each this.sourceCategories key="id" as |category|}}
+                    <label class="discussion-bridge-direction-option">
+                      <input
+                        checked={{this.selected "categoryIds" category.id}}
                         type="checkbox"
                         {{on
                           "change"
-                          (fn
-                            this.updateSelection
-                            "supportedPresentations"
-                            mode.value
-                          )
+                          (fn this.updateSelection "categoryIds" category.id)
                         }}
                       />
-                      <span>{{mode.label}}</span>
+                      <span>{{category.label}}
+                        <code>{{category.id}}</code></span>
                     </label>
                   {{/each}}
                 </fieldset>
-                <label>{{i18n "discussion_bridge.admin.cms.complete_content"}}
-                  <select
-                    required
-                    {{on "change" (fn this.updateText "completeContent")}}
-                  >
+              {{/if}}
+              <label>{{i18n "discussion_bridge.admin.cms.include_topics"}}
+                <textarea
+                  value={{this.form.includeTopicIds}}
+                  {{on "input" (fn this.updateText "includeTopicIds")}}
+                ></textarea>
+              </label>
+              <label>{{i18n "discussion_bridge.admin.cms.exclude_topics"}}
+                <textarea
+                  value={{this.form.excludeTopicIds}}
+                  {{on "input" (fn this.updateText "excludeTopicIds")}}
+                ></textarea>
+                <small>{{i18n
+                    "discussion_bridge.admin.cms.topic_eligibility"
+                  }}</small>
+              </label>
+              <label class="discussion-bridge-direction-option">
+                <input
+                  checked={{this.form.includeUnlisted}}
+                  type="checkbox"
+                  {{on "change" (fn this.updateBoolean "includeUnlisted")}}
+                />
+                <span>{{i18n
+                    "discussion_bridge.admin.cms.include_unlisted"
+                  }}</span>
+              </label>
+              <label>{{i18n "discussion_bridge.admin.cms.presentation_mode"}}
+                <select
+                  required
+                  {{on "change" (fn this.updateText "presentationMode")}}
+                >
+                  <option
+                    selected={{eq this.form.presentationMode ""}}
+                    value=""
+                  >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
+                  {{#each this.chosenPresentationModes as |mode|}}
                     <option
-                      selected={{eq this.form.completeContent ""}}
-                      value=""
-                    >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
-                    <option
-                      selected={{eq this.form.completeContent "true"}}
-                      value="true"
-                    >{{i18n "discussion_bridge.admin.cms.supported"}}</option>
-                    <option
-                      selected={{eq this.form.completeContent "false"}}
-                      value="false"
-                    >{{i18n "discussion_bridge.admin.cms.unsupported"}}</option>
-                  </select>
-                </label>
-              </fieldset>
-              <fieldset>
-                <legend>{{i18n
-                    "discussion_bridge.admin.cms.publication_policy"
-                  }}</legend>
-                <label class="discussion-bridge-direction-option">
-                  <input
-                    checked={{this.form.enabled}}
-                    disabled={{this.enableDisabled}}
-                    type="checkbox"
-                    {{on "change" (fn this.updateBoolean "enabled")}}
-                  />
-                  <span>{{i18n
-                      "discussion_bridge.admin.cms.enable_publication"
-                    }}</span>
-                </label>
-                {{#unless this.canPublishFrom}}<p>{{i18n
-                      "discussion_bridge.admin.cms.from_required"
-                    }}</p>{{/unless}}
-                {{#unless @connection.enabled}}<p>{{i18n
-                      "discussion_bridge.admin.cms.connection_disabled"
-                    }}</p>{{/unless}}
-                <label>{{i18n "discussion_bridge.admin.cms.source_selection"}}
-                  <select
-                    required
-                    {{on "change" (fn this.updateText "sourceSelection")}}
-                  >
-                    <option
-                      selected={{eq this.form.sourceSelection ""}}
-                      value=""
-                    >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
-                    <option
-                      selected={{eq this.form.sourceSelection "categories"}}
-                      value="categories"
-                    >{{i18n
-                        "discussion_bridge.admin.cms.selected_categories"
-                      }}</option>
-                    <option
-                      selected={{eq this.form.sourceSelection "all_public"}}
-                      value="all_public"
-                    >{{i18n "discussion_bridge.admin.cms.all_public"}}</option>
-                  </select>
-                </label>
-                {{#if (eq this.form.sourceSelection "categories")}}
-                  <fieldset>
-                    <legend>{{i18n
-                        "discussion_bridge.admin.cms.categories"
-                      }}</legend>
-                    <p>{{i18n
-                        "discussion_bridge.admin.cms.category_eligibility"
-                      }}</p>
-                    {{#each this.sourceCategories key="id" as |category|}}
-                      <label class="discussion-bridge-direction-option">
-                        <input
-                          checked={{this.selected "categoryIds" category.id}}
-                          type="checkbox"
-                          {{on
-                            "change"
-                            (fn this.updateSelection "categoryIds" category.id)
-                          }}
-                        />
-                        <span>{{category.label}}
-                          <code>{{category.id}}</code></span>
-                      </label>
-                    {{/each}}
-                  </fieldset>
-                {{/if}}
-                <label>{{i18n "discussion_bridge.admin.cms.include_topics"}}
-                  <textarea
-                    value={{this.form.includeTopicIds}}
-                    {{on "input" (fn this.updateText "includeTopicIds")}}
-                  ></textarea>
-                </label>
-                <label>{{i18n "discussion_bridge.admin.cms.exclude_topics"}}
-                  <textarea
-                    value={{this.form.excludeTopicIds}}
-                    {{on "input" (fn this.updateText "excludeTopicIds")}}
-                  ></textarea>
-                  <small>{{i18n
-                      "discussion_bridge.admin.cms.topic_eligibility"
-                    }}</small>
-                </label>
-                <label class="discussion-bridge-direction-option">
-                  <input
-                    checked={{this.form.includeUnlisted}}
-                    type="checkbox"
-                    {{on "change" (fn this.updateBoolean "includeUnlisted")}}
-                  />
-                  <span>{{i18n
-                      "discussion_bridge.admin.cms.include_unlisted"
-                    }}</span>
-                </label>
-                <label>{{i18n "discussion_bridge.admin.cms.presentation_mode"}}
-                  <select
-                    required
-                    {{on "change" (fn this.updateText "presentationMode")}}
-                  >
-                    <option
-                      selected={{eq this.form.presentationMode ""}}
-                      value=""
-                    >{{i18n "discussion_bridge.admin.cms.choose"}}</option>
-                    {{#each this.chosenPresentationModes as |mode|}}
-                      <option
-                        selected={{eq this.form.presentationMode mode.value}}
-                        value={{mode.value}}
-                      >{{mode.label}}</option>
-                    {{/each}}
-                  </select>
-                </label>
-              </fieldset>
-              <fieldset>
-                <legend>{{i18n
-                    "discussion_bridge.admin.cms.destination_metadata"
-                  }}</legend>
-                <p>{{i18n
-                    "discussion_bridge.admin.cms.catalog_refresh_help"
-                  }}</p>
-                <p>{{i18n "discussion_bridge.admin.cms.empty_metadata"}}</p>
-                {{#each this.catalogPanels key="kind" as |catalog|}}
-                  <h6>{{catalog.label}}</h6>
-                  <DButton
-                    @action={{fn this.reloadCatalog catalog.kind}}
-                    @disabled={{catalog.loading}}
-                    @label="discussion_bridge.admin.cms.catalog_reload"
-                  />
-                  {{#if catalog.loading}}<p>{{i18n
-                        "discussion_bridge.admin.cms.catalog_loading"
-                      }}</p>
-                  {{else if catalog.available}}
-                    <p>{{i18n "discussion_bridge.admin.cms.catalog_revision"}}:
-                      {{catalog.catalogRevision}}
-                      /
-                      {{catalog.currentRevision}}</p>
-                    {{#if catalog.stale}}<p role="status">{{i18n
-                          "discussion_bridge.admin.cms.catalog_stale"
-                        }}</p>{{/if}}
-                    {{#each catalog.items key="id" as |entry|}}
-                      <label class="discussion-bridge-direction-option"><input
-                          checked={{this.metadataSelected
-                            catalog.field
-                            entry.id
-                          }}
-                          disabled={{entry.disabled}}
-                          type="checkbox"
-                          {{on
-                            "change"
-                            (fn this.updateMetadata catalog.field entry.id)
-                          }}
-                        />
-                        <span>{{entry.label}}
-                          ·
-                          <code>{{entry.id}}</code>
-                          {{#unless entry.available}}{{i18n
-                              "discussion_bridge.admin.cms.catalog_item_unavailable"
-                            }}{{/unless}}</span></label>
-                    {{/each}}
-                    <DButton
-                      @action={{fn
-                        this.nextCatalog
-                        catalog.kind
-                        catalog.nextCursor
-                      }}
-                      @disabled={{catalog.nextDisabled}}
-                      @label="discussion_bridge.admin.cms.catalog_next"
-                    />
-                  {{else}}<p role="status">{{i18n
-                        "discussion_bridge.admin.cms.catalog_unavailable"
+                      selected={{eq this.form.presentationMode mode.value}}
+                      value={{mode.value}}
+                    >{{mode.label}}</option>
+                  {{/each}}
+                </select>
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>{{i18n
+                  "discussion_bridge.admin.cms.destination_metadata"
+                }}</legend>
+              <p>{{i18n
+                  "discussion_bridge.admin.cms.catalog_refresh_help"
+                }}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.empty_metadata"}}</p>
+              {{#each this.catalogPanels key="kind" as |catalog|}}
+                <h6>{{catalog.label}}</h6>
+                <DButton
+                  @action={{fn this.reloadCatalog catalog.kind}}
+                  @disabled={{catalog.loading}}
+                  @label="discussion_bridge.admin.cms.catalog_reload"
+                />
+                {{#if catalog.loading}}<p>{{i18n
+                      "discussion_bridge.admin.cms.catalog_loading"
+                    }}</p>
+                {{else if catalog.available}}
+                  <p>{{i18n "discussion_bridge.admin.cms.catalog_revision"}}:
+                    {{catalog.catalogRevision}}
+                    /
+                    {{catalog.currentRevision}}</p>
+                  {{#if catalog.stale}}<p role="status">{{i18n
+                        "discussion_bridge.admin.cms.catalog_stale"
                       }}</p>{{/if}}
-                  {{#if catalog.missing.length}}<p role="status">{{i18n
-                        "discussion_bridge.admin.cms.catalog_attention"
-                      }}:
-                      {{catalog.missing}}</p>{{/if}}
-                  {{#if catalog.unavailable.length}}<p role="status">{{i18n
-                        "discussion_bridge.admin.cms.catalog_attention"
-                      }}:
-                      {{catalog.unavailable}}</p>{{/if}}
-                  {{#if catalog.error}}<p role="status">{{i18n
-                        "discussion_bridge.admin.cms.catalog_attention"
-                      }}:
-                      {{catalog.error}}</p>{{/if}}
-                  <ul>{{#each catalog.selected as |id|}}<li><code>{{id}}</code>
+                  {{#each catalog.items key="id" as |entry|}}
+                    <label class="discussion-bridge-direction-option"><input
+                        checked={{this.metadataSelected
+                          catalog.field
+                          entry.id
+                        }}
+                        disabled={{entry.disabled}}
+                        type="checkbox"
+                        {{on
+                          "change"
+                          (fn this.updateMetadata catalog.field entry.id)
+                        }}
+                      />
+                      <span>{{entry.label}}
+                        ·
+                        <code>{{entry.id}}</code>
+                        {{#unless entry.available}}{{i18n
+                            "discussion_bridge.admin.cms.catalog_item_unavailable"
+                          }}{{/unless}}</span></label>
+                  {{/each}}
+                  <DButton
+                    @action={{fn
+                      this.nextCatalog
+                      catalog.kind
+                      catalog.nextCursor
+                    }}
+                    @disabled={{catalog.nextDisabled}}
+                    @label="discussion_bridge.admin.cms.catalog_next"
+                  />
+                {{else}}<p role="status">{{i18n
+                      "discussion_bridge.admin.cms.catalog_unavailable"
+                    }}</p>{{/if}}
+                {{#if catalog.missing.length}}<p role="status">{{i18n
+                      "discussion_bridge.admin.cms.catalog_attention"
+                    }}:
+                    {{catalog.missing}}</p>{{/if}}
+                {{#if catalog.unavailable.length}}<p role="status">{{i18n
+                      "discussion_bridge.admin.cms.catalog_attention"
+                    }}:
+                    {{catalog.unavailable}}</p>{{/if}}
+                {{#if catalog.error}}<p role="status">{{i18n
+                      "discussion_bridge.admin.cms.catalog_attention"
+                    }}:
+                    {{catalog.error}}</p>{{/if}}
+                <ul>{{#each catalog.selected as |id|}}<li><code>{{id}}</code>
+                      <DButton
+                        @action={{fn this.removeMetadata catalog.field id}}
+                        @label="discussion_bridge.admin.cms.catalog_remove"
+                      />
+                    </li>{{else}}<li>{{i18n
+                        "discussion_bridge.admin.cms.no_selection"
+                      }}</li>{{/each}}</ul>
+              {{/each}}
+            </fieldset>
+            <DButton
+              class="btn-primary"
+              @disabled={{this.saveDisabled}}
+              @label="discussion_bridge.admin.cms.save"
+              @type="submit"
+            />
+          </form>
+        {{/if}}
+        <DButton
+          @action={{this.loadConfiguration}}
+          @disabled={{this.busy}}
+          @label="discussion_bridge.admin.cms.reload"
+        />
+        <details class="discussion-bridge-cms-preview">
+          <summary>{{i18n "discussion_bridge.admin.cms.preview_title"}}</summary>
+          <p>{{i18n "discussion_bridge.admin.cms.preview_help"}}</p>
+          <label>{{i18n "discussion_bridge.admin.cms.preview_topic"}}
+            <input
+              value={{this.previewTopicId}}
+              {{on "input" this.updatePreviewTopic}}
+            />
+          </label>
+          <DButton
+            @action={{this.loadPreview}}
+            @disabled={{this.previewDisabled}}
+            @label="discussion_bridge.admin.cms.preview_load"
+          />
+          {{#if this.preview}}
+            <h6>{{this.preview.title}}</h6>
+            <p><a href={{this.preview.native_source_url}}>{{i18n
+                  "discussion_bridge.admin.cms.preview_full_source"
+                }}</a></p>
+            <p>{{i18n "discussion_bridge.admin.cms.preview_plan"}}:
+              {{this.previewMode this.preview.presentation_mode}}
+              ·
+              {{this.preview.native_capabilities.native_revision}}
+              ·
+              {{this.preview.policy_revision}}</p>
+            <p>{{i18n "discussion_bridge.admin.cms.preview_eligibility"}}:
+              {{this.previewFlag this.preview.selection_eligible}}
+              /
+              {{this.previewFlag this.preview.publication_enabled}}
+              /
+              {{this.previewFlag this.preview.publication_eligible}}</p>
+            <p>{{i18n "discussion_bridge.admin.cms.preview_native"}}:
+              {{this.preview.native_first_post_id}}
+              /
+              {{this.preview.native_version}}
+              /
+              {{this.previewFlag this.preview.wiki}}</p>
+            <p>{{i18n "discussion_bridge.admin.cms.selected_author_ids"}}:
+              {{this.preview.author_ids}}</p>
+            <p>{{i18n "discussion_bridge.admin.cms.selected_taxonomy_ids"}}:
+              {{this.preview.taxonomy_ids}}</p>
+            {{#unless this.preview.selection_availability.available}}<p
+                role="status"
+              >{{i18n
+                  "discussion_bridge.admin.cms.catalog_attention"
+                }}</p>{{/unless}}
+            {{#if this.preview.source}}
+              <p>{{this.preview.source.content_bytes}}
+                ·
+                <code>{{this.preview.source.content_sha256}}</code></p>
+              <p>{{this.preview.source.source_created_at}}
+                ·
+                {{this.preview.source.source_updated_at}}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.preview_text"}}</p>
+              <pre>{{this.preview.source_text}}</pre>
+              {{#if this.preview.source_text_truncated}}<p>{{i18n
+                    "discussion_bridge.admin.cms.preview_excerpt"
+                  }}</p>{{/if}}
+            {{else}}<p>{{i18n
+                  "discussion_bridge.admin.cms.preview_unselected"
+                }}</p>{{/if}}
+          {{/if}}
+        </details>
+        <details class="discussion-bridge-cms-delivery">
+          <summary>{{i18n "discussion_bridge.admin.cms.delivery_title"}}</summary>
+          <p>{{i18n "discussion_bridge.admin.cms.delivery_help"}}</p>
+          <p>{{i18n "discussion_bridge.admin.cms.attention_help"}}</p>
+          <DButton
+            @action={{fn this.checkAttention null}}
+            @disabled={{this.checkAttentionDisabled}}
+            @label="discussion_bridge.admin.cms.check_selected"
+          />
+          <DButton
+            @action={{fn this.retryAttention null false}}
+            @disabled={{this.retryAttentionDisabled}}
+            @label="discussion_bridge.admin.cms.retry_selected"
+          />
+          <DButton
+            @action={{fn this.retryAttention null true}}
+            @disabled={{this.settleAttentionDisabled}}
+            @label="discussion_bridge.admin.cms.settle_selected"
+          />
+          {{#each this.attentionResults as |result|}}
+            <p role="status"><code>{{result.work_id}}</code>
+              ·
+              {{this.inspectionStatus result.status}}
+              ·
+              {{result.issue}}</p>
+          {{/each}}
+          {{#if this.loadingDelivery}}
+            <p role="status">{{i18n
+                "discussion_bridge.admin.cms.delivery_loading"
+              }}</p>
+          {{else if this.deliveryAvailable}}
+            {{#each this.deliveries as |delivery|}}
+              <article data-mapping-id={{delivery.mapping_id}}>
+                <h6>{{delivery.topic_title}}</h6>
+                <p><code>{{delivery.mapping_id}}</code>
+                  ·
+                  {{this.deliveryStatus delivery.publication_status}}</p>
+                {{#if delivery.attention_required}}
+                  <p role="status"><strong>{{i18n
+                        "discussion_bridge.admin.cms.withdrawal_attention"
+                      }}</strong></p>
+                {{/if}}
+                {{#if delivery.attention_recovery.metadata_restored}}
+                  <p role="status">{{i18n
+                      "discussion_bridge.admin.cms.metadata_restored"
+                    }}</p>
+                {{/if}}
+                {{#if delivery.attention_recovery.can_check}}
+                  <label><input
+                      checked={{this.attentionSelected delivery.work.work_id}}
+                      disabled={{this.attentionBusy}}
+                      type="checkbox"
+                      {{on
+                        "change"
+                        (fn this.selectAttention delivery.work.work_id)
+                      }}
+                    />
+                    {{i18n "discussion_bridge.admin.cms.select_attention"}}:
+                    {{delivery.topic_title}}</label>
+                  <DButton
+                    @action={{fn this.checkAttention delivery}}
+                    @disabled={{this.attentionBusy}}
+                    @label="discussion_bridge.admin.cms.check_native"
+                  />
+                  {{#if delivery.attention_recovery.inspection}}
+                    <p role="status">{{this.inspectionStatus
+                        delivery.attention_recovery.inspection.status
+                      }}
+                      ·
+                      {{delivery.attention_recovery.inspection.issue}}
+                      ·
+                      {{delivery.attention_recovery.inspection.observed_at}}</p>
+                    {{#if
+                      (eq
+                        delivery.attention_recovery.inspection.status "ready"
+                      )
+                    }}
+                      {{#if delivery.attention_recovery.settlement_required}}
+                        <p>{{i18n
+                            "discussion_bridge.admin.cms.settlement_effect"
+                          }}</p>
                         <DButton
-                          @action={{fn this.removeMetadata catalog.field id}}
-                          @label="discussion_bridge.admin.cms.catalog_remove"
+                          @action={{fn this.retryAttention delivery true}}
+                          @disabled={{this.attentionBusy}}
+                          @label="discussion_bridge.admin.cms.settle_retry"
                         />
-                      </li>{{else}}<li>{{i18n
-                          "discussion_bridge.admin.cms.no_selection"
-                        }}</li>{{/each}}</ul>
-                {{/each}}
-              </fieldset>
-              <DButton
-                class="btn-primary"
-                @disabled={{this.saveDisabled}}
-                @label="discussion_bridge.admin.cms.save"
-                @type="submit"
-              />
-            </form>
+                      {{else}}
+                        <DButton
+                          @action={{fn this.retryAttention delivery false}}
+                          @disabled={{this.attentionBusy}}
+                          @label="discussion_bridge.admin.cms.retry_one"
+                        />
+                      {{/if}}
+                    {{/if}}
+                  {{/if}}
+                {{/if}}
+                <dl>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_eligibility"
+                    }}</dt>
+                  <dd>{{#if delivery.publication_eligible}}
+                      {{i18n "discussion_bridge.admin.cms.delivery_eligible"}}
+                    {{else}}{{i18n
+                        "discussion_bridge.admin.cms.delivery_ineligible"
+                      }}{{/if}}
+                    ·
+                    {{delivery.scope_issue}}</dd>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_source_dates"
+                    }}</dt>
+                  <dd>{{delivery.source_created_at}}
+                    ·
+                    {{delivery.source_updated_at}}</dd>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_desired"
+                    }}</dt>
+                  <dd><code>{{delivery.desired_source_revision}}</code></dd>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_synchronized"
+                    }}</dt>
+                  <dd><code>{{delivery.synchronized_source_revision}}</code>
+                    ·
+                    {{delivery.synchronized_at}}</dd>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_verified"
+                    }}</dt>
+                  <dd><code
+                    >{{delivery.publicly_verified_source_revision}}</code>
+                    ·
+                    {{delivery.publicly_verified_at}}</dd>
+                  <dt>{{i18n
+                      "discussion_bridge.admin.cms.delivery_work"
+                    }}</dt>
+                  <dd>{{this.workAction delivery.work.action}}
+                    ·
+                    {{this.deliveryStatus delivery.work.state}}
+                    ·
+                    {{delivery.work.attempt}}
+                    /
+                    {{delivery.work.attempt_ceiling}}
+                    ·
+                    {{delivery.work.retry_at}}
+                    ·
+                    {{delivery.work.last_failure_code}}</dd>
+                </dl>
+              </article>
+            {{else}}
+              <p>{{i18n "discussion_bridge.admin.cms.delivery_empty"}}</p>
+            {{/each}}
+            <DButton
+              @action={{this.previousDelivery}}
+              @disabled={{this.deliveryPreviousDisabled}}
+              @label="discussion_bridge.admin.cms.delivery_previous"
+            />
+            <span>{{this.deliveryPage}} / {{this.deliveryPages}}</span>
+            <DButton
+              @action={{this.nextDelivery}}
+              @disabled={{this.deliveryNextDisabled}}
+              @label="discussion_bridge.admin.cms.delivery_next"
+            />
+          {{else}}
+            <p>{{i18n "discussion_bridge.admin.cms.delivery_failed"}}</p>
           {{/if}}
           <DButton
-            @action={{this.loadConfiguration}}
-            @disabled={{this.busy}}
-            @label="discussion_bridge.admin.cms.reload"
+            @action={{this.reloadDelivery}}
+            @disabled={{this.loadingDelivery}}
+            @label="discussion_bridge.admin.cms.delivery_refresh"
           />
-          <DButton
-            @action={{this.close}}
-            @disabled={{this.saving}}
-            @label="discussion_bridge.admin.cancel"
-          />
-        {{else}}
-          <DButton
-            @action={{this.open}}
-            @label="discussion_bridge.admin.cms.configure"
-          />
-        {{/if}}
+        </details>
       </section>
+    {{else}}
+      <p>{{i18n "discussion_bridge.admin.cms.unavailable_for_platform"}}</p>
     {{/if}}
   </template>
 }

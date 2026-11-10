@@ -19,6 +19,8 @@ export default {
         {
           label: "discussion_bridge.admin.connections_nav",
           route: "adminPlugins.show.discussion-bridge-connections",
+          currentWhen:
+            "adminPlugins.show.discussion-bridge-connections adminPlugins.show.discussion-bridge-connection",
           description: "discussion_bridge.admin.connections_nav_description",
         },
         {
