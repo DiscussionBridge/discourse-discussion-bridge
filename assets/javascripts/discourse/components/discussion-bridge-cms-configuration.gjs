@@ -1,8 +1,9 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
-import { fn } from "@ember/helper";
+import { concat, fn, hash } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
+import { LinkTo } from "@ember/routing";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
 import { eq } from "discourse/truth-helpers";
@@ -1083,6 +1084,11 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
               @label="discussion_bridge.admin.cms.save"
               @type="submit"
             />
+            <LinkTo
+              class="btn btn-default"
+              @route="adminPlugins.show.discussion-bridge-connections"
+              @query={{hash return_to=(concat @connection.id)}}
+            >{{i18n "discussion_bridge.admin.cancel"}}</LinkTo>
           </form>
         {{/if}}
         <DButton
