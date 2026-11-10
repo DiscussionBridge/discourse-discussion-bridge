@@ -1,13 +1,18 @@
 import Component from "@glimmer/component";
 import { tracked } from "@glimmer/tracking";
+import { concat } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
 import { ajax } from "discourse/lib/ajax";
 import { popupAjaxError } from "discourse/lib/ajax-error";
+import { eq } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
+import focusTarget, {
+  revealAndFocus,
+} from "discourse/plugins/discourse-discussion-bridge/discourse/modifiers/discussion-bridge-focus";
 
 export default class DiscussionBridgeOperations extends Component {
   @service router;
@@ -17,6 +22,11 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked state = "";
   @tracked connectionId = "";
   @tracked detail = null;
+  @tracked loadingRecordId = null;
+  @tracked failedRecordId = null;
+  @tracked detailFocus = 0;
+  selectedRecordId = null;
+  viewRequest = 0;
   @tracked fromConnectionId = "";
   @tracked fromTopicId = "";
   @tracked fromExternalId = "";
@@ -91,6 +101,11 @@ export default class DiscussionBridgeOperations extends Component {
   }
 
   transition(page) {
+    this.viewRequest++;
+    this.loadingRecordId = null;
+    this.failedRecordId = null;
+    this.detail = null;
+    this.selectedRecordId = null;
     this.router.transitionTo("adminPlugins.show.discussion-bridge-operations", {
       queryParams: {
         query: this.query,
@@ -104,14 +119,34 @@ export default class DiscussionBridgeOperations extends Component {
 
   @action
   async showRecord(record) {
+    const request = ++this.viewRequest;
+    this.loadingRecordId = record.id;
+    this.failedRecordId = null;
     try {
       const result = await ajax(
         `/discussion-bridge/admin/bridge-records/${record.id}.json`
       );
-      this.detail = result.bridge_record;
-    } catch (error) {
-      popupAjaxError(error);
+      if (!this.isDestroying && request === this.viewRequest) {
+        this.detail = result.bridge_record;
+        this.selectedRecordId = record.id;
+        this.detailFocus = request;
+      }
+    } catch {
+      if (!this.isDestroying && request === this.viewRequest) {
+        this.failedRecordId = record.id;
+      }
+    } finally {
+      if (!this.isDestroying && request === this.viewRequest) {
+        this.loadingRecordId = null;
+      }
     }
+  }
+
+  @action
+  returnToRecord() {
+    revealAndFocus(
+      document.getElementById(`discussion-bridge-record-view-${this.selectedRecordId}`)
+    );
   }
 
   @action
@@ -133,6 +168,8 @@ export default class DiscussionBridgeOperations extends Component {
         }
       );
       this.detail = result.bridge_record;
+      this.selectedRecordId = null;
+      this.detailFocus = 0;
       this.router.refresh();
     } catch (error) {
       popupAjaxError(error);
@@ -234,10 +271,18 @@ export default class DiscussionBridgeOperations extends Component {
                     data-state={{record.state}}
                   >{{this.displayToken record.state}}</span></td>
                 <td><DButton
+                    id={{concat "discussion-bridge-record-view-" record.id}}
                     @action={{this.showRecord}}
                     @actionParam={{record}}
                     @label="discussion_bridge.admin.view"
-                  /></td>
+                    @disabled={{eq this.loadingRecordId record.id}}
+                  />
+                  {{#if (eq this.loadingRecordId record.id)}}
+                    <p role="status">{{i18n "discussion_bridge.admin.record_loading"}}</p>
+                  {{else if (eq this.failedRecordId record.id)}}
+                    <p role="alert">{{i18n "discussion_bridge.admin.record_load_failed"}}</p>
+                  {{/if}}
+                </td>
               </tr>
             {{else}}<tr><td colspan="6">{{i18n
                     "discussion_bridge.admin.no_records"
@@ -265,7 +310,7 @@ export default class DiscussionBridgeOperations extends Component {
 
       {{#if this.detail}}
         <section class="discussion-bridge-record-detail">
-          <h3>{{this.detail.title}}</h3>
+          <h3 tabindex="-1" {{focusTarget this.detailFocus}}>{{this.detail.title}}</h3>
           <p><strong>{{i18n
                 "discussion_bridge.admin.content_direction"
               }}:</strong>
@@ -288,7 +333,12 @@ export default class DiscussionBridgeOperations extends Component {
             {{/each}}
           </ul>
           <p>{{i18n "discussion_bridge.admin.stable_record_message"}}</p>
-
+          {{#if this.detailFocus}}
+            <DButton
+              @action={{this.returnToRecord}}
+              @label="discussion_bridge.admin.back_to_records"
+            />
+          {{/if}}
         </section>
       {{/if}}
 
