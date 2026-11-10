@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require "erb"
+
 module DiscussionBridge
   class TopicCreator
     Creation = Data.define(:topic, :post_creator)
 
-    def initialize(source_link_label: nil)
-      @source_link_label = source_link_label
+    def initialize(link_article_title: false)
+      @link_article_title = link_article_title
     end
 
     def call(request:, policy:)
@@ -23,13 +25,7 @@ module DiscussionBridge
         PostCreator.new(
           actor,
           title: request.fetch(:title),
-          raw:
-            companion_post(
-              source_url,
-              request.fetch(:content_html),
-              request[:source_authors],
-              request.fetch(:generate_topic_toc, false),
-            ),
+          raw: companion_post(source_url, request),
           category: policy.effective_category_id,
           tags: policy.effective_tags,
           visible: false,
@@ -60,14 +56,7 @@ module DiscussionBridge
           connection_id: request.fetch(:connection_id),
           source_url: request.fetch(:source_url),
         ).source_url
-      TextCleaner.normalize_whitespaces(
-        companion_post(
-          source_url,
-          request.fetch(:content_html),
-          request[:source_authors],
-          request.fetch(:generate_topic_toc, false),
-        ),
-      ).rstrip
+      TextCleaner.normalize_whitespaces(companion_post(source_url, request)).rstrip
     end
 
     def matches_source?(topic:, first_post:, request:, policy:)
@@ -117,15 +106,18 @@ module DiscussionBridge
         owned_generated_link: request.fetch(:owned_generated_link, false))
     end
 
-    def companion_post(source_url, content_html, source_authors, generate_topic_toc)
-      credit = SourceAuthorship.credit_html(source_authors)
+    def companion_post(source_url, request)
+      content_html = request.fetch(:content_html)
+      credit = SourceAuthorship.credit_html(request[:source_authors])
       parts = [PortableContent.to_discourse_raw(content_html, source_url: source_url)]
-      if generate_topic_toc && PortableContent.toc_eligible?(content_html)
+      if request.fetch(:generate_topic_toc, false) && PortableContent.toc_eligible?(content_html)
         parts.unshift('<div data-theme-toc="true"></div>')
       end
       parts << credit if credit.present?
-      source_link = if @source_link_label
-        "[#{@source_link_label}](#{source_url})"
+      source_link = if @link_article_title
+        title = ERB::Util.html_escape(request.fetch(:title))
+        url = ERB::Util.html_escape(source_url)
+        %(<p>Originally published as <a href="#{url}">#{title}</a>.</p>)
       else
         "Originally published at [#{source_url}](#{source_url})"
       end

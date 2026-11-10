@@ -17,7 +17,7 @@ module DiscussionBridge
     def resolve(input)
       validate_resolve_envelope!(input)
       creations = []
-      creator = TopicCreator.new(source_link_label: ("Read the original on Statamic" if @connection.platform == "statamic"))
+      creator = TopicCreator.new(link_article_title: @connection.platform == "statamic")
       result = mutation("record_resolve", "", input) do
         CmsProtocol.validate!("ToResolve", input)
         source = input.fetch("bridge_record")
