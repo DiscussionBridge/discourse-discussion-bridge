@@ -87,8 +87,23 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
     }));
   }
 
+  get previewAvailable() {
+    return this.args.connection.allowed_directions.includes("from_discourse");
+  }
+
   get previewDisabled() {
-    return this.loadingPreview || !this.configured || !this.loaded || this.busy;
+    const topicId = this.previewTopicId.trim();
+    const validTopicId =
+      /^[1-9][0-9]{0,18}$/.test(topicId) &&
+      (topicId.length < 19 || topicId <= "9223372036854775807");
+    return (
+      !this.previewAvailable ||
+      !validTopicId ||
+      this.loadingPreview ||
+      !this.configured ||
+      !this.loaded ||
+      this.busy
+    );
   }
 
   get deliveryPreviousDisabled() {
@@ -310,6 +325,9 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
 
   @action
   async loadPreview() {
+    if (this.previewDisabled) {
+      return;
+    }
     const sequence = ++this.previewSequence;
     this.loadingPreview = true;
     this.preview = null;
@@ -1098,65 +1116,74 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
         />
         <details class="discussion-bridge-cms-preview">
           <summary>{{i18n "discussion_bridge.admin.cms.preview_title"}}</summary>
-          <p>{{i18n "discussion_bridge.admin.cms.preview_help"}}</p>
-          <label>{{i18n "discussion_bridge.admin.cms.preview_topic"}}
-            <input
-              value={{this.previewTopicId}}
-              {{on "input" this.updatePreviewTopic}}
+          {{#if this.previewAvailable}}
+            <p>{{i18n "discussion_bridge.admin.cms.preview_help"}}</p>
+            <label>{{i18n "discussion_bridge.admin.cms.preview_topic"}}
+              <input
+                inputmode="numeric"
+                aria-describedby="discussion-bridge-preview-topic-help"
+                value={{this.previewTopicId}}
+                {{on "input" this.updatePreviewTopic}}
+              />
+            </label>
+            <p id="discussion-bridge-preview-topic-help">{{i18n
+                "discussion_bridge.admin.cms.preview_topic_help"
+              }}</p>
+            <DButton
+              @action={{this.loadPreview}}
+              @disabled={{this.previewDisabled}}
+              @label="discussion_bridge.admin.cms.preview_load"
             />
-          </label>
-          <DButton
-            @action={{this.loadPreview}}
-            @disabled={{this.previewDisabled}}
-            @label="discussion_bridge.admin.cms.preview_load"
-          />
-          {{#if this.preview}}
-            <h6>{{this.preview.title}}</h6>
-            <p><a href={{this.preview.native_source_url}}>{{i18n
-                  "discussion_bridge.admin.cms.preview_full_source"
-                }}</a></p>
-            <p>{{i18n "discussion_bridge.admin.cms.preview_plan"}}:
-              {{this.previewMode this.preview.presentation_mode}}
-              ·
-              {{this.preview.native_capabilities.native_revision}}
-              ·
-              {{this.preview.policy_revision}}</p>
-            <p>{{i18n "discussion_bridge.admin.cms.preview_eligibility"}}:
-              {{this.previewFlag this.preview.selection_eligible}}
-              /
-              {{this.previewFlag this.preview.publication_enabled}}
-              /
-              {{this.previewFlag this.preview.publication_eligible}}</p>
-            <p>{{i18n "discussion_bridge.admin.cms.preview_native"}}:
-              {{this.preview.native_first_post_id}}
-              /
-              {{this.preview.native_version}}
-              /
-              {{this.previewFlag this.preview.wiki}}</p>
-            <p>{{i18n "discussion_bridge.admin.cms.selected_author_ids"}}:
-              {{this.preview.author_ids}}</p>
-            <p>{{i18n "discussion_bridge.admin.cms.selected_taxonomy_ids"}}:
-              {{this.preview.taxonomy_ids}}</p>
-            {{#unless this.preview.selection_availability.available}}<p
-                role="status"
-              >{{i18n
-                  "discussion_bridge.admin.cms.catalog_attention"
-                }}</p>{{/unless}}
-            {{#if this.preview.source}}
-              <p>{{this.preview.source.content_bytes}}
+            {{#if this.preview}}
+              <h6>{{this.preview.title}}</h6>
+              <p><a href={{this.preview.native_source_url}}>{{i18n
+                    "discussion_bridge.admin.cms.preview_full_source"
+                  }}</a></p>
+              <p>{{i18n "discussion_bridge.admin.cms.preview_plan"}}:
+                {{this.previewMode this.preview.presentation_mode}}
                 ·
-                <code>{{this.preview.source.content_sha256}}</code></p>
-              <p>{{this.preview.source.source_created_at}}
+                {{this.preview.native_capabilities.native_revision}}
                 ·
-                {{this.preview.source.source_updated_at}}</p>
-              <p>{{i18n "discussion_bridge.admin.cms.preview_text"}}</p>
-              <pre>{{this.preview.source_text}}</pre>
-              {{#if this.preview.source_text_truncated}}<p>{{i18n
-                    "discussion_bridge.admin.cms.preview_excerpt"
+                {{this.preview.policy_revision}}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.preview_eligibility"}}:
+                {{this.previewFlag this.preview.selection_eligible}}
+                /
+                {{this.previewFlag this.preview.publication_enabled}}
+                /
+                {{this.previewFlag this.preview.publication_eligible}}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.preview_native"}}:
+                {{this.preview.native_first_post_id}}
+                /
+                {{this.preview.native_version}}
+                /
+                {{this.previewFlag this.preview.wiki}}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.selected_author_ids"}}:
+                {{this.preview.author_ids}}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.selected_taxonomy_ids"}}:
+                {{this.preview.taxonomy_ids}}</p>
+              {{#unless this.preview.selection_availability.available}}<p
+                  role="status"
+                >{{i18n
+                    "discussion_bridge.admin.cms.catalog_attention"
+                  }}</p>{{/unless}}
+              {{#if this.preview.source}}
+                <p>{{this.preview.source.content_bytes}}
+                  ·
+                  <code>{{this.preview.source.content_sha256}}</code></p>
+                <p>{{this.preview.source.source_created_at}}
+                  ·
+                  {{this.preview.source.source_updated_at}}</p>
+                <p>{{i18n "discussion_bridge.admin.cms.preview_text"}}</p>
+                <pre>{{this.preview.source_text}}</pre>
+                {{#if this.preview.source_text_truncated}}<p>{{i18n
+                      "discussion_bridge.admin.cms.preview_excerpt"
+                    }}</p>{{/if}}
+              {{else}}<p>{{i18n
+                    "discussion_bridge.admin.cms.preview_unselected"
                   }}</p>{{/if}}
-            {{else}}<p>{{i18n
-                  "discussion_bridge.admin.cms.preview_unselected"
-                }}</p>{{/if}}
+            {{/if}}
+          {{else}}
+            <p>{{i18n "discussion_bridge.admin.cms.preview_direction_unavailable"}}</p>
           {{/if}}
         </details>
         <details class="discussion-bridge-cms-delivery">
