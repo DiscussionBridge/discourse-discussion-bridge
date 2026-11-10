@@ -533,43 +533,6 @@
   }
 }
 
-.discussion-bridge-connection-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-block: 0.75rem 1rem;
-  border-bottom: 1px solid var(--primary-low);
-
-  a {
-    padding: 0.65rem 1rem;
-    border: 0;
-    border-bottom: 3px solid transparent;
-    background: transparent;
-    color: var(--primary);
-    cursor: pointer;
-
-    &.active {
-      border-bottom-color: var(--tertiary);
-      font-weight: 600;
-    }
-  }
-}
-
-.discussion-bridge-connection-workspace {
-  > h2 {
-    margin-block-start: 0.75rem;
-  }
-
-  .discussion-bridge-cms-configuration details {
-    margin-block: 1rem;
-  }
-}
-
-.discussion-bridge-record-detail > h3,
-.discussion-bridge-connection-workspace > h2 {
-  scroll-margin-block-start: 1rem;
-}
-
 .discussion-bridge-authors-panel {
   display: grid;
   gap: 1rem;

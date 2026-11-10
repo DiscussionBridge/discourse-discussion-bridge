@@ -16,6 +16,7 @@ enabled_site_setting :discussion_bridge_enabled
 register_svg_icon "triangle-exclamation"
 register_asset "stylesheets/common/discussion-bridge-comments-only.scss"
 register_asset "stylesheets/common/discussion-bridge-admin-health.scss"
+register_asset "stylesheets/common/discussion-bridge-admin-workspace.scss"
 register_asset "stylesheets/common/discussion-bridge-publishing.scss"
 
 register_html_builder("server:before-head-close") do |controller|
