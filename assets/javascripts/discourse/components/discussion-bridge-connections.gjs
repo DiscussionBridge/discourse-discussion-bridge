@@ -182,14 +182,16 @@ export default class DiscussionBridgeConnections extends Component {
                 }}<code>{{origin}}</code>{{/each}}</dd>
             </dl>
             <details>
-              <summary>{{i18n "discussion_bridge.admin.connection_details"}}</summary>
+              <summary>{{i18n
+                  "discussion_bridge.admin.connection_details"
+                }}</summary>
               <dl>
                 <dt>{{i18n "discussion_bridge.admin.bridge_records"}}</dt><dd
                 >{{connection.bridge_record_count}}</dd>
-                <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd><code
-                  >{{connection.public_id}}</code></dd>
-                <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd><code
-                  >{{connection.author_username}}</code>{{#unless
+                <dt>{{i18n "discussion_bridge.admin.connection_id"}}</dt><dd
+                ><code>{{connection.public_id}}</code></dd>
+                <dt>{{i18n "discussion_bridge.admin.topic_author"}}</dt><dd
+                ><code>{{connection.author_username}}</code>{{#unless
                     connection.author_override
                   }}
                     <small>{{i18n
@@ -243,14 +245,14 @@ export default class DiscussionBridgeConnections extends Component {
             <div class="discussion-bridge-actions">
               <LinkTo
                 class="btn btn-default"
-                @route={{WORKSPACE}}
                 @models={{array connection.id "general"}}
+                @route={{WORKSPACE}}
                 {{focusTarget (eq @returnTo (concat connection.id))}}
               >{{i18n "discussion_bridge.admin.manage"}}</LinkTo>
               <LinkTo
                 class="btn btn-default"
-                @route={{WORKSPACE}}
                 @models={{array connection.id "publication"}}
+                @route={{WORKSPACE}}
               >{{i18n "discussion_bridge.admin.cms.configure"}}</LinkTo>
               <DButton
                 @action={{this.toggleConnection}}
@@ -273,7 +275,10 @@ export default class DiscussionBridgeConnections extends Component {
         {{/each}}
       </div>
 
-      <DiscussionBridgeConnectionForm @model={{@model}} @onIssuedSecret={{this.showCredential}} />
+      <DiscussionBridgeConnectionForm
+        @model={{@model}}
+        @onIssuedSecret={{this.showCredential}}
+      />
     </section>
   </template>
 }

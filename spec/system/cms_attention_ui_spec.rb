@@ -123,9 +123,10 @@ RSpec.describe "DiscussionBridge native attention administration" do
   def open_panel(connection = @connection)
     visit PANEL
     expect(page).to have_current_path(PANEL)
-    expect(page).to have_css(".discussion-bridge-connection-card", text: connection.name)
-    within(card(connection)) { click_button "CMS publication configuration" }
+    within(card(connection)) { click_link "CMS publication configuration", exact: true }
+    expect(page).to have_current_path("#{PANEL}/#{connection.id}/publication")
     expect(delivery(connection)).to have_content("CMS delivery status")
+    delivery(connection).find("summary", text: "CMS delivery status", exact_text: true).click
     expect(delivery(connection)).to have_no_content("Loading retained delivery facts…")
   end
 
@@ -133,8 +134,12 @@ RSpec.describe "DiscussionBridge native attention administration" do
     find(".discussion-bridge-connection-card", text: connection.name)
   end
 
+  def workspace(connection = @connection)
+    find(".discussion-bridge-connection-workspace", text: connection.name)
+  end
+
   def delivery(connection = @connection)
-    card(connection).find(".discussion-bridge-cms-delivery")
+    workspace(connection).find(".discussion-bridge-cms-delivery")
   end
 
   def row(mapping)
@@ -292,7 +297,7 @@ RSpec.describe "DiscussionBridge native attention administration" do
     connection = populated_catalog_connection
     original = connection.reload.cms_configuration.deep_dup
     open_panel(connection)
-    within(card(connection)) do
+    within(workspace(connection)) do
       expect(page).to have_button("Save CMS configuration", disabled: false)
       expect(page).to have_content("Available category")
       expect(find("label", text: "Unavailable author").find("input")).to be_disabled
@@ -300,7 +305,7 @@ RSpec.describe "DiscussionBridge native attention administration" do
       expect(find("label", text: "Available category").find("input")).not_to be_checked
     end
     expect(connection.reload.cms_configuration).to eq(original)
-    within(card(connection)) do
+    within(workspace(connection)) do
       author_checkbox = find("label", text: "Available author").find("input")
       author_checkbox.check
       expect(author_checkbox).to be_checked
@@ -314,7 +319,7 @@ RSpec.describe "DiscussionBridge native attention administration" do
     expect(policy.fetch("taxonomy_ids")).to eq(["category:1"])
     expect(policy.except("policy_revision", "author_ids", "taxonomy_ids"))
       .to eq(original.fetch("policy").except("policy_revision", "author_ids", "taxonomy_ids"))
-    within(card(connection)) do
+    within(workspace(connection)) do
       click_button "Reload stored CMS configuration"
       expect(find("label", text: "Available author").find("input")).to be_checked
       expect(find("label", text: "Available category").find("input")).to be_checked
@@ -329,7 +334,7 @@ RSpec.describe "DiscussionBridge native attention administration" do
     original_size = page.current_window.size
     [1240, 390].each do |width|
       page.current_window.resize_to(width, 900)
-      within(card(connection)) do
+      within(workspace(connection)) do
         expect(page).to have_button("Save CMS configuration", disabled: false)
         choices = find_all(".discussion-bridge-add-connection .discussion-bridge-direction-option")
         expect(choices.length).to be >= 8

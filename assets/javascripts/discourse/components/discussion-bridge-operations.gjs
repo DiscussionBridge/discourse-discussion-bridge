@@ -25,12 +25,12 @@ export default class DiscussionBridgeOperations extends Component {
   @tracked loadingRecordId = null;
   @tracked failedRecordId = null;
   @tracked detailFocus = 0;
-  selectedRecordId = null;
-  viewRequest = 0;
   @tracked fromConnectionId = "";
   @tracked fromTopicId = "";
   @tracked fromExternalId = "";
   @tracked fromUrl = "";
+  selectedRecordId = null;
+  viewRequest = 0;
 
   get previousDisabled() {
     return this.args.model.pagination.page <= 1;
@@ -145,7 +145,9 @@ export default class DiscussionBridgeOperations extends Component {
   @action
   returnToRecord() {
     revealAndFocus(
-      document.getElementById(`discussion-bridge-record-view-${this.selectedRecordId}`)
+      document.getElementById(
+        `discussion-bridge-record-view-${this.selectedRecordId}`
+      )
     );
   }
 
@@ -274,13 +276,17 @@ export default class DiscussionBridgeOperations extends Component {
                     id={{concat "discussion-bridge-record-view-" record.id}}
                     @action={{this.showRecord}}
                     @actionParam={{record}}
-                    @label="discussion_bridge.admin.view"
                     @disabled={{eq this.loadingRecordId record.id}}
+                    @label="discussion_bridge.admin.view"
                   />
                   {{#if (eq this.loadingRecordId record.id)}}
-                    <p role="status">{{i18n "discussion_bridge.admin.record_loading"}}</p>
+                    <p role="status">{{i18n
+                        "discussion_bridge.admin.record_loading"
+                      }}</p>
                   {{else if (eq this.failedRecordId record.id)}}
-                    <p role="alert">{{i18n "discussion_bridge.admin.record_load_failed"}}</p>
+                    <p role="alert">{{i18n
+                        "discussion_bridge.admin.record_load_failed"
+                      }}</p>
                   {{/if}}
                 </td>
               </tr>
@@ -310,7 +316,10 @@ export default class DiscussionBridgeOperations extends Component {
 
       {{#if this.detail}}
         <section class="discussion-bridge-record-detail">
-          <h3 tabindex="-1" {{focusTarget this.detailFocus}}>{{this.detail.title}}</h3>
+          <h3
+            tabindex="-1"
+            {{focusTarget this.detailFocus}}
+          >{{this.detail.title}}</h3>
           <p><strong>{{i18n
                 "discussion_bridge.admin.content_direction"
               }}:</strong>

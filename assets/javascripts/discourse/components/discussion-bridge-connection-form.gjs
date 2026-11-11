@@ -17,14 +17,8 @@ export default class DiscussionBridgeConnectionForm extends Component {
   @tracked feedback = "";
   @tracked saving = false;
 
-  constructor() {
-    super(...arguments);
-    if (this.args.connection) {
-      this.applyConnection(this.args.connection);
-    }
-  }
-
   @tracked name = "";
+
   @tracked platform = "";
   @tracked authorUsername = "";
   @tracked authorshipMode = "fixed";
@@ -36,6 +30,13 @@ export default class DiscussionBridgeConnectionForm extends Component {
   @tracked toDiscourse = true;
   @tracked fromDiscourse = true;
   @tracked generateTopicToc = false;
+
+  constructor() {
+    super(...arguments);
+    if (this.args.connection) {
+      this.applyConnection(this.args.connection);
+    }
+  }
 
   @action
   updateName(event) {
@@ -140,7 +141,10 @@ export default class DiscussionBridgeConnectionForm extends Component {
         },
       });
       if (result.secret) {
-        this.args.onIssuedSecret?.(result.secret, result.content_connection.public_id);
+        this.args.onIssuedSecret?.(
+          result.secret,
+          result.content_connection.public_id
+        );
         this.resetForm();
       } else {
         this.applyConnection(result.content_connection);
@@ -233,95 +237,7 @@ export default class DiscussionBridgeConnectionForm extends Component {
       {{#unless @connection}}
         <h3>{{i18n "discussion_bridge.admin.add_connection"}}</h3>
       {{/unless}}
-      {{#unless (eq @section "authors")}}
-        <label>{{i18n "discussion_bridge.admin.connection_name"}}<input
-            required
-            value={{this.name}}
-            {{on "input" this.updateName}}
-          /></label>
-        <label>{{i18n "discussion_bridge.admin.platform"}}
-          <select required {{on "change" this.updatePlatform}}>
-            <option selected={{eq this.platform ""}} value="">{{i18n
-                "discussion_bridge.admin.select_platform"
-              }}</option>
-            {{#each @model.platforms as |platform|}}<option
-                selected={{eq platform this.platform}}
-                value={{platform}}
-              >{{this.displayToken platform}}</option>{{/each}}
-          </select>
-        </label>
-        <label>{{i18n "discussion_bridge.admin.topic_author"}}<input
-            placeholder={{i18n
-              "discussion_bridge.admin.topic_author_default"
-            }}
-            value={{this.authorUsername}}
-            {{on "input" this.updateAuthorUsername}}
-          /></label>
-        <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea
-            required
-            value={{this.origins}}
-            {{on "input" this.updateOrigins}}
-          ></textarea></label>
-        <label>{{i18n "discussion_bridge.admin.companion_topic_category"}}
-          <select {{on "change" this.updateDefaultCategory}}>
-            <option selected={{eq this.defaultCategoryId ""}} value="">
-              {{#if @model.fallback_category.name}}
-                {{i18n
-                  "discussion_bridge.admin.use_forum_fallback_category"
-                  category=@model.fallback_category.name
-                }}
-              {{else}}
-                {{i18n "discussion_bridge.admin.forum_fallback_unavailable"}}
-              {{/if}}
-            </option>
-            {{#each @model.categories as |category|}}
-              <option
-                selected={{eq this.defaultCategoryId category.id_string}}
-                value={{category.id}}
-              >{{category.name}}</option>
-            {{/each}}
-          </select>
-          <small>{{i18n
-              "discussion_bridge.admin.companion_topic_category_description"
-            }}</small>
-        </label>
-        <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea
-            value={{this.lanes}}
-            {{on "input" this.updateLanes}}
-          ></textarea></label>
-        <fieldset class="discussion-bridge-direction-options">
-          <legend>{{i18n
-              "discussion_bridge.admin.allowed_directions"
-            }}</legend>
-          <label class="discussion-bridge-direction-option"><input
-              checked={{this.toDiscourse}}
-              type="checkbox"
-              {{on "change" this.updateToDiscourse}}
-            /><span>{{i18n
-                "discussion_bridge.admin.to_discourse"
-              }}</span></label>
-          <label class="discussion-bridge-direction-option"><input
-              checked={{this.fromDiscourse}}
-              type="checkbox"
-              {{on "change" this.updateFromDiscourse}}
-            /><span>{{i18n
-                "discussion_bridge.admin.from_discourse"
-              }}</span></label>
-        </fieldset>
-        <label class="discussion-bridge-checkbox-setting">
-          <input
-            aria-label={{i18n "discussion_bridge.admin.generate_topic_toc"}}
-            checked={{this.generateTopicToc}}
-            type="checkbox"
-            {{on "change" this.updateGenerateTopicToc}}
-          />
-          <span><strong>{{i18n
-                "discussion_bridge.admin.generate_topic_toc"
-              }}</strong><small>{{i18n
-                "discussion_bridge.admin.generate_topic_toc_description"
-              }}</small></span>
-        </label>
-      {{else}}
+      {{#if (eq @section "authors")}}
         <section class="discussion-bridge-authors-panel">
           <p>{{i18n "discussion_bridge.admin.authors_description"}}</p>
           <label>{{i18n "discussion_bridge.admin.authorship_mode"}}
@@ -359,30 +275,23 @@ export default class DiscussionBridgeConnectionForm extends Component {
           <table class="discussion-bridge-authors-table">
             <thead><tr><th>{{i18n
                     "discussion_bridge.admin.platform_author"
-                  }}</th><th>{{i18n
-                    "discussion_bridge.admin.profile"
-                  }}</th><th>{{i18n
-                    "discussion_bridge.admin.discourse_author"
-                  }}</th><th></th></tr></thead>
+                  }}</th><th>{{i18n "discussion_bridge.admin.profile"}}</th><th
+                >{{i18n "discussion_bridge.admin.discourse_author"}}</th><th
+                ></th></tr></thead>
             <tbody>
               {{#each @connection.source_authors as |sourceAuthor|}}
                 <tr>
-                  <td><strong>{{sourceAuthor.display_name}}</strong><br
-                    /><code>{{sourceAuthor.source_author_id}}</code></td>
+                  <td><strong>{{sourceAuthor.display_name}}</strong><br /><code
+                    >{{sourceAuthor.source_author_id}}</code></td>
                   <td>{{#if sourceAuthor.profile_url}}<a
                         href={{sourceAuthor.profile_url}}
                         rel="noopener noreferrer"
                         target="_blank"
                       >{{sourceAuthor.profile_url}}</a>{{else}}—{{/if}}</td>
                   <td><input
-                      placeholder={{i18n
-                        "discussion_bridge.admin.unmapped"
-                      }}
+                      placeholder={{i18n "discussion_bridge.admin.unmapped"}}
                       value={{get this.sourceMappings sourceAuthor.id}}
-                      {{on
-                        "input"
-                        (fn this.updateSourceMapping sourceAuthor)
-                      }}
+                      {{on "input" (fn this.updateSourceMapping sourceAuthor)}}
                     /></td>
                   <td><DButton
                       @action={{this.saveAuthorMapping}}
@@ -398,7 +307,91 @@ export default class DiscussionBridgeConnectionForm extends Component {
             </tbody>
           </table>
         </section>
-      {{/unless}}
+      {{else}}
+        <label>{{i18n "discussion_bridge.admin.connection_name"}}<input
+            required
+            value={{this.name}}
+            {{on "input" this.updateName}}
+          /></label>
+        <label>{{i18n "discussion_bridge.admin.platform"}}
+          <select required {{on "change" this.updatePlatform}}>
+            <option selected={{eq this.platform ""}} value="">{{i18n
+                "discussion_bridge.admin.select_platform"
+              }}</option>
+            {{#each @model.platforms as |platform|}}<option
+                selected={{eq platform this.platform}}
+                value={{platform}}
+              >{{this.displayToken platform}}</option>{{/each}}
+          </select>
+        </label>
+        <label>{{i18n "discussion_bridge.admin.topic_author"}}<input
+            placeholder={{i18n "discussion_bridge.admin.topic_author_default"}}
+            value={{this.authorUsername}}
+            {{on "input" this.updateAuthorUsername}}
+          /></label>
+        <label>{{i18n "discussion_bridge.admin.allowed_origins"}}<textarea
+            required
+            value={{this.origins}}
+            {{on "input" this.updateOrigins}}
+          ></textarea></label>
+        <label>{{i18n "discussion_bridge.admin.companion_topic_category"}}
+          <select {{on "change" this.updateDefaultCategory}}>
+            <option selected={{eq this.defaultCategoryId ""}} value="">
+              {{#if @model.fallback_category.name}}
+                {{i18n
+                  "discussion_bridge.admin.use_forum_fallback_category"
+                  category=@model.fallback_category.name
+                }}
+              {{else}}
+                {{i18n "discussion_bridge.admin.forum_fallback_unavailable"}}
+              {{/if}}
+            </option>
+            {{#each @model.categories as |category|}}
+              <option
+                selected={{eq this.defaultCategoryId category.id_string}}
+                value={{category.id}}
+              >{{category.name}}</option>
+            {{/each}}
+          </select>
+          <small>{{i18n
+              "discussion_bridge.admin.companion_topic_category_description"
+            }}</small>
+        </label>
+        <label>{{i18n "discussion_bridge.admin.allowed_lanes"}}<textarea
+            value={{this.lanes}}
+            {{on "input" this.updateLanes}}
+          ></textarea></label>
+        <fieldset class="discussion-bridge-direction-options">
+          <legend>{{i18n "discussion_bridge.admin.allowed_directions"}}</legend>
+          <label class="discussion-bridge-direction-option"><input
+              checked={{this.toDiscourse}}
+              type="checkbox"
+              {{on "change" this.updateToDiscourse}}
+            /><span>{{i18n
+                "discussion_bridge.admin.to_discourse"
+              }}</span></label>
+          <label class="discussion-bridge-direction-option"><input
+              checked={{this.fromDiscourse}}
+              type="checkbox"
+              {{on "change" this.updateFromDiscourse}}
+            /><span>{{i18n
+                "discussion_bridge.admin.from_discourse"
+              }}</span></label>
+        </fieldset>
+        <label class="discussion-bridge-checkbox-setting">
+          <input
+            aria-label={{i18n "discussion_bridge.admin.generate_topic_toc"}}
+            checked={{this.generateTopicToc}}
+            type="checkbox"
+            {{on "change" this.updateGenerateTopicToc}}
+          />
+          <span><strong>{{i18n
+                "discussion_bridge.admin.generate_topic_toc"
+              }}</strong><small>{{i18n
+                "discussion_bridge.admin.generate_topic_toc_description"
+              }}</small></span>
+        </label>
+      {{/if}}
       <DButton
         class="btn-primary"
         @disabled={{this.saving}}
@@ -412,8 +405,8 @@ export default class DiscussionBridgeConnectionForm extends Component {
       {{#if @connection}}
         <LinkTo
           class="btn btn-default"
-          @route="adminPlugins.show.discussion-bridge-connections"
           @query={{hash return_to=(concat @connection.id)}}
+          @route="adminPlugins.show.discussion-bridge-connections"
         >{{i18n "discussion_bridge.admin.cancel"}}</LinkTo>
       {{/if}}
       {{#if this.feedback}}<p role="status">{{this.feedback}}</p>{{/if}}

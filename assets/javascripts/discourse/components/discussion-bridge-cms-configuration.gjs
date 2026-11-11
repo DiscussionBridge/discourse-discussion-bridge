@@ -75,6 +75,13 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
 
   deliverySequence = 0;
 
+  constructor() {
+    super(...arguments);
+    if (this.profiles.length) {
+      this.loadConfiguration();
+    }
+  }
+
   get catalogPanels() {
     return ["authors", "taxonomy"].map((kind) => ({
       kind,
@@ -573,13 +580,6 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
     this.notice = "";
   }
 
-  constructor() {
-    super(...arguments);
-    if (this.profiles.length) {
-      this.loadConfiguration();
-    }
-  }
-
   applyConfiguration(configuration) {
     this.previewSequence++;
     this.preview = null;
@@ -779,7 +779,9 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
             {{on "submit" this.save}}
           >
             <fieldset>
-              <legend>{{i18n "discussion_bridge.admin.cms.platform_destination"}}</legend>
+              <legend>{{i18n
+                  "discussion_bridge.admin.cms.platform_destination"
+                }}</legend>
               <label>{{i18n "discussion_bridge.admin.cms.profile"}}
                 <select required {{on "change" (fn this.updateText "profile")}}>
                   <option selected={{eq this.form.profile ""}} value="">{{i18n
@@ -1020,9 +1022,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
               <legend>{{i18n
                   "discussion_bridge.admin.cms.destination_metadata"
                 }}</legend>
-              <p>{{i18n
-                  "discussion_bridge.admin.cms.catalog_refresh_help"
-                }}</p>
+              <p>{{i18n "discussion_bridge.admin.cms.catalog_refresh_help"}}</p>
               <p>{{i18n "discussion_bridge.admin.cms.empty_metadata"}}</p>
               {{#each this.catalogPanels key="kind" as |catalog|}}
                 <h6>{{catalog.label}}</h6>
@@ -1044,10 +1044,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                       }}</p>{{/if}}
                   {{#each catalog.items key="id" as |entry|}}
                     <label class="discussion-bridge-direction-option"><input
-                        checked={{this.metadataSelected
-                          catalog.field
-                          entry.id
-                        }}
+                        checked={{this.metadataSelected catalog.field entry.id}}
                         disabled={{entry.disabled}}
                         type="checkbox"
                         {{on
@@ -1104,8 +1101,8 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
             />
             <LinkTo
               class="btn btn-default"
-              @route="adminPlugins.show.discussion-bridge-connections"
               @query={{hash return_to=(concat @connection.id)}}
+              @route="adminPlugins.show.discussion-bridge-connections"
             >{{i18n "discussion_bridge.admin.cancel"}}</LinkTo>
           </form>
         {{/if}}
@@ -1115,13 +1112,15 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
           @label="discussion_bridge.admin.cms.reload"
         />
         <details class="discussion-bridge-cms-preview">
-          <summary>{{i18n "discussion_bridge.admin.cms.preview_title"}}</summary>
+          <summary>{{i18n
+              "discussion_bridge.admin.cms.preview_title"
+            }}</summary>
           {{#if this.previewAvailable}}
             <p>{{i18n "discussion_bridge.admin.cms.preview_help"}}</p>
             <label>{{i18n "discussion_bridge.admin.cms.preview_topic"}}
               <input
-                inputmode="numeric"
                 aria-describedby="discussion-bridge-preview-topic-help"
+                inputmode="numeric"
                 value={{this.previewTopicId}}
                 {{on "input" this.updatePreviewTopic}}
               />
@@ -1183,11 +1182,15 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                   }}</p>{{/if}}
             {{/if}}
           {{else}}
-            <p>{{i18n "discussion_bridge.admin.cms.preview_direction_unavailable"}}</p>
+            <p>{{i18n
+                "discussion_bridge.admin.cms.preview_direction_unavailable"
+              }}</p>
           {{/if}}
         </details>
         <details class="discussion-bridge-cms-delivery">
-          <summary>{{i18n "discussion_bridge.admin.cms.delivery_title"}}</summary>
+          <summary>{{i18n
+              "discussion_bridge.admin.cms.delivery_title"
+            }}</summary>
           <p>{{i18n "discussion_bridge.admin.cms.delivery_help"}}</p>
           <p>{{i18n "discussion_bridge.admin.cms.attention_help"}}</p>
           <DButton
@@ -1259,9 +1262,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                       ·
                       {{delivery.attention_recovery.inspection.observed_at}}</p>
                     {{#if
-                      (eq
-                        delivery.attention_recovery.inspection.status "ready"
-                      )
+                      (eq delivery.attention_recovery.inspection.status "ready")
                     }}
                       {{#if delivery.attention_recovery.settlement_required}}
                         <p>{{i18n
@@ -1316,9 +1317,7 @@ export default class DiscussionBridgeCmsConfiguration extends Component {
                     >{{delivery.publicly_verified_source_revision}}</code>
                     ·
                     {{delivery.publicly_verified_at}}</dd>
-                  <dt>{{i18n
-                      "discussion_bridge.admin.cms.delivery_work"
-                    }}</dt>
+                  <dt>{{i18n "discussion_bridge.admin.cms.delivery_work"}}</dt>
                   <dd>{{this.workAction delivery.work.action}}
                     ·
                     {{this.deliveryStatus delivery.work.state}}

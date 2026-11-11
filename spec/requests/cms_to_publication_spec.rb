@@ -357,8 +357,11 @@ describe DiscussionBridge::CmsRecordsController do
     DiscussionBridgeBridgeRecord.transaction do
       store.send(:edit_generated_native!, record, native, raw, source_input: projected, source_article_url: input.fetch("canonical_url"))
       expect(native.raw).to eq(raw)
-      expect(Nokogiri::HTML5.fragment(native.cooked).at_css("video[controls] source")["src"]).to eq("https://source.example/video.mp4")
-      expect(native.raw).to include("Originally published at [#{input.fetch('canonical_url')}]")
+      cooked = Nokogiri::HTML5.fragment(native.cooked)
+      expect(cooked.at_css("video[controls] source")["src"]).to eq("https://source.example/video.mp4")
+      source_link = cooked.at_css("p:last-child > a")
+      expect(source_link["href"]).to eq(input.fetch("canonical_url"))
+      expect(source_link.text).to eq(input.fetch("title"))
       # This fixture validates the actual native edit/check only. Deliberately
       # roll it back; no finalize/public proof or accepted move is fabricated.
       raise ActiveRecord::Rollback
