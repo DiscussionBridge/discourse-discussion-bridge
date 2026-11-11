@@ -17,7 +17,7 @@ module DiscussionBridge
     def resolve(input)
       validate_resolve_envelope!(input)
       creations = []
-      creator = TopicCreator.new(link_article_title: %w[statamic wordpress].include?(@connection.platform))
+      creator = TopicCreator.new(link_article_title: %w[astro ghost hugo statamic wordpress].include?(@connection.platform))
       result = mutation("record_resolve", "", input) do
         CmsProtocol.validate!("ToResolve", input)
         source = input.fetch("bridge_record")
