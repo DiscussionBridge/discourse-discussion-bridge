@@ -1,9 +1,15 @@
-# DiscussionBridge for Discourse — V4 development candidate
+# DiscussionBridge for Discourse
 
-Working package `0.4.0-alpha.1`, wire `v4`, candidate
-`discussionbridge-v4-core-20261025-r6`, release version null. This is an unpublished
-implementation candidate, not an exact-approved or frozen release. Native
-Discourse, PostgreSQL migration and browser qualification remain incomplete.
+DiscussionBridge for Discourse manages Content Connections, publishing policy,
+and Bridge Records. It connects authorized public Discourse topics with native
+articles on supported platforms and receives eligible publications from them.
+
+**V4 Alpha source:** [`v0.4.0-alpha.1.receiver.2`](https://github.com/DiscussionBridge/discourse-discussion-bridge/tree/v0.4.0-alpha.1.receiver.2) · [GitHub Actions](https://github.com/DiscussionBridge/discourse-discussion-bridge/actions/runs/43107197348)
+
+The plugin uses the [V4 R7 contract](https://github.com/DiscussionBridge/discussionbridge-adapter-contract/tree/09d77c0209835c2d996aad294d161f167c7bd838). Install the exact source tag
+through your Discourse plugin installation process, then enable DiscussionBridge
+and configure a Content Connection for each site and publishing direction.
+[Documentation](https://docs.discussionbridge.dev/) · [All V4 component tags](https://github.com/DiscussionBridge)
 
 One generic plugin artifact serves every installation. Installation-specific
 runtime patches and per-forum product forks are prohibited. Supported native
@@ -141,9 +147,8 @@ for current active nonstaged nonsuspended administrators, rechecked at delivery.
 The bell contains only a generic label and the protected native connections panel
 link, uses Core's supported no-email flag, and leaves normal read/unread behavior.
 Notification transport failures retain pending outbox rows and bounded diagnostics;
-they do not restart Work. There is no restoration/completion bell or SMS. Native
-DB/migration/Sidekiq/Ember/browser qualification of this new mechanism remains a
-separate unexecuted gate. Support-access mechanisms remain unresolved.
+they do not restart Work. The bell reports new attention items. Support-access
+mechanisms are tracked separately.
 
 ## New-baseline upgrades and recovery
 
@@ -175,7 +180,6 @@ qualification. The focused attention scripts are attention_recovery_checks.rb,
 attention_notifications_checks.rb, attention_withdrawn_baseline_checks.rb,
 attention_admin_controls_checks.mjs and
 attention_notification_renderer_checks.mjs. They exercise actual method paths
-with declared synthetic persistence/framework/transport seams. The retained native
-Discourse runtime has historical qualification for earlier scopes; no native
-Rails/PostgreSQL/Ember execution of this new attention feature is asserted by
-these local scripts or those prior results.
+with controlled persistence, framework, and transport inputs. The GitHub Actions
+run linked above separately records the backend and browser results for the
+tagged source. Verify migrations and recovery against the installed environment.
