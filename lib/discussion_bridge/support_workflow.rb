@@ -5,8 +5,7 @@ require "securerandom"
 
 module DiscussionBridge
   module SupportWorkflow
-    # Phil's explicit preset choice, recorded 2026-10-27. No user-editable
-    # destination, guessed fallback, partner or commercial provider routing.
+    # Support requests always use the fixed DiscussionBridge support inbox.
     REQUEST_DESTINATION = "supportrequest@discussionbridge.dev"
     REQUEST_FIELDS = %w[contact_email forum_url plugin_version request_id problem].freeze
     class Error < StandardError

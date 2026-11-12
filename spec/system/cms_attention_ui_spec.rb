@@ -5,7 +5,6 @@ require "rails_helper"
 # Actual Core/Capybara/Playwright rendering and AJAX against local Rails/SQL.
 # Only native-owner observations/public proofs below are synthetic typed facts.
 # No CMS write or anonymous public-URL qualification is claimed by these tests.
-# Phil approved Core's standard local browser server for these admin cases.
 # Canonical source URLs still come from actual Core HTTPS settings and are
 # asserted below. Actual HTTPS transport is a separate protected-sandbox gate;
 # neither Topic.url/Discourse.base_url nor the product Url schema is replaced.
