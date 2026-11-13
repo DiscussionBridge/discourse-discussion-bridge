@@ -448,6 +448,41 @@ describe DiscussionBridge::CmsRecordsController do
     expect(DiscussionBridgeCmsToSourceRevision.count).to eq(1)
   end
 
+  it "updates the same topic after Core localizes a remote image and protects a later forum edit" do
+    image_url = "https://source.example/image.png"
+    html = %(<p>Original source text.</p><img src="#{image_url}" alt="Diagram">)
+    record = create_current(source(html: html))
+    identity = native_identity(record)
+    first_post = record.topic.first_post
+    reply = Fabricate(:post, topic: record.topic, post_number: 2, user: admin)
+    upload = Fabricate(:upload)
+    first_post.post_hotlinked_media.create!(
+      url: PostHotlinkedMedia.normalize_src(image_url),
+      upload: upload,
+      status: :downloaded,
+    )
+    expect(first_post.raw).to include(image_url)
+    Jobs::UpdateHotlinkedRaw.new.execute(post_id: first_post.id)
+    expect(first_post.reload.raw).not_to include(image_url)
+    expect(first_post.raw).to include(upload.short_url)
+
+    edited = html.sub("Original source text.", "Edited source text.")
+    deliver(source(revision: "native:r2", previous: "native:r1", html: edited))
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.fetch("outcome")).to eq("updated")
+    expect(native_identity(record.reload)).to eq(identity)
+    expect(first_post.reload.raw).to include("Edited source text.")
+    expect(reply.reload.topic_id).to eq(record.topic_id)
+
+    expect(first_post.revise(admin, raw: first_post.raw + "\n\nA direct forum correction.")).to eq(true)
+    local_raw = first_post.reload.raw
+    deliver(source(revision: "native:r3", previous: "native:r2", html: html))
+    expect_reconciliation("native_ownership_conflict")
+    expect(first_post.reload.raw).to eq(local_raw)
+    expect(record.reload.cms_source_publication.fetch("revision")).to eq("native:r2")
+    expect(reply.reload.topic_id).to eq(record.topic_id)
+  end
+
   it "does not silently move a bound lane when an omitted-lane configuration changes" do
     record = create_current
     configuration = @connection.cms_configuration.deep_dup

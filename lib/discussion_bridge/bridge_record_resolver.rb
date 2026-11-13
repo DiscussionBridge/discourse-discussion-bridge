@@ -222,8 +222,7 @@ module DiscussionBridge
         stored = CmsToPublication.read(record)
         return result("reconciliation_required", "source_publication_missing", record) unless stored
         begin
-          unless stored["managed_native_sha256"] ==
-                   ManagedNativePublication.managed_native_sha256(topic, first_post)
+          unless ManagedNativePublication.matches?(stored["managed_native_sha256"], topic, first_post)
             return result("reconciliation_required", "managed_native_post_changed", record)
           end
           if incoming["revision"] == stored["revision"]
